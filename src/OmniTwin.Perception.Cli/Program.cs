@@ -14,7 +14,7 @@ internal static class Program
     {
         if (args.Length == 0 || (args.Length == 1 && args[0] == "--help"))
         {
-            Console.WriteLine("OmniTwin perception\n  capture <device> <seconds>\n  segment <image.jpg> <noun phrase>\n  watch <device> <seconds> <noun phrase>\n  calibration-check <calibration.json>\n  watch-world <device> <seconds> <noun phrase> <calibration.json> [--hazard]\n  stream-probe <ws://host/ws/twin> <message count>\nUse META_API_KEY for inference. Quote the noun phrase as one shell argument.");
+            Console.WriteLine("OmniTwin perception\n  capture <device> <seconds>\n  snapshot <device> <output.jpg>\n  segment <image.jpg> <noun phrase>\n  watch <device> <seconds> <noun phrase>\n  calibration-check <calibration.json>\n  watch-world <device> <seconds> <noun phrase> <calibration.json> [--hazard]\n  stream-probe <ws://host/ws/twin> <message count>\nUse META_API_KEY for inference. Quote the noun phrase as one shell argument.");
             return 0;
         }
         using var stop = new CancellationTokenSource();
@@ -22,6 +22,17 @@ internal static class Program
         Console.CancelKeyPress += cancel;
         try
         {
+            if (args[0] == "snapshot" && args.Length == 3)
+            {
+                if (!int.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out var device))
+                    throw new ArgumentException("Device must be a nonnegative integer.");
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(stop.Token);
+                deadline.CancelAfter(TimeSpan.FromSeconds(15));
+                try { Write(await CameraSnapshotWriter.CaptureAsync(device, args[2], deadline.Token).ConfigureAwait(false)); }
+                catch (OperationCanceledException) when (!stop.IsCancellationRequested)
+                { Write(new { Category = "capture_timeout" }); return 2; }
+                return 0;
+            }
             if (args[0] == "stream-probe" && args.Length == 3)
             {
                 if (!Uri.TryCreate(args[1], UriKind.Absolute, out var endpoint) ||

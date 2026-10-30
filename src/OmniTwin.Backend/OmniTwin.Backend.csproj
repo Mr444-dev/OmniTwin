@@ -4,6 +4,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Calibration/Page/calibration.*" LogicalName="OmniTwin.Calibration.%(Filename)%(Extension)" />
     <ProjectReference Include="../OmniTwin.Perception.Runtime/OmniTwin.Perception.Runtime.csproj" />
     <ProjectReference Include="../OmniTwin.Transport/OmniTwin.Transport.csproj" />
   </ItemGroup>

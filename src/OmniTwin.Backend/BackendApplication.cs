@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using OmniTwin.Backend.Services;
 using OmniTwin.Backend.Streaming;
+using OmniTwin.Backend.Calibration;
 using OmniTwin.Transport;
 
 namespace OmniTwin.Backend;
@@ -44,7 +45,7 @@ public static class BackendApplication
         app.MapGet("/", () => Results.Json(new
         {
             service = "OmniTwin.Backend", subProtocol = WorldStreamCodec.SubProtocol,
-            endpoints = new[] { "/health/live", "/health/ready", "/api/status", "/api/world/latest", "/ws/twin" }
+            endpoints = new[] { "/health/live", "/health/ready", "/api/status", "/api/world/latest", "/ws/twin", "/calibration", "/api/calibration/validate" }
         }));
         app.MapGet("/health/live", () => Results.Json(new { status = "live" }));
         app.MapGet("/api/status", (BackendRuntimeState state) => Results.Json(state.Read()));
@@ -67,6 +68,7 @@ public static class BackendApplication
             await context.Response.Body.WriteAsync(latest.Bytes, context.RequestAborted).ConfigureAwait(false);
         });
         app.Map("/ws/twin", TwinStreamEndpoint.HandleAsync);
+        CalibrationEndpoints.Map(app);
         return app;
     }
 }

@@ -12,6 +12,7 @@ Checked against official release metadata and registries on **2026-10-30**. Pref
 | OpenCvSharp4 / runtime.win | 4.13.0.20260627 | Matching managed/native Windows packages |
 | Microsoft.Testing.Extensions.TrxReport | 2.5.2 | MTP test reports |
 | xunit.v3 | 4.0.2 | Current xUnit framework, standalone test executables |
+| Playwright | 1.64.1 | Optional isolated calibration browser checks, Node.js 20+; no backend runtime dependency |
 | actions/checkout | 7.0.1 | CI, pinned commit |
 | actions/setup-dotnet | 6.0.0 | CI, pinned commit |
 | actions/upload-artifact | 7.0.2 | CI, pinned commit |

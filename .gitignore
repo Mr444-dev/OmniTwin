@@ -1,6 +1,8 @@
 **/bin/
 **/obj/
 **/TestResults/
+/local/
+**/node_modules/
 .vs/
 .idea/
 .env

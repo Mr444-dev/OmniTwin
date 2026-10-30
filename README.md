@@ -35,7 +35,7 @@ See [verification results](docs/verification.md) for the checks actually run and
 | `src/OmniTwin.Perception.Runtime` | OpenCV capture, SAM client, strict calibration loading, mask projection, and independent tracking publication |
 | `src/OmniTwin.Transport` | Closed-schema codec, order guard, bounded receiver, reconnecting single-producer client, atomic latest-state handoff, and source/track freshness checks |
 | `src/OmniTwin.Backend` | Loopback host, source supervision, health/status/latest endpoints, and bounded per-client WebSocket publication |
-| `src/OmniTwin.Perception.Cli` | Capture/inference/tracking tools and a validated `stream-probe` client |
+| `src/OmniTwin.Perception.Cli` | Capture, local JPEG snapshots, inference/tracking tools, and a validated `stream-probe` client |
 | `unity/client/Runtime` | Desktop Unity worker adapter and main-thread observed-footprint visualizer with navigation obstacles |
 | `tools/InstallUnityClient.ps1` | Imports portable DLLs and Unity scripts into an existing project while protecting local edits and `.meta` files |
 | `tests/OmniTwin.Tests` | Geometry, numerical boundaries, concurrency, collection ownership, constructor validation, and JSON round trips |
@@ -80,7 +80,9 @@ Validate the supplied mathematical example without opening hardware or calling a
 dotnet run --project src/OmniTwin.Perception.Cli -c Release -- calibration-check examples/calibration.rectangular.json
 ```
 
-Create your own calibration JSON using that file's schema and four measured camera/workspace correspondences. Match the actual camera resolution and give each changed mapping a new calibration ID. The supplied rectangle is a configuration example; validation checks its geometry and schema, not the accuracy of a physical setup.
+Create your own profile with the [four-point calibration workflow](docs/calibration.md): save a JPEG using `snapshot 0 local/table.jpg`, start the disabled-perception backend, and open `/calibration`. The page keeps the JPEG in the browser and submits only profile JSON for strict server-side geometry validation. Download the validated profile into the Git-ignored `local/` directory. Image, corner, or scale changes invalidate its download link.
+
+Match the actual camera resolution and give each changed mapping a new calibration ID. The supplied rectangle is a configuration example; validation checks its geometry and schema, not the accuracy of a physical setup.
 
 With your calibration file and `META_API_KEY`, publish world tracks while observing cups:
 

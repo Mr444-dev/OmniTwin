@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OmniTwin · Kalibracja kamery</title>
+  <link rel="stylesheet" href="/calibration/calibration.css">
+  <script src="/calibration/calibration.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><span class="eyebrow">OMNITWIN / PERCEPTION</span><h1>Połącz obraz ze światem.</h1>
+      <p>Wskaż cztery narożniki płaskiego obszaru roboczego na zdjęciu z kamery używanej przez backend.</p></header>
+    <div class="workspace">
+      <section class="image-panel" aria-label="Obraz kalibracyjny">
+        <div class="panel-heading"><h2>01 / Obraz kamery</h2><span id="dimensions">Brak zdjęcia</span></div>
+        <div id="empty"><p>Zapisz klatkę poleceniem CLI:</p><code>snapshot 0 local/table.jpg</code><p>Następnie otwórz ją poniżej. Zdjęcie pozostaje w tej przeglądarce.</p></div>
+        <canvas id="image" hidden aria-label="Kliknij kolejno cztery narożniki. Współrzędne możesz też edytować w panelu punktów."></canvas>
+        <label class="file-label" for="file">Otwórz zdjęcie JPEG</label><input id="file" type="file" accept="image/jpeg,.jpg,.jpeg">
+        <p class="hint">Maksymalnie 8 MiB i 4 194 304 piksele. Użyj klatki CLI bez obrotu, kadrowania i metadanych EXIF.</p>
+      </section>
+      <section class="controls" aria-label="Parametry kalibracji">
+        <h2>02 / Obszar w symulacji</h2>
+        <div class="field-row"><label>Szerokość X (m)<input id="width" type="number" min="0.01" max="10000" step="0.01" value="20" required></label>
+          <label>Głębokość Z (m)<input id="depth" type="number" min="0.01" max="10000" step="0.01" value="12.5" required></label></div>
+        <p class="hint">Scena TacticalDesk ma podłogę 20 × 12,5 m. Zmiana skali profilu wymaga dopasowania sceny.</p>
+        <h2>03 / Cztery narożniki</h2>
+        <p>Kolejno: lewy górny → prawy górny → prawy dolny → lewy dolny. Oś +X biegnie od 1 do 2, +Z od 1 do 4.</p>
+        <ol id="points" aria-label="Punkty w pikselach"></ol>
+        <div class="actions"><button id="undo" type="button" disabled>Cofnij punkt</button><button id="reset" type="button" disabled>Wyczyść</button></div>
+        <button id="export" class="primary" type="button" disabled>Sprawdź profil</button>
+        <a id="download" class="download" download="calibration.json" hidden>Pobierz calibration.json</a>
+        <p id="status" role="status" aria-live="polite">Otwórz zdjęcie, aby rozpocząć.</p>
+      </section>
+    </div>
+    <footer><strong>Przed uruchomieniem percepcji</strong><p>Zapisz pobrany plik jako <code>local/calibration.json</code>. Sprawdź odwzorowanie na niezależnych punktach o znanych pozycjach. Walidacja potwierdza geometrię, a dokładność wymaga pomiaru.</p><p>Używaj tej samej kamery, rozdzielczości i pozycji. Przesunięcie kamery wymaga ponownej kalibracji. Homografia opisuje jedną płaszczyznę; podwyższone obiekty i zniekształcenia obiektywu powodują błędy.</p></footer>
+  </main>
+</body>
+</html>

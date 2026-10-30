@@ -46,6 +46,8 @@ dotnet run --project src/OmniTwin.Backend -c Release
 | `GET /health/ready` | HTTP 200 only for a running source with recent observations and no active failure/rejections; otherwise 503 |
 | `GET /api/status` | Operational mode, sanitized reason, subscriber count, cache/source age, and effective currentness |
 | `GET /api/world/latest` | Recent encoded wire message, or 503 when absent, too old, or terminated |
+| `GET /calibration` | Local JPEG/corner calibration page; image bytes stay in the browser |
+| `POST /api/calibration/validate` | Validated JSON attachment or a bounded schema/geometry error; no files or running calibration are changed |
 | `/ws/twin` | WebSocket upgrade requiring subprotocol `omnitwin.v1` |
 
 Liveness is independent of camera/model readiness. A recently published snapshot may report expired or absent source observations; HTTP 200 from latest-world establishes publication availability, not scene freshness. Read the source metadata and diagnostics. Responses use `Cache-Control: no-store`.
