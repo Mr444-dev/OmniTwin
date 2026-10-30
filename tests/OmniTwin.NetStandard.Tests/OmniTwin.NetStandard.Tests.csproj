@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <OutputType>Exe</OutputType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <DefineConstants>$(DefineConstants);NETSTANDARD_BINARIES</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="xunit.v3" />
+    <Compile Include="../OmniTwin.Tests/*.cs" Link="%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../Fixtures/sam-one-bit.json" Link="Fixtures/sam-one-bit.json" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="../../src/OmniTwin.Contracts/OmniTwin.Contracts.csproj"
+      SetTargetFramework="TargetFramework=netstandard2.1" SkipGetTargetFrameworkProperties="true" />
+    <ProjectReference Include="../../src/OmniTwin.Perception/OmniTwin.Perception.csproj"
+      SetTargetFramework="TargetFramework=netstandard2.1" SkipGetTargetFrameworkProperties="true" />
+    <ProjectReference Include="../../src/OmniTwin.Transport/OmniTwin.Transport.csproj"
+      SetTargetFramework="TargetFramework=netstandard2.1" SkipGetTargetFrameworkProperties="true" />
+  </ItemGroup>
+</Project>

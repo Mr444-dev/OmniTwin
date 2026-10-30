@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "calibrationId": "445c047b-81fa-43e9-a110-c792694a7fe3",
+  "imageWidth": 640,
+  "imageHeight": 480,
+  "cameraCorners": [
+    { "u": 0, "v": 0 },
+    { "u": 639, "v": 0 },
+    { "u": 639, "v": 479 },
+    { "u": 0, "v": 479 }
+  ],
+  "worldCorners": [
+    { "x": -10, "z": -6.25 },
+    { "x": 10, "z": -6.25 },
+    { "x": 10, "z": 6.25 },
+    { "x": -10, "z": 6.25 }
+  ],
+  "minimumRadiusMeters": 0.05,
+  "maximumRadiusMeters": 3.0,
+  "safetyMarginMeters": 0.1,
+  "minimumConfidence": 0.3
+}

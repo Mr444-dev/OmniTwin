@@ -1,0 +1,50 @@
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows / .NET 10 / both library targets
+    runs-on: windows-2025
+    timeout-minutes: 15
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      TESTINGPLATFORM_TELEMETRY_OPTOUT: 1
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned stable SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Restore locked dependencies
+        run: dotnet restore OmniTwin.sln --locked-mode
+      - name: Build with warnings as errors
+        run: dotnet build OmniTwin.sln -c Release --no-restore
+      - name: Run geometry, transport, native image, and loopback host tests
+        run: dotnet test --solution OmniTwin.sln -c Release --no-build --no-restore --report-trx
+      - name: Check CLI and calibration example
+        shell: pwsh
+        run: |
+          dotnet run --project src/OmniTwin.Perception.Cli -c Release --no-build -- --help
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project src/OmniTwin.Perception.Cli -c Release --no-build -- calibration-check examples/calibration.rectangular.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-test-results
+          path: TestResults/*.trx
+          if-no-files-found: error
+          retention-days: 14

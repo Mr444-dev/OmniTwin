@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../OmniTwin.Perception.Runtime/OmniTwin.Perception.Runtime.csproj" />
+    <ProjectReference Include="../OmniTwin.Transport/OmniTwin.Transport.csproj" />
+  </ItemGroup>
+</Project>
