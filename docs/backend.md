@@ -88,6 +88,8 @@ Use `WorldStreamFreshness.IsObservationCurrent` with locally recorded receive wa
 
 A consumer must clear its connected/current state when enumeration ends or fails. Keep network reading off Unity's render/physics path and apply validated values on the main thread through a bounded latest-state handoff. The .NET Standard target uses `System.Text.Json` 10.0.14 and transitive packages; Unity package/import/AOT verification remains a subsequent step. There is no claim that copying a single transport DLL creates a working Unity client.
 
+`WorldStreamClient` now owns bounded connection/reconnection attempts and the atomic latest-state handoff. Its view reevaluates source and per-track expiry on every read; disconnected states contain no cached world. The desktop connector and real host are covered by loopback tests. [Client lifecycle, retry classification, Unity import, and scene wiring](unity-client.md).
+
 ## Probe a configured stream
 
 In a second terminal while the enabled backend is publishing:

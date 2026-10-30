@@ -2,7 +2,7 @@
 
 OmniTwin maps camera pixels onto a calibrated simulation plane and defines immutable world, agent, mission, and policy contracts. Its perception tools decode SAM 3.1 masks into estimated world footprints and session-stable tracks. A local ASP.NET Core host publishes validated tracking snapshots over a bounded WebSocket stream.
 
-The camera/SAM adapter, calibration, footprint estimation, tracking, local host, and portable stream decoder/receiver are implemented. Real loopback HTTP/WebSocket integration tests pass. Live camera and Meta API operation remain unverified. Baseten planning, policy compilation/execution, and the Unity scene are subsequent modules.
+The camera/SAM adapter, calibration, footprint estimation, tracking, local host, and portable stream client are implemented. Unity connection and obstacle-visualization scripts are available for import into a manually created project. Real loopback HTTP/WebSocket integration tests pass. Live camera, Meta API, and Unity Play-mode operation remain unverified. Baseten planning, policy compilation/execution, and the assembled Unity scene are subsequent modules.
 
 ## Build and verify
 
@@ -29,9 +29,11 @@ See [verification results](docs/verification.md) for the checks actually run and
 | `src/OmniTwin.Perception/Vision` | Frame-change scheduling and bounded canonical one_bit mask decoding |
 | `src/OmniTwin.Perception/Tracking` | Global gated association, bounded motion prediction, monotonic expiry, and confidence decay |
 | `src/OmniTwin.Perception.Runtime` | OpenCV capture, SAM client, strict calibration loading, mask projection, and independent tracking publication |
-| `src/OmniTwin.Transport` | Closed-schema wire codec, stream/session order guard, fragmented-message receiver, and effective freshness checks |
+| `src/OmniTwin.Transport` | Closed-schema codec, order guard, bounded receiver, reconnecting single-producer client, atomic latest-state handoff, and source/track freshness checks |
 | `src/OmniTwin.Backend` | Loopback host, source supervision, health/status/latest endpoints, and bounded per-client WebSocket publication |
 | `src/OmniTwin.Perception.Cli` | Capture/inference/tracking tools and a validated `stream-probe` client |
+| `unity/client/Runtime` | Desktop Unity worker adapter and main-thread observed-footprint visualizer with navigation obstacles |
+| `tools/InstallUnityClient.ps1` | Imports portable DLLs and Unity scripts into an existing project while protecting local edits and `.meta` files |
 | `tests/OmniTwin.Tests` | Geometry, numerical boundaries, concurrency, collection ownership, constructor validation, and JSON round trips |
 | `tests/OmniTwin.NetStandard.Tests` | Runs the shared tests against the .NET Standard assemblies |
 | `tests/OmniTwin.Perception.Runtime.Tests` | HTTP failure handling, wire parsing, native image processing, stale-result rejection, and queue coalescing |
@@ -146,7 +148,15 @@ The mapping describes a plane, with world Y chosen separately by the simulation.
 
 ## Unity boundary
 
-Create the Unity client manually with **Unity 6000.6.7f1**, the **Universal 3D** template, and Windows x64 as the initial target. The [Polish Unity setup guide](docs/unity-setup.md) gives the Hub location, packages, Player settings, and backend connection boundary. No Unity project or scene has been created or tested in this repository yet.
+Create the Unity client manually with **Unity 6000.6.7f1**, the **Universal 3D** template, and Windows x64 as the initial target. The [Polish Unity setup guide](docs/unity-setup.md) gives the Hub location, packages, Player settings, and backend connection boundary. No production Unity project or scene has been created or tested in this repository yet.
+
+Once it exists, close its Editor and import the implemented client:
+
+```powershell
+./tools/InstallUnityClient.ps1 -ProjectPath ./unity/OmniTwin.Unity
+```
+
+The installer selects resolved .NET Standard runtime dependencies through MSBuild; copying one transport DLL alone is insufficient. Follow the [client wiring instructions](docs/unity-client.md) to add `TwinWebSocketClient` and `DynamicObstacleSpawner` to the scene. The scripts use C# 9-compatible syntax; they compile against installed Unity 6.6 reference assemblies. Editor import, actual rendering, navigation, and Play-mode behavior still need verification in OmniTwin. The installer has been checked against filesystem fixtures, including protection of local edits and asset GUID metadata.
 
 The `netstandard2.1` outputs are candidate Unity inputs; the runtime/host/CLI projects stay on the backend side:
 

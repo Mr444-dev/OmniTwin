@@ -40,6 +40,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet run --project src/OmniTwin.Perception.Cli -c Release --no-build -- calibration-check examples/calibration.rectangular.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify Unity import and local-edit protection using filesystem fixtures
+        shell: pwsh
+        run: ./tests/UnityImport/Verify-UnityImport.ps1
       - name: Retain test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

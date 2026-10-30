@@ -12,7 +12,11 @@ dotnet build OmniTwin.sln -c Release --no-restore
 dotnet test --solution OmniTwin.sln -c Release --no-build --no-restore
 ```
 
-The build completed with zero warnings and zero errors. The verification run passed all 242 test executions: 93 against the .NET 10 core/transport binaries, the same 93 against the .NET Standard 2.1 binaries, 41 runtime-adapter tests, and 15 backend tests. There were zero failures and zero skipped tests. Both shared suites assert the target-framework attributes of the loaded domain assemblies. CLI `--help` and `calibration-check examples/calibration.rectangular.json` executed successfully.
+The build completed with zero warnings and zero errors. The latest verification run passed all 266 test executions: 104 against the .NET 10 core/transport binaries, the same 104 against the .NET Standard 2.1 binaries, 41 runtime-adapter tests, and 17 backend tests. There were zero failures and zero skipped tests. Both shared suites assert the target-framework attributes of the loaded domain assemblies. CLI `--help` and `calibration-check examples/calibration.rectangular.json` executed successfully during the preceding backend verification.
+
+The Unity client sources also compiled as C# 9 against the installed Unity 6000.6.3f1 Core, AI, and Physics reference assemblies with no warnings or errors. This was a separate temporary compile project, not a Unity Editor run; no other Unity project was modified. The requested OmniTwin Editor remains 6000.6.7f1, whose import/Play-mode behavior has not been exercised. A compiler reference check does not prove Mono/IL2CPP runtime compatibility.
+
+`./tests/UnityImport/Verify-UnityImport.ps1` passed using filesystem fixtures. The real installer selected and copied seven portable DLLs and two Unity scripts, preserved an existing `.meta` file on repeat import, rejected a local source edit without altering its ownership record, and rejected duplicate assembly names elsewhere in Assets. These fixtures are import-test inputs, not an authored Unity scene or a substitute camera source.
 
 A separately launched backend process was also checked on an ephemeral loopback port with perception disabled: liveness returned 200, readiness/latest-world returned 503, and status reported `disabled`. That process was terminated after the smoke check.
 
@@ -60,6 +64,10 @@ The source was pushed to the private [Mr444-dev/OmniTwin repository](https://git
 - Capacity-one subscriber queues tested with an intentionally unread subscriber and an independently draining subscriber; recent-only replay, subscriber cleanup, atomic publication failure, and a socket send that blocks until its deadline.
 - Real Kestrel/ClientWebSocket communication on ephemeral loopback ports, HTTP/WS agreement, fatal-source cache clearing/error close, read-only policy, foreign-origin/Host rejection, required subprotocol, subscriber limits, and host shutdown.
 - The actual `stream-probe` implementation receiving its requested message count and completing the close handshake, plus permanent handshake failure classification.
+- Latest-state handoff while no presentation consumer drains messages, cancellation cleanup, concurrent-run rejection, receive silence, and individual track expiry while the source remains current.
+- Exact retry attempt budgets, minimum `Retry-After` delays, permanent error/protocol termination, connection deadlines, cancellation during backoff, explicit restart, and observable unexpected failures.
+- Dropping a disconnected world and accepting a restarted server's new stream/order context after reconnection.
+- The actual desktop client receiving real Kestrel publications, clearing its state/subscriber on cancellation, and classifying real HTTP 404/503 handshake responses and retry advice.
 
 ## Limits
 

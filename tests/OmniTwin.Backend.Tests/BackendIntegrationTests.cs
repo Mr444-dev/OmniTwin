@@ -168,6 +168,49 @@ public sealed class BackendIntegrationTests
         Assert.Equal("connect_rejected_or_unavailable", failure.Category);
     }
 
+    [Fact]
+    public async Task DesktopClientConsumesRealServerAndClearsItsWorldOnCancellation()
+    {
+        var source = new Source();
+        await using var server = await Server.StartAsync(source);
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var client = new WorldStreamClient();
+        var run = client.RunAsync(server.WebSocketUri, stop.Token);
+        try
+        {
+            await UntilAsync(() => Task.FromResult(client.GetView().State.Phase == WorldStreamClientPhase.Connected));
+            await source.Queue.Writer.WriteAsync(new PerceptionPublication(SnapshotBrokerTests.Snapshot(0), null, 0), stop.Token);
+            await UntilAsync(() => Task.FromResult(client.GetView().State.Message is not null));
+            Assert.True(client.GetView().IsObservationCurrent);
+            Assert.Equal(1, Assert.Single(client.GetView().State.Message!.World.Obstacles).Obstacle.Id);
+        }
+        finally { stop.Cancel(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run); }
+        Assert.Null(client.GetView().State.Message);
+        await UntilAsync(() => Task.FromResult(server.App.Services.GetRequiredService<SnapshotBroker>().SubscriberCount == 0));
+    }
+
+    [Fact]
+    public async Task DesktopConnectorClassifiesActualHandshakeStatusAndRetryAdvice()
+    {
+        await using var server = await Server.StartAsync(configureRoutes: app =>
+            app.MapGet("/retry", (Microsoft.AspNetCore.Http.HttpContext context) =>
+            {
+                context.Response.StatusCode = 503;
+                context.Response.Headers["Retry-After"] = "2";
+                return Task.CompletedTask;
+            }));
+        var connector = new ClientWebSocketConnector();
+        var retry = new UriBuilder(server.WebSocketUri) { Path = "/retry" }.Uri;
+        var busy = await Assert.ThrowsAsync<WorldStreamConnectException>(() => connector.ConnectAsync(retry, TestContext.Current.CancellationToken));
+        Assert.True(busy.IsTransient);
+        Assert.Equal("handshake_503", busy.Category);
+        Assert.Equal(TimeSpan.FromSeconds(2), busy.RetryAfter);
+        var missing = new UriBuilder(server.WebSocketUri) { Path = "/missing" }.Uri;
+        var denied = await Assert.ThrowsAsync<WorldStreamConnectException>(() => connector.ConnectAsync(missing, TestContext.Current.CancellationToken));
+        Assert.False(denied.IsTransient);
+        Assert.Equal("handshake_404", denied.Category);
+    }
+
     private static async Task UntilAsync(Func<Task<bool>> condition)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -187,7 +230,8 @@ public sealed class BackendIntegrationTests
         internal WebApplication App { get; }
         internal HttpClient Http { get; }
         internal Uri WebSocketUri => new UriBuilder(Http.BaseAddress!) { Scheme = "ws", Path = "/ws/twin" }.Uri;
-        internal static async Task<Server> StartAsync(Source? source = null, int maximumClients = 16)
+        internal static async Task<Server> StartAsync(Source? source = null, int maximumClients = 16,
+            Action<WebApplication>? configureRoutes = null)
         {
             var app = BackendApplication.Create(Array.Empty<string>(), builder =>
             {
@@ -197,6 +241,7 @@ public sealed class BackendIntegrationTests
                 builder.Logging.ClearProviders();
                 if (source is not null) builder.Services.AddSingleton<IWorldPerceptionSource>(source);
             });
+            configureRoutes?.Invoke(app);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             await app.StartAsync(timeout.Token);
             var addresses = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!;

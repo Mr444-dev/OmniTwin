@@ -67,7 +67,7 @@ W **Edit → Project Settings** sprawdź:
 
 W **File → Build Profiles** wybierz **Windows**, architekturę **Intel 64-bit / x86_64**. Nazwy sekcji mogą być grupowane inaczej zależnie od języka interfejsu. Pozostaw domyślny Render Graph z szablonu URP. Zapisz scenę w `Assets/_OmniTwin/Scenes/TacticalDesk.unity`; następnie sprawdź, czy konsola edytora nie zawiera błędów kompilacji, pakietów ani shaderów.
 
-Sam szablon nie zawiera jeszcze komponentów OmniTwin, robotów ani odbiornika WebSocket. Te elementy będą dodane i sprawdzone po utworzeniu projektu. Nie twórz ręcznie pustych skryptów ani zastępczych adapterów.
+Sam szablon nie zawiera komponentów OmniTwin ani robotów. Gotowe źródła odbiornika WebSocket i wizualizatora przeszkód są w `unity/client/Runtime`; po utworzeniu projektu zaimportuj je według [instrukcji klienta](unity-client.md). Roboty, kontrolery misji i uruchomienie sceny są dalszym etapem. Nie twórz ręcznie pustych skryptów ani zastępczych adapterów.
 
 ## 4. Backend i .NET
 
@@ -83,7 +83,7 @@ dotnet run --project src/OmniTwin.Backend -c Release --no-build -- --OmniTwin:En
 
 Backend nasłuchuje domyślnie na `http://127.0.0.1:5108`. Sprawdź `http://127.0.0.1:5108/health/live` oraz `/api/status`. Przy wyłączonej percepcji readiness i ostatni stan świata zwracają 503; jest to oczekiwany brak danych z kamery. Do prawdziwej percepcji potrzebujesz własnej kalibracji i `META_API_KEY`, zgodnie z [instrukcją backendu](backend.md).
 
-Docelowe połączenie Unity: **`ws://127.0.0.1:5108/ws/twin`**, subprotokół **`omnitwin.v1`**. Jest to własny protokół WebSocket, bez wymogu instalowania SignalR. Obecny backend udostępnia strumień, lecz adapter Unity jest kolejnym modułem. Nie wpisuj kluczy API do Unity, skryptów, scen ani Inspectorów. `BASETEN_API_KEY` będzie potrzebny dopiero przy wdrażaniu modułu Brain.
+Docelowe połączenie Unity: **`ws://127.0.0.1:5108/ws/twin`**, subprotokół **`omnitwin.v1`**. Jest to własny protokół WebSocket, bez wymogu instalowania SignalR. Backend udostępnia strumień, a źródła adaptera Unity są gotowe do importu; sprawdzenie w scenie wymaga utworzenia projektu i podpięcia komponentów. Nie wpisuj kluczy API do Unity, skryptów, scen ani Inspectorów. `BASETEN_API_KEY` będzie potrzebny dopiero przy wdrażaniu modułu Brain.
 
 Backend i narzędzia pracują na .NET 10, a Unity zachowuje własny runtime Mono/IL2CPP i profil .NET Standard 2.1. Do Unity będą importowane wyłącznie odpowiednie biblioteki `netstandard2.1` z zależnościami; bibliotek `net10.0` nie kopiujemy do Assets. Biblioteka Transport ma zależności JSON, dlatego import pojedynczego DLL nie stanowi kompletnej integracji. Ich zgodność w Editorze i IL2CPP wymaga osobnego sprawdzenia. [Profile .NET w Unity](https://docs.unity3d.com/6000.6/Documentation/Manual/dotnet-profile-support.html).
 
@@ -93,6 +93,6 @@ Repozytorium: [Mr444-dev/OmniTwin](https://github.com/Mr444-dev/OmniTwin), prywa
 
 Po utworzeniu projektu zamknij edytor albo poczekaj na koniec importu i zapisz scenę. Git powinien objąć `Assets` wraz z `.meta`, `Packages/manifest.json`, `Packages/packages-lock.json` i `ProjectSettings`. `.gitignore` wyklucza cache, logi, lokalne ustawienia i buildy. Nie usuwaj plików `.meta`; utrzymują powiązania assetów.
 
-Po utworzeniu projektu mogę dodać właściwy odbiornik strumienia i scenę, sprawdzić je w edytorze, a następnie wysłać ten etap na GitHub. Backendowe CI już ma konfigurację w `.github/workflows/verify.yml`; testy Unity wymagają osobnej integracji z edytorem i licencją.
+Po utworzeniu projektu uruchom z głównego folderu repozytorium `./tools/InstallUnityClient.ps1 -ProjectPath ./unity/OmniTwin.Unity`, a następnie podłącz dwa komponenty według [instrukcji klienta](unity-client.md#wire-the-scene). Backendowe CI już ma konfigurację w `.github/workflows/verify.yml`; testy Play mode wymagają osobnej integracji z edytorem i licencją.
 
 Pierwszy start CI został zablokowany przez GitHub przed wykonaniem kroków: komunikat konta wskazuje problem z płatnością lub limitem wydatków. Sprawdź **GitHub → Settings → Billing & plans**, a po usunięciu ograniczenia uruchom ponownie workflow **Verify**. [Szczegóły próby i lokalne wyniki](verification.md#github-verification-status). Nie zmienialiśmy ustawień rozliczeń konta.
