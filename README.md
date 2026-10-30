@@ -8,6 +8,8 @@ The camera/SAM adapter, calibration, footprint estimation, tracking, local host,
 
 The screenshot shows the actual scene with perception disabled. Empty counters indicate unavailable observations; no detections or agents are fabricated. [Open and run the integrated scene](docs/unity-scene.md).
 
+The [project audit](docs/project-audit.md) maps the original specification to implemented, partial, and missing features, with concrete follow-up criteria. The [API key and first-run guide](docs/api-keys.md) covers the masked local key prompt, this workstation's SDK, calibration, and one real SAM request. `BASETEN_API_KEY` is reserved for the planned Brain adapter; setting it does not enable planning in the current backend.
+
 ## Build and verify
 
 Install [.NET SDK 10.0.403](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (or a newer stable patch in its 10.0.4xx feature band). The SDK includes the .NET/ASP.NET Core runtime. `global.json` pins this SDK feature band and rejects previews and unreviewed major upgrades. NuGet access is needed for the initial restore; no API credentials or camera are needed for these checks.
@@ -130,16 +132,16 @@ using OmniTwin.Perception.Calibration;
 
 var mapper = new HomographyMapper(
     new[] {
-        new PixelPoint(0, 0), new PixelPoint(640, 0),
-        new PixelPoint(640, 480), new PixelPoint(0, 480)
+        new PixelPoint(0, 0), new PixelPoint(639, 0),
+        new PixelPoint(639, 479), new PixelPoint(0, 479)
     },
     new[] {
         new Vector2D(-10, -6.25f), new Vector2D(10, -6.25f),
         new Vector2D(10, 6.25f), new Vector2D(-10, 6.25f)
     });
 
-Vector2D center = mapper.PixelToWorld(320, 240); // X = 0, Z = 0
-if (mapper.TryPixelToWorld(160, 120, out Vector2D position))
+Vector2D center = mapper.PixelToWorld(319.5, 239.5); // X = 0, Z = 0
+if (mapper.TryPixelToWorld(159.75, 119.75, out Vector2D position))
 {
     // Consume the valid result: X = -5, Z = -3.125.
     System.Console.WriteLine($"X={position.X}, Z={position.Z}");

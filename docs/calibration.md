@@ -2,7 +2,7 @@
 
 Polecenia wykonuj z katalogu zawierającego `OmniTwin.sln`, używając SDK wskazanego w `global.json`. Scena Unity `TacticalDesk` ma podłogę 20 × 12,5 m. Ten etap nie wymaga zmian pakietów Unity.
 
-Systemowy SDK 10.0.401 na tej maszynie jest starszy od przypiętego 10.0.403. Zainstaluj 10.0.403 lub nowszą stabilną poprawkę z pasma 10.0.4xx przed użyciem zwykłego `dotnet run`. Weryfikację w tej sesji wykonano przy użyciu osobnego lokalnego SDK 10.0.403; projekt nie obniża wymaganej wersji.
+Systemowy SDK 10.0.401 na tej maszynie jest starszy od przypiętego 10.0.403. [Instrukcja pierwszego uruchomienia](api-keys.md) podaje instalację odpowiedniego SDK albo użycie już istniejącego lokalnego SDK 10.0.403 przez ustawienie PATH w tym terminalu. Projekt zachowuje wymaganą wersję.
 
 ## Zapisz klatkę tej samej kamery
 

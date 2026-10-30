@@ -6,7 +6,7 @@ The later four-layer constitution takes precedence over the earlier tree that pl
 
 Positions use Unity's X/Z plane in world meters. Image U increases rightward and V downward. The corner correspondence establishes world-axis directions; neither image axis is automatically inverted. Mapping an 80 cm desk width onto a 20 m simulation width establishes a scale of 25, not a measurement of the desk in true physical meters.
 
-Compared with the supplied draft, roles and agent statuses are enums, snapshots include schema version and sequence metadata, and snapshot constructors own their collections. Sequence numbers need a producer-session identifier at the future transport layer to distinguish reconnects. Timestamp freshness and target safety cannot be established by a DTO constructor.
+Compared with the supplied draft, roles and agent statuses are enums, snapshots include schema version and sequence metadata, and snapshot constructors own their collections. The implemented transport combines stream/session/calibration identities with sequence numbers to distinguish restarts and reject out-of-order data. Timestamp freshness is checked separately at ingestion and consumption; target safety still needs the future directive-execution boundary.
 
 ## Homography and numerical behavior
 
