@@ -37,7 +37,7 @@ A run permits three connection attempts by default, including reconnects after s
 
 The .NET 10 connector collects HTTP handshake status and `Retry-After`. The portable .NET Standard connector uses those details only if its runtime exposes an `HttpWebResponse`; it also recognizes selected underlying socket failures. An unclassified handshake failure terminates immediately rather than retrying an unknown authentication/protocol failure. Retry advice over one minute is terminal. This platform difference is explicit: automatic retries for every possible Unity/Mono handshake are not claimed. [Microsoft response-detail API](https://learn.microsoft.com/en-us/dotnet/api/system.net.websockets.clientwebsocketoptions.collecthttpresponsedetails?view=net-10.0).
 
-The initial scope is the Windows desktop Editor/Mono client. WebGL browser networking and IL2CPP/AOT are not verified. The adapter sources compile under C# 9 against the installed Unity 6000.6.3f1 reference assemblies; this is an API compilation check, not an Editor import, Play-mode, shader, navigation, or physical-camera test. The requested production Editor remains 6000.6.7f1.
+The initial scope is the Windows desktop Editor/Mono client. WebGL browser networking and IL2CPP/AOT are not verified. The adapter sources compile under C# 9 against the installed Unity 6000.6.3f1 reference assemblies; this is an API compilation check, not an Editor import, Play-mode, shader, navigation, or physical-camera test. The user selected this same Editor version, **6000.6.3f1**, for OmniTwin; the project template is **Universal 3D (URP)**.
 
 ## Isolated verification
 

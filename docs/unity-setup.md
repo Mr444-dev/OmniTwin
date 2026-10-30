@@ -4,7 +4,7 @@ Stan wersji sprawdzony **30 października 2026**. Projekt jest demonstracją 3D 
 
 ## 1. Edytor i szablon
 
-W Unity Hub zainstaluj **Unity 6.6 — 6000.6.7f1**, stabilne wydanie z 21 października 2026. Wybór realizuje wymaganie aktualnej stabilnej wersji. Gałęzie 6.7 Beta i 7 Alpha są przedpremierowe. [Wydanie Unity](https://unity.com/releases/editor/whats-new/6000.6.7f1), [polityka wsparcia](https://unity.com/releases/unity-6/support).
+W Unity Hub wybierz **Unity 6.6 — 6000.6.3f1**, wersję wskazaną przez użytkownika. Ta konkretna wersja zastępuje wcześniejsze zalecenie aktualizacji do 6000.6.7f1. Szablon to **Universal 3D (URP)**: bieżący OmniTwin jest aplikacją desktopową z widokiem 3D i osobnym wejściem z kamery. Szablony AR/Mixed Reality są przeznaczone do innego wariantu aplikacji, np. nakładania obiektów na obraz urządzenia mobilnego lub gogli. [Wydanie Unity](https://unity.com/releases/editor/whats-new/6000.6.3f1), [tworzenie projektu URP](https://docs.unity3d.com/6000.6/Documentation/Manual/urp/creating-a-new-project-with-urp.html).
 
 Na start wystarczy edytor dla Windows i aktywna licencja odpowiednia dla Twojego konta. Moduł **Windows Build Support (IL2CPP)** doinstaluj, jeśli chcesz później budować IL2CPP; ten wariant wymaga również zgodnych narzędzi C++ i Windows SDK. Pierwsza integracja będzie sprawdzana w edytorze i na backendzie Mono.
 
@@ -12,7 +12,7 @@ Wybierz **New project**:
 
 | Pole | Wartość |
 | --- | --- |
-| Editor version | 6000.6.7f1 |
+| Editor version | **6000.6.3f1** |
 | Template | **Universal 3D**, pusty projekt URP |
 | Project name | **OmniTwin.Unity** |
 | Location | Folder `unity` w głównym repozytorium OmniTwin |

@@ -8,7 +8,7 @@ $installer = Join-Path $repoDirectory 'tools/InstallUnityClient.ps1'
 foreach ($directory in @('Assets', 'Packages', 'ProjectSettings')) {
     New-Item -ItemType Directory -Path (Join-Path $fixtureDirectory $directory) -Force | Out-Null
 }
-[IO.File]::WriteAllText((Join-Path $fixtureDirectory 'ProjectSettings/ProjectVersion.txt'), 'm_EditorVersion: 6000.6.7f1')
+[IO.File]::WriteAllText((Join-Path $fixtureDirectory 'ProjectSettings/ProjectVersion.txt'), 'm_EditorVersion: 6000.6.3f1')
 [IO.File]::WriteAllText((Join-Path $fixtureDirectory 'Packages/manifest.json'), '{"dependencies":{"com.unity.render-pipelines.universal":"17.0.0"}}')
 & $installer -ProjectPath $fixtureDirectory -DotNetPath $DotNetPath
 $recordPath = Join-Path $fixtureDirectory 'OmniTwinClient.import.json'

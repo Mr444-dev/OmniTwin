@@ -15,7 +15,7 @@ Checked against official release metadata and registries on **2026-10-30**. Pref
 | actions/checkout | 7.0.1 | CI, pinned commit |
 | actions/setup-dotnet | 6.0.0 | CI, pinned commit |
 | actions/upload-artifact | 7.0.2 | CI, pinned commit |
-| Unity Editor | 6000.6.7f1 | Latest stable supported release checked; installed manually |
+| Unity Editor | 6000.6.3f1 | Explicit user selection; keep pinned, installed manually |
 | AI Navigation | 2.0.16 | Requested via Unity Package Manager after project creation |
 | Input System | 1.20.1 | Requested if the template has not already resolved it |
 | Cinemachine | 3.1.7 | Optional camera tooling |
@@ -30,4 +30,4 @@ Tests use the .NET 10 Microsoft.Testing.Platform runner selected in `global.json
 
 The optional Python fixture generator remains pinned to `meta-sam-parser==0.1.0`, the documented upstream implementation used to establish the committed codec fixtures. It is not a production or .NET build dependency. Updating that reference is a separate conformance change requiring fixture comparison and attribution review.
 
-Primary sources: [NuGet catalog](https://api.nuget.org/v3/index.json), [xUnit 4.0.2 release](https://xunit.net/releases/v3/4.0.2), [OpenCvSharp releases](https://github.com/shimat/opencvsharp/releases), [Unity Editor release](https://unity.com/releases/editor/whats-new/6000.6.7f1), [AI Navigation registry](https://packages.unity.com/com.unity.ai.navigation), [Input System registry](https://packages.unity.com/com.unity.inputsystem), [Cinemachine registry](https://packages.unity.com/com.unity.cinemachine), [checkout releases](https://github.com/actions/checkout/releases), [setup-dotnet releases](https://github.com/actions/setup-dotnet/releases), [upload-artifact releases](https://github.com/actions/upload-artifact/releases).
+Primary sources: [NuGet catalog](https://api.nuget.org/v3/index.json), [xUnit 4.0.2 release](https://xunit.net/releases/v3/4.0.2), [OpenCvSharp releases](https://github.com/shimat/opencvsharp/releases), [Unity Editor release](https://unity.com/releases/editor/whats-new/6000.6.3f1), [AI Navigation registry](https://packages.unity.com/com.unity.ai.navigation), [Input System registry](https://packages.unity.com/com.unity.inputsystem), [Cinemachine registry](https://packages.unity.com/com.unity.cinemachine), [checkout releases](https://github.com/actions/checkout/releases), [setup-dotnet releases](https://github.com/actions/setup-dotnet/releases), [upload-artifact releases](https://github.com/actions/upload-artifact/releases).

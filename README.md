@@ -148,7 +148,7 @@ The mapping describes a plane, with world Y chosen separately by the simulation.
 
 ## Unity boundary
 
-Create the Unity client manually with **Unity 6000.6.7f1**, the **Universal 3D** template, and Windows x64 as the initial target. The [Polish Unity setup guide](docs/unity-setup.md) gives the Hub location, packages, Player settings, and backend connection boundary. No production Unity project or scene has been created or tested in this repository yet.
+Create the Unity client manually with **Unity 6000.6.3f1**, the **Universal 3D** template, and Windows x64 as the initial target. The [Polish Unity setup guide](docs/unity-setup.md) gives the Hub location, packages, Player settings, and backend connection boundary. No production Unity project or scene has been created or tested in this repository yet.
 
 Once it exists, close its Editor and import the implemented client:
 
