@@ -104,4 +104,4 @@ The probe validates each packet, prints three messages, and closes normally. It 
 
 Tests exercise real Kestrel sockets, the actual receiver/probe, graceful/error close, source failure after a valid publication, origin/subprotocol policy, capacity recovery, bounded fanout, and blocked-send cancellation. The backend was also launched as a separate process with perception disabled and its health/status endpoints checked. See [verification results](verification.md).
 
-The host has no public deployment/authentication configuration, agent telemetry ingestion, mission endpoint, generated-policy runner, or Unity scene in this stage. Camera/API/Unity end-to-end accuracy and sustained 30 Hz performance remain unmeasured. Test source publications are explicitly confined to the test project.
+The host has no public deployment/authentication configuration, agent telemetry ingestion, mission endpoint, generated-policy runner, in this stage. The separate Unity tactical scene is now wired and exercised in Play mode. Camera/API/Unity end-to-end accuracy and sustained 30 Hz performance remain unmeasured. Test source publications are explicitly confined to the test project.

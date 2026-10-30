@@ -20,8 +20,9 @@ Applies to every file in this repository. Build a verifiable digital twin; never
 - Prefer the latest stable compatible SDK, dependencies, and Unity packages. Verify official releases before changing pins; previews require an explicit user request. Preserve conformance-fixture provenance independently of production package updates.
 - Centralize NuGet versions in `Directory.Packages.props`, commit dependency lock files, and verify locked restore, warning-free build, and all affected tests after updates.
 - Keep `Mr444-dev/OmniTwin` private. Commit and push verified milestones to its configured remote as requested by the user; verify remote visibility and synchronization. Never force-push or commit credentials, local recordings, build outputs, or Unity caches.
-- The user creates the Unity project manually following `docs/unity-setup.md`. Do not install or replace their Editor/project without a request. Keep URP, Core RP, and Shader Graph aligned with the selected Editor's supported package set.
+- The user created `unity/OmniTwin.Unity`; preserve its assets and packages. Do not install or replace their Editor/project without a request. Keep URP, Core RP, and Shader Graph aligned with the selected Editor's supported package set.
 - The user explicitly selected Unity **6000.6.3f1**, **Universal 3D (URP)**, Windows desktop. This Editor pin supersedes the general newest-version preference; do not upgrade it automatically. Camera-based desktop perception does not require an AR or Mixed Reality template.
+- Target Unity CLI commands with the full `unity/OmniTwin.Unity` path whenever another Editor may be running. Discover the live command catalog; this project's Pipeline uses groups such as `script eval` and `editor.playmode start`. Preserve all asset `.meta` files and verify Play-mode frame progression, runtime errors, and real source freshness separately.
 
 ## Real-time behavior
 - Never perform blocking HTTP, camera acquisition, compilation, or generated-code execution in Unity `Update` or `FixedUpdate`.

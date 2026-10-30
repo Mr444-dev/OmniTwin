@@ -11,3 +11,11 @@
 *.prefab text eol=lf
 *.asset text eol=lf
 *.meta text eol=lf
+# Unity serializes empty YAML values with a trailing space.
+*.meta whitespace=-blank-at-eol
+*.asset whitespace=-blank-at-eol
+*.unity whitespace=-blank-at-eol
+*.mat text eol=lf whitespace=-blank-at-eol
+# Keep upstream license and notice text verbatim.
+unity/OmniTwin.Unity/Assets/_OmniTwin/Plugins/DotNet-THIRD-PARTY-NOTICES.txt -whitespace
+unity/OmniTwin.Unity/Assets/_OmniTwin/UI/TacticalHud/Fonts/OFL.txt -whitespace

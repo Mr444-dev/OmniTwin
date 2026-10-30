@@ -14,6 +14,9 @@ unity/**/Obj/
 unity/**/Build/
 unity/**/Builds/
 unity/**/MemoryCaptures/
+unity/**/ProfilerCaptures/
+unity/**/Screenshots/
+unity/**/Screenshots.meta
 unity/**/Recordings/
 unity/**/.utmp/
 unity/**/*.csproj

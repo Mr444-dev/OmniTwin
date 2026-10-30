@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "targetFramework": "netstandard2.1",
+  "files": [
+    {
+      "path": "Assets/_OmniTwin/Plugins/OmniTwin.Transport.dll",
+      "sha256": "129E8BD26E79592EDED0879169A163661067BBAA9BCE419E1E90BFCB4302FB94"
+    },
+    {
+      "path": "Assets/_OmniTwin/Plugins/Microsoft.Bcl.AsyncInterfaces.dll",
+      "sha256": "82C3EB14261E9EDA644D66ABEBC7A57530EA062C0B0813DC36B0681546D26E49"
+    },
+    {
+      "path": "Assets/_OmniTwin/Plugins/System.IO.Pipelines.dll",
+      "sha256": "9F5514995FC52AAD781A2F7FC8EF999ECC78E8CCACAA15A6491D550DE7F55BCF"
+    },
+    {
+      "path": "Assets/_OmniTwin/Plugins/System.Runtime.CompilerServices.Unsafe.dll",
+      "sha256": "FD67ABC4C4AF10AFFBCD42FD68A2A7BC361B26714AFE6965D4D0D139459D8297"
+    },
+    {
+      "path": "Assets/_OmniTwin/Plugins/System.Text.Encodings.Web.dll",
+      "sha256": "6630388E3573F1D6500891723B30F21D8545E14370707B4D4328E6F61AACA233"
+    },
+    {
+      "path": "Assets/_OmniTwin/Plugins/System.Text.Json.dll",
+      "sha256": "136262FC12B3473CF408A4F5A3E604C73019B8BAA0D3593205A87DF67C7C4228"
+    },
+    {
+      "path": "Assets/_OmniTwin/Plugins/OmniTwin.Contracts.dll",
+      "sha256": "87FF52E5563F564F028D07E73DF97D211F74B3A019C3EBEDB8C1F638382A78C3"
+    },
+    {
+      "path": "Assets/_OmniTwin/Scripts/Network/TwinWebSocketClient.cs",
+      "sha256": "9FC2483B0F5AAA9310C70F97590DB2E3D3BA18D776A751C6429D4FC1BC10C435"
+    },
+    {
+      "path": "Assets/_OmniTwin/Scripts/World/DynamicObstacleSpawner.cs",
+      "sha256": "2B308ACE4689104322C58250270E0183730AF72BBF7E1C6135E8269E38D933E0"
+    }
+  ]
+}

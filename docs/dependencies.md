@@ -16,11 +16,12 @@ Checked against official release metadata and registries on **2026-10-30**. Pref
 | actions/setup-dotnet | 6.0.0 | CI, pinned commit |
 | actions/upload-artifact | 7.0.2 | CI, pinned commit |
 | Unity Editor | 6000.6.3f1 | Explicit user selection; keep pinned, installed manually |
-| AI Navigation | 2.0.16 | Requested via Unity Package Manager after project creation |
-| Input System | 1.20.1 | Requested if the template has not already resolved it |
-| Cinemachine | 3.1.7 | Optional camera tooling |
+| URP | 17.6.0 | Resolved in the user-created Unity 6.6 project |
+| AI Navigation | 2.0.16 | Installed; reference floor NavMesh built in the Editor |
+| Input System | 1.20.0 | User-created project's resolved version; camera and HUD input checked |
+| Cinemachine | 6.6.0 | User-installed; retained, not required by the current orbit camera |
 
-These Unity packages have not been installed or resolved in an OmniTwin Unity project. Package Manager must confirm compatibility with the selected Editor. URP, Core RP, Shader Graph, and the Editor's test packages stay at their supported template/resolved versions; registry `dist-tags.latest` is not a reliable Editor compatibility policy. Commit `Packages/manifest.json`, `Packages/packages-lock.json`, `ProjectSettings/ProjectVersion.txt`, assets, and their `.meta` files after the Editor creates them. [Setup procedure](unity-setup.md).
+These are the actual Unity package versions recorded in the user-created project's manifest and lock file, superseding provisional pre-creation suggestions. Existing user-installed AI Assistant and Pipeline tooling include pre-release versions and were preserved; this integration did not upgrade Unity packages. Keep URP, Core RP, and Shader Graph aligned with the Editor's resolved set. Raw registry `dist-tags.latest` is not an Editor compatibility policy. Preserve package files, the project version, assets, and `.meta` files. [Integrated scene](unity-scene.md).
 
 .NET 10 is LTS through **2028-11-14**; .NET 8 support ends **2026-11-10**. .NET 11 is still a release candidate on the verification date. The backend upgrade does not switch Unity's Mono/IL2CPP runtime to .NET 10. [Microsoft lifecycle](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core), [SDK release metadata](https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json), [Unity API profiles](https://docs.unity3d.com/6000.6/Documentation/Manual/dotnet-profile-support.html).
 

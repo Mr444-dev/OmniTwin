@@ -1,6 +1,6 @@
 # Konfiguracja Unity dla OmniTwin
 
-Stan wersji sprawdzony **30 października 2026**. Projekt jest demonstracją 3D na Windows x64: kamera obserwuje stół, osobny backend przelicza geometrię, a Unity docelowo wizualizuje świat i ruch agentów. Utwórz projekt w Hubie według poniższych kroków. Repozytorium zawiera już backend i biblioteki; projekt Unity oraz scena nie zostały jeszcze utworzone ani zweryfikowane w edytorze.
+Stan wersji sprawdzony **30 października 2026**. Projekt Unity został już utworzony przez użytkownika, a scena `TacticalDesk` została podłączona i sprawdzona w Play mode. Korzystaj z [instrukcji gotowej sceny](unity-scene.md). Poniższe kroki są instrukcją odtworzenia konfiguracji w osobnym projekcie.
 
 ## 1. Edytor i szablon
 
@@ -42,8 +42,8 @@ Otwórz **Window → Package Management → Package Manager**. W Unity Registry 
 | --- | --- | --- | --- |
 | Universal RP | `com.unity.render-pipelines.universal` | Wersja dostarczona przez szablon 6000.6 | Pozostaw zgodny zestaw URP, Core RP i Shader Graph |
 | AI Navigation | `com.unity.ai.navigation` | **2.0.16** | Dodaj; potrzebny do NavMeshSurface i ruchu po NavMesh |
-| Input System | `com.unity.inputsystem` | **1.20.1** | Sprawdź wersję z szablonu; zaktualizuj lub dodaj przez Package Manager |
-| Cinemachine | `com.unity.cinemachine` | **3.1.7** | Opcjonalny; przyda się do sterowania kamerą taktyczną |
+| Input System | `com.unity.inputsystem` | **1.20.0** w utworzonym projekcie | Zachowaj wersję rozwiązaną przez edytor; aktualizuj przez Package Manager po sprawdzeniu zgodności |
+| Cinemachine | `com.unity.cinemachine` | **6.6.0** w utworzonym projekcie | Zachowany pakiet użytkownika; obecna kamera korzysta z własnego kontrolera |
 | UI Toolkit | Wbudowany w edytor | Wersja edytora | Dostępny do planowanego HUD; bez osobnej instalacji |
 | Test Framework | `com.unity.test-framework` | Wersja zgodna z edytorem | Zachowaj wersję rozwiązaną przez edytor; potrzebna przy testach klienta |
 

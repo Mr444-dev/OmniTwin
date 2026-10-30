@@ -1,0 +1,8 @@
+.unity-ui-document__root { flex-grow: 1; }
+.unity-text-element {
+    -unity-text-align: upper-left;
+    color: rgb(222, 237, 240);
+    flex-shrink: 0;
+}
+.unity-label { margin: 0; padding: 0; }
+.unity-button { border-radius: 0; margin: 0; }

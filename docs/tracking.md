@@ -62,4 +62,4 @@ After creating a measured `calibration.json` and configuring `META_API_KEY`:
 dotnet run --project src/OmniTwin.Perception.Cli -c Release -- watch-world 0 30 "cup" "calibration.json"
 ```
 
-Optional `--hazard` assigns the requested concept a hazard flag. This is an operator designation. The command submits images to Meta and writes JSON world publications. The [backend host](backend.md) composes this same pipeline into a WebSocket stream. Live camera/model operation and the Unity adapter remain unverified in this workspace.
+Optional `--hazard` assigns the requested concept a hazard flag. This is an operator designation. The command submits images to Meta and writes JSON world publications. The [backend host](backend.md) composes this same pipeline into a WebSocket stream. Live camera/model operation remains unverified. The Unity adapter has now been imported and exercised in Play mode; see unity-scene.md.

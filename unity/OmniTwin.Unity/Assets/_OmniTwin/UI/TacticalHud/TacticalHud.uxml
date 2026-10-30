@@ -1,0 +1,49 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="TacticalHud.uss" />
+    <ui:VisualElement name="screen" class="screen" picking-mode="Ignore">
+        <ui:VisualElement class="header">
+            <ui:VisualElement>
+                <ui:Label text="OMNITWIN" class="brand" />
+                <ui:Label text="PERCEPTION / DIGITAL TWIN" class="eyebrow" />
+            </ui:VisualElement>
+            <ui:VisualElement class="header-right">
+                <ui:Label name="statusBadge" text="NO OBSERVATION" class="badge" />
+                <ui:Label name="connectionState" text="Connecting to local backend" class="connection" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="body" picking-mode="Ignore">
+            <ui:VisualElement class="sidebar">
+                <ui:Label text="WORLD OBSERVATION" class="section-title" />
+                <ui:Label name="trackCount" text="--" class="big-value" />
+                <ui:Label text="CURRENT OBSTACLE TRACKS" class="value-caption" />
+                <ui:VisualElement class="metric">
+                    <ui:Label text="Hazard tracks" class="metric-name" />
+                    <ui:Label name="hazardCount" text="--" class="metric-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="metric">
+                    <ui:Label text="Observation age" class="metric-name" />
+                    <ui:Label name="sourceAge" text="--" class="metric-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="metric">
+                    <ui:Label text="Publication" class="metric-name" />
+                    <ui:Label name="publication" text="--" class="metric-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="metric">
+                    <ui:Label text="Calibration" class="metric-name" />
+                    <ui:Label name="calibration" text="--" class="metric-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="divider" />
+                <ui:Label name="sourceNotice" text="Waiting for a calibrated camera observation." class="notice" />
+                <ui:Button name="reconnectButton" text="RECONNECT STREAM" class="action" />
+            </ui:VisualElement>
+            <ui:VisualElement class="world-caption" picking-mode="Ignore">
+                <ui:Label text="REFERENCE WORKSPACE" class="world-title" />
+                <ui:Label text="20 x 12.5 m / X-Z PLANE" class="world-detail" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="footer" picking-mode="Ignore">
+            <ui:Label text="RMB drag: orbit    Scroll: zoom    Home: reset view" class="footer-text" />
+            <ui:Label text="LIVE GEOMETRY APPEARS ONLY FROM CURRENT OBSERVATIONS" class="footer-text" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

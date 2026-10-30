@@ -1,6 +1,6 @@
 # Desktop Unity stream client
 
-The portable connection client and Unity adapters are implemented. The Unity source lives in `unity/client/Runtime` outside a Unity project so the user can create the project in the Hub. `tools/InstallUnityClient.ps1` imports these scripts and the selected .NET Standard libraries into an existing project; it does not create projects or modify package manifests.
+The portable connection client and Unity adapters are implemented and imported into `unity/OmniTwin.Unity`. Canonical adapter source remains in `unity/client/Runtime`; the import record identifies deployed copies. The actual project also contains the wired tactical scene, HUD, camera controls, materials, and a baked reference-floor NavMesh. [Run the integrated scene](unity-scene.md). The importer can update the portable libraries or seed a separate compatible project; it does not create projects or modify package manifests.
 
 ## Import
 
@@ -12,7 +12,7 @@ First create `unity/OmniTwin.Unity` using the [Unity setup guide](unity-setup.md
 
 If `dotnet` is not on PATH, pass `-DotNetPath` with the absolute path to the SDK's `dotnet.exe`. The script performs a locked restore, builds `netstandard2.1`, and asks MSBuild for the resolved runtime DLL paths. It copies Contracts, Transport, and the actual resolved JSON dependencies to `Assets/_OmniTwin/Plugins`, and Unity-compatible scripts to `Assets/_OmniTwin/Scripts`. No backend, OpenCV, or `net10.0` assembly is imported. The current dependency graph resolves seven DLLs and two scripts.
 
-The ownership record `OmniTwinClient.import.json` stores relative paths and SHA-256 hashes. Repeat imports preserve `.meta` files, reject locally edited/unowned destination files, and reject duplicate DLL names elsewhere in Assets. Removal of an old imported file requires manual review; the installer does not delete assets. Write failures are reported as failures, not successful imports. Reopen the target Editor, allow Unity to generate/import `.meta` files, and commit these files with the imported assets. This installer has been exercised using filesystem test fixtures, not an OmniTwin Editor session. Package-provided assembly conflicts and platform compatibility still require Editor verification.
+The ownership record `OmniTwinClient.import.json` stores relative paths and SHA-256 hashes. Repeat imports preserve `.meta` files, reject locally edited/unowned destination files, and reject duplicate DLL names elsewhere in Assets. Removal of an old imported file requires manual review; the installer does not delete assets. Write failures are reported as failures, not successful imports. Reopen the target Editor, allow Unity to generate/import `.meta` files, and commit these files with the imported assets. The installer passed filesystem tests and was then used for the actual OmniTwin Editor import. Package-provided assembly conflicts and platform compatibility still require Editor verification.
 
 ## Wire the scene
 
@@ -37,7 +37,7 @@ A run permits three connection attempts by default, including reconnects after s
 
 The .NET 10 connector collects HTTP handshake status and `Retry-After`. The portable .NET Standard connector uses those details only if its runtime exposes an `HttpWebResponse`; it also recognizes selected underlying socket failures. An unclassified handshake failure terminates immediately rather than retrying an unknown authentication/protocol failure. Retry advice over one minute is terminal. This platform difference is explicit: automatic retries for every possible Unity/Mono handshake are not claimed. [Microsoft response-detail API](https://learn.microsoft.com/en-us/dotnet/api/system.net.websockets.clientwebsocketoptions.collecthttpresponsedetails?view=net-10.0).
 
-The initial scope is the Windows desktop Editor/Mono client. WebGL browser networking and IL2CPP/AOT are not verified. The adapter sources compile under C# 9 against the installed Unity 6000.6.3f1 reference assemblies; this is an API compilation check, not an Editor import, Play-mode, shader, navigation, or physical-camera test. The user selected this same Editor version, **6000.6.3f1**, for OmniTwin; the project template is **Universal 3D (URP)**.
+The initial scope is the Windows desktop Editor/Mono client. The project was imported and run on **6000.6.3f1 / Universal 3D**, including local-backend connection, source-unavailable handling, HUD reconnect interaction, advancing frames, and codec validation on Mono. These checks do not establish WebGL, standalone-player, IL2CPP/AOT, live camera/API, or moving-agent navigation behavior.
 
 ## Isolated verification
 

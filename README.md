@@ -2,7 +2,11 @@
 
 OmniTwin maps camera pixels onto a calibrated simulation plane and defines immutable world, agent, mission, and policy contracts. Its perception tools decode SAM 3.1 masks into estimated world footprints and session-stable tracks. A local ASP.NET Core host publishes validated tracking snapshots over a bounded WebSocket stream.
 
-The camera/SAM adapter, calibration, footprint estimation, tracking, local host, and portable stream client are implemented. Unity connection and obstacle-visualization scripts are available for import into a manually created project. Real loopback HTTP/WebSocket integration tests pass. Live camera, Meta API, and Unity Play-mode operation remain unverified. Baseten planning, policy compilation/execution, and the assembled Unity scene are subsequent modules.
+The camera/SAM adapter, calibration, footprint estimation, tracking, local host, and portable stream client are implemented. The Unity 6.6 project includes a tactical scene, an observed-footprint visualizer, a baked reference-floor NavMesh, orbit/zoom controls, and a UI Toolkit status HUD. Play-mode progression, the real local backend connection, HUD reconnect interaction, and portable JSON operation inside Unity have been checked. Live camera/Meta API operation, observed-obstacle navigation, agent behavior, Baseten planning, and generated-policy execution remain unverified or subsequent work.
+
+![TacticalDesk awaiting a current camera observation](docs/images/tactical-desk.png)
+
+The screenshot shows the actual scene with perception disabled. Empty counters indicate unavailable observations; no detections or agents are fabricated. [Open and run the integrated scene](docs/unity-scene.md).
 
 ## Build and verify
 
@@ -148,15 +152,15 @@ The mapping describes a plane, with world Y chosen separately by the simulation.
 
 ## Unity boundary
 
-Create the Unity client manually with **Unity 6000.6.3f1**, the **Universal 3D** template, and Windows x64 as the initial target. The [Polish Unity setup guide](docs/unity-setup.md) gives the Hub location, packages, Player settings, and backend connection boundary. No production Unity project or scene has been created or tested in this repository yet.
+The user-created **Unity 6000.6.3f1 / Universal 3D** project is in `unity/OmniTwin.Unity`. Open `Assets/_OmniTwin/Scenes/TacticalDesk.unity` and use the [scene guide](docs/unity-scene.md). The earlier [Polish setup guide](docs/unity-setup.md) remains a reference for creating a separate project.
 
-Once it exists, close its Editor and import the implemented client:
+The actual project already contains the imported client and wired scene. To update its portable DLLs or seed another compatible project, close that project's Editor and run:
 
 ```powershell
 ./tools/InstallUnityClient.ps1 -ProjectPath ./unity/OmniTwin.Unity
 ```
 
-The installer selects resolved .NET Standard runtime dependencies through MSBuild; copying one transport DLL alone is insufficient. Follow the [client wiring instructions](docs/unity-client.md) to add `TwinWebSocketClient` and `DynamicObstacleSpawner` to the scene. The scripts use C# 9-compatible syntax; they compile against installed Unity 6.6 reference assemblies. Editor import, actual rendering, navigation, and Play-mode behavior still need verification in OmniTwin. The installer has been checked against filesystem fixtures, including protection of local edits and asset GUID metadata.
+The installer selects resolved .NET Standard runtime dependencies through MSBuild; copying one transport DLL alone is insufficient. The scene already wires `TwinWebSocketClient`, `DynamicObstacleSpawner`, and the HUD. The installer also has filesystem checks for local-edit and asset-metadata protection. [Connection lifecycle and import details](docs/unity-client.md).
 
 The `netstandard2.1` outputs are candidate Unity inputs; the runtime/host/CLI projects stay on the backend side:
 
@@ -166,7 +170,7 @@ src/OmniTwin.Perception/bin/Release/netstandard2.1/OmniTwin.Perception.dll
 src/OmniTwin.Transport/bin/Release/netstandard2.1/OmniTwin.Transport.dll
 ```
 
-Use externally compiled libraries rather than copying the C# 14 source into Unity's script compiler. Contracts and Perception have no third-party runtime packages. The .NET Standard Transport target references `System.Text.Json` 10.0.14 and its transitive packages; the .NET 10 target uses framework JSON support. Unity keeps its own supported scripting runtime; the .NET 10 backend runs separately over WebSockets. Unity Editor import/dependency resolution, IL2CPP stripping/AOT, and navigation remain unverified. The provided decoder validates fields directly; the tests do not establish compatibility with Unity `JsonUtility`.
+Use externally compiled libraries rather than copying the C# 14 source into Unity's script compiler. Contracts and Perception have no third-party runtime packages. The .NET Standard Transport target references `System.Text.Json` 10.0.14 and its transitive packages; the .NET 10 target uses framework JSON support. Unity keeps its own supported scripting runtime; the .NET 10 backend runs separately over WebSockets. Editor import and JSON validation were exercised on Unity's Mono runtime. IL2CPP stripping/AOT, standalone builds, camera-driven navigation, and sustained performance remain unverified. The decoder does not use Unity `JsonUtility`.
 
 `ISwarmPolicy` is only a contract in this module. The [constitution](AGENTS.md) requires isolated execution of generated policies and validated directives at the Unity boundary. There is no dynamic-code loader or claimed sandbox in this release.
 
