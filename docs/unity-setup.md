@@ -94,3 +94,5 @@ Repozytorium: [Mr444-dev/OmniTwin](https://github.com/Mr444-dev/OmniTwin), prywa
 Po utworzeniu projektu zamknij edytor albo poczekaj na koniec importu i zapisz scenę. Git powinien objąć `Assets` wraz z `.meta`, `Packages/manifest.json`, `Packages/packages-lock.json` i `ProjectSettings`. `.gitignore` wyklucza cache, logi, lokalne ustawienia i buildy. Nie usuwaj plików `.meta`; utrzymują powiązania assetów.
 
 Po utworzeniu projektu mogę dodać właściwy odbiornik strumienia i scenę, sprawdzić je w edytorze, a następnie wysłać ten etap na GitHub. Backendowe CI już ma konfigurację w `.github/workflows/verify.yml`; testy Unity wymagają osobnej integracji z edytorem i licencją.
+
+Pierwszy start CI został zablokowany przez GitHub przed wykonaniem kroków: komunikat konta wskazuje problem z płatnością lub limitem wydatków. Sprawdź **GitHub → Settings → Billing & plans**, a po usunięciu ograniczenia uruchom ponownie workflow **Verify**. [Szczegóły próby i lokalne wyniki](verification.md#github-verification-status). Nie zmienialiśmy ustawień rozliczeń konta.
