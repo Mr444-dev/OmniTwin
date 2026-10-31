@@ -134,16 +134,22 @@ namespace OmniTwin.Simulation.Media
             }
             else if (!ReferenceEquals(_shown, pending))
             {
-                if (_texture == null) { _texture = new Texture2D(2, 2, TextureFormat.RGB24, false); _texture.name = "OmniTwin live camera preview"; }
-                if (_maskTexture == null) { _maskTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false); _maskTexture.name = "OmniTwin synchronized SAM mask layer"; }
-                if (ImageConversion.LoadImage(_texture, pending.Image.CopyJpeg(), true) && _texture.width == pending.Image.Width && _texture.height == pending.Image.Height &&
-                    ImageConversion.LoadImage(_maskTexture, pending.CopyMaskLayer(), true) && _maskTexture.width == pending.Image.Width && _maskTexture.height == pending.Image.Height) _shown = pending;
+                EnsureTexture(ref _texture, pending.Image.Width, pending.Image.Height, TextureFormat.RGB24, "OmniTwin live camera preview");
+                EnsureTexture(ref _maskTexture, pending.Image.Width, pending.Image.Height, TextureFormat.RGBA32, "OmniTwin synchronized mask layer");
+                if (ImageConversion.LoadImage(_texture, pending.Image.CopyJpeg(), false) && _texture.width == pending.Image.Width && _texture.height == pending.Image.Height &&
+                    ImageConversion.LoadImage(_maskTexture, pending.CopyMaskLayer(), false) && _maskTexture.width == pending.Image.Width && _maskTexture.height == pending.Image.Height) _shown = pending;
                 else { _shown = null; lock (_gate) { _pending = null; _previewStatus = "camera_preview_decode_failed"; } }
             }
             if (_previewTask != null && _previewTask.IsFaulted) { _shown = null; lock (_gate) _previewStatus = "camera_preview_worker_failed"; }
             if (_voiceTask != null && _voiceTask.IsFaulted) SetVoice("voice_worker_failed · type the mission instead");
         }
         private bool HasUiFocus() => _hud != null && _hud.rootVisualElement?.focusController?.focusedElement != null;
+        private static void EnsureTexture(ref Texture2D texture, int width, int height, TextureFormat format, string name)
+        {
+            if (texture == null) texture = new Texture2D(width, height, format, false, false) { name = name, wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            else if (texture.width != width || texture.height != height)
+                if (!texture.Reinitialize(width, height, format, false)) throw new InvalidOperationException("Camera preview texture could not be resized.");
+        }
         private void FinishRecording()
         {
             var clip = _recording; if (clip == null) return;

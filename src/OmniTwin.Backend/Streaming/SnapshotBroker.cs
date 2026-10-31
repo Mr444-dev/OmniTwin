@@ -58,13 +58,17 @@ public sealed class SnapshotBroker
 
     /// <summary>Validates and publishes atomically. No socket I/O or asynchronous wait runs in this method.</summary>
     public void Publish(ObstacleTrackingSnapshot snapshot, string? failureCategory, int rejectedDetectionCount)
+        => Publish(snapshot, failureCategory, rejectedDetectionCount, PerceptionSourceMode.LiveCamera);
+
+    /// <summary>Validates and publishes a snapshot with its explicit live or replay provenance.</summary>
+    public void Publish(ObstacleTrackingSnapshot snapshot, string? failureCategory, int rejectedDetectionCount, PerceptionSourceMode sourceMode)
     {
         lock (_gate)
         {
             if (_completed) throw new InvalidOperationException("The stream has ended.");
             if (_sequence == long.MaxValue) throw new InvalidOperationException("Stream sequence exhausted.");
             var message = new WorldStreamMessage(_streamId, _sequence, _time.GetUtcNow().ToUnixTimeMilliseconds(),
-                _options.RetentionMilliseconds, snapshot, failureCategory, rejectedDetectionCount);
+                _options.RetentionMilliseconds, snapshot, failureCategory, rejectedDetectionCount, sourceMode: sourceMode);
             var bytes = WorldStreamCodec.Encode(message);
             _order.Accept(message);
             var frame = new SerializedWorldFrame(message, bytes, _time.GetTimestamp());

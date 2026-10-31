@@ -30,6 +30,13 @@ public sealed class ObstacleTracker
     private readonly double _matchDistance;
     private readonly double _maximumSpeed;
     private readonly int _capacity;
+    private const long TransientRetentionMilliseconds = 1500;
+    private const long SettlingConfirmationMilliseconds = 750;
+    private const double MotionDeadbandMeters = 0.025;
+    private const double PositionEmaMaximumStepMeters = 0.15;
+    private const double PositionEmaAlpha = 0.35;
+    private const double RadiusEmaAlpha = 0.3;
+    private const double SettledSpeedMetersPerSecond = 0.08;
     private List<Track> _tracks = new List<Track>();
     private long _nextId = 1;
     private long _publicationSequence;
@@ -53,9 +60,11 @@ public sealed class ObstacleTracker
     }
 
     /// <summary>Associates an entire batch atomically. Rejected batches leave identity and observation state unchanged.</summary>
-    public TrackingUpdateStatus Update(ObstacleObservationBatch batch, long nowElapsedMilliseconds)
+    public TrackingUpdateStatus Update(ObstacleObservationBatch batch, long nowElapsedMilliseconds,
+        ObservationSource observationSource = ObservationSource.SamVerified)
     {
         if (batch is null) throw new ArgumentNullException(nameof(batch));
+        if (!Enum.IsDefined(typeof(ObservationSource), observationSource)) throw new ArgumentOutOfRangeException(nameof(observationSource));
         lock (_gate)
         {
             ValidateNow(nowElapsedMilliseconds);
@@ -65,7 +74,7 @@ public sealed class ObstacleTracker
                 return TrackingUpdateStatus.StaleOrFuture;
             var observations = new List<ObstacleObservation>(batch.Observations);
             observations.Sort(CompareObservations);
-            var active = _tracks.FindAll(track => nowElapsedMilliseconds - track.CapturedElapsedMs < _retentionMs);
+            var active = _tracks.FindAll(track => IsActive(track, nowElapsedMilliseconds));
             var costs = new double[active.Count, observations.Count + active.Count];
             for (var row = 0; row < active.Count; row++)
             for (var column = 0; column < costs.GetLength(1); column++)
@@ -79,7 +88,7 @@ public sealed class ObstacleTracker
                 if (column < observations.Count && costs[row, column] < 1_000_000)
                 {
                     matched[column] = true;
-                    next.Add(Refresh(active[row], observations[column], batch));
+                    next.Add(Refresh(active[row], observations[column], batch, observationSource));
                 }
                 else next.Add(active[row].Retain());
             }
@@ -89,7 +98,8 @@ public sealed class ObstacleTracker
             if (_nextId + newCount - 1 > int.MaxValue) return TrackingUpdateStatus.IdentityExhausted;
             var nextId = _nextId;
             for (var i = 0; i < observations.Count; i++)
-                if (!matched[i]) next.Add(new Track((int)nextId++, observations[i], batch.CapturedElapsedMs, batch.CapturedAtUnixMs, 0, 0, true));
+                if (!matched[i]) next.Add(new Track((int)nextId++, observations[i], batch.CapturedElapsedMs, batch.CapturedAtUnixMs, 0, 0, true,
+                    observationSource: observationSource));
             _tracks = next; _nextId = nextId; _sourceSequence = batch.SourceSequenceNumber;
             _lastCapture = batch.CapturedElapsedMs; _lastNow = nowElapsedMilliseconds;
             return TrackingUpdateStatus.Accepted;
@@ -105,8 +115,8 @@ public sealed class ObstacleTracker
             radiusMeters = 0;
             if (_sourceSequence != sourceSequenceNumber) return false;
             foreach (var track in _tracks)
-                if (track.Seen && track.Observation.SourceObjectId == sourceObjectId)
-                { trackId = track.Id; radiusMeters = track.Observation.RadiusMeters; return true; }
+                if (track.Seen && track.CurrentObservationSource == ObservationSource.SamVerified && track.Observation.SourceObjectId == sourceObjectId)
+                { trackId = track.Id; radiusMeters = track.SmoothedRadius; return true; }
             return false;
         }
     }
@@ -124,8 +134,15 @@ public sealed class ObstacleTracker
             if (track is null || capturedElapsedMs > nowElapsedMs || nowElapsedMs - capturedElapsedMs >= PerceptionTiming.LocalMotionAgeMilliseconds ||
                 nowElapsedMs - track.CapturedElapsedMs >= _retentionMs || capturedElapsedMs <= (track.LocalCapture ?? track.CapturedElapsedMs)) return false;
             var seconds = (capturedElapsedMs - (track.LocalCapture ?? track.CapturedElapsedMs)) / 1000.0;
-            if (position.DistanceTo(track.LocalPosition ?? track.Observation.Position) > _maximumSpeed * seconds + 0.05 || quality < 0.5f) return false;
-            track.LocalPosition = position; track.LocalCapture = capturedElapsedMs; track.LocalUnix = capturedAtUnixMs; track.LocalQuality = quality;
+            var previousPosition = track.LocalPosition ?? track.SmoothedPosition;
+            var displacement = previousPosition.DistanceTo(position);
+            if (displacement > _maximumSpeed * seconds + 0.05 || quality < 0.5f) return false;
+            if (seconds > 0 && displacement / seconds > 0.35)
+            { track.Lifecycle = ObstacleLifecycleState.TransientManipulator; track.StableSinceElapsedMs = capturedElapsedMs; }
+            else if (displacement > MotionDeadbandMeters && track.Lifecycle == ObstacleLifecycleState.SettledObstacle)
+            { track.Lifecycle = ObstacleLifecycleState.Settling; track.StableSinceElapsedMs = capturedElapsedMs; }
+            track.LocalPosition = Smooth(previousPosition, position, 0.55);
+            track.LocalCapture = capturedElapsedMs; track.LocalUnix = capturedAtUnixMs; track.LocalQuality = quality;
             track.History.Add((capturedElapsedMs, position));
             track.History.RemoveAll(item => capturedElapsedMs - item.Time > PerceptionTiming.MaximumFrameAgeMilliseconds + 1000);
             if (track.History.Count > 512) track.History.RemoveAt(0);
@@ -142,17 +159,18 @@ public sealed class ObstacleTracker
             ValidateNow(nowElapsedMilliseconds);
             if (timestampUnixMs < 0) throw new ArgumentOutOfRangeException(nameof(timestampUnixMs));
             if (_publicationSequence == long.MaxValue) throw new InvalidOperationException("Publication sequence exhausted.");
-            _tracks.RemoveAll(track => nowElapsedMilliseconds - track.CapturedElapsedMs >= _retentionMs);
+            _tracks.RemoveAll(track => !IsActive(track, nowElapsedMilliseconds));
             var states = new TrackedObstacleState[_tracks.Count];
             for (var i = 0; i < states.Length; i++)
             {
                 var track = _tracks[i]; var age = nowElapsedMilliseconds - track.CapturedElapsedMs;
-                var obstacle = new SegmentedObstacle(track.Id, track.Observation.Label, track.LocalPosition ?? track.Observation.Position,
-                    track.Observation.RadiusMeters, track.Observation.Confidence, track.Observation.IsHazardZone);
+                var obstacle = new SegmentedObstacle(track.Id, track.Observation.Label, track.LocalPosition ?? track.SmoothedPosition,
+                    track.SmoothedRadius, track.Observation.Confidence, track.Observation.IsHazardZone);
                 states[i] = new TrackedObstacleState(obstacle, track.CapturedAtUnixMs, age,
-                    (float)(track.Observation.Confidence * (1 - (double)age / _retentionMs) * track.LocalQuality), track.Seen,
-                    track.LocalCapture.HasValue ? ObservationSource.LocalMotionEstimate : ObservationSource.SamVerified,
-                    nowElapsedMilliseconds - (track.LocalCapture ?? track.CapturedElapsedMs), track.LocalUnix ?? track.CapturedAtUnixMs);
+                    (float)(track.Observation.Confidence * (1 - Math.Min(1, (double)age / RetentionFor(track.Lifecycle))) * track.LocalQuality), track.Seen,
+                    track.LocalCapture.HasValue ? ObservationSource.LocalMotionEstimate : track.CurrentObservationSource,
+                    nowElapsedMilliseconds - (track.LocalCapture ?? track.CapturedElapsedMs), track.LocalUnix ?? track.CapturedAtUnixMs,
+                    track.Lifecycle);
             }
             _lastNow = nowElapsedMilliseconds;
             long? sourceAge = _sourceSequence.HasValue ? nowElapsedMilliseconds - _lastCapture : (long?)null;
@@ -165,10 +183,10 @@ public sealed class ObstacleTracker
     {
         if (!string.Equals(track.Observation.Label, observation.Label, StringComparison.Ordinal) ||
             track.Observation.IsHazardZone != observation.IsHazardZone) return 1_000_000;
-        var ratio = (double)observation.RadiusMeters / track.Observation.RadiusMeters;
+        var ratio = (double)observation.RadiusMeters / track.SmoothedRadius;
         if (ratio < 0.4 || ratio > 2.5) return 1_000_000;
         var seconds = Math.Min(1000, capturedMs - track.CapturedElapsedMs) / 1000.0;
-        var predicted = track.Observation.Position;
+        var predicted = track.SmoothedPosition;
         var found = false;
         for (var i = track.History.Count - 1; i >= 0; i--)
             if (track.History[i].Time <= capturedMs && capturedMs - track.History[i].Time <= 250)
@@ -180,7 +198,7 @@ public sealed class ObstacleTracker
         return 0.8 * distance / _matchDistance + 0.2 * Math.Abs(Math.Log(ratio)) / Math.Log(2.5);
     }
 
-    private Track Refresh(Track previous, ObstacleObservation observation, ObstacleObservationBatch batch)
+    private Track Refresh(Track previous, ObstacleObservation observation, ObstacleObservationBatch batch, ObservationSource observationSource)
     {
         var seconds = (batch.CapturedElapsedMs - previous.CapturedElapsedMs) / 1000.0;
         var vx = previous.Vx; var vz = previous.Vz;
@@ -191,7 +209,20 @@ public sealed class ObstacleTracker
             var speed = Math.Sqrt(vx * vx + vz * vz);
             if (speed > _maximumSpeed) { vx *= _maximumSpeed / speed; vz *= _maximumSpeed / speed; }
         }
-        var refreshed = new Track(previous.Id, observation, batch.CapturedElapsedMs, batch.CapturedAtUnixMs, vx, vz, true);
+        var measuredSpeed = Math.Sqrt(vx * vx + vz * vz);
+        var displacement = previous.Observation.Position.DistanceTo(observation.Position);
+        var manipulator = IsManipulator(observation.Label) || measuredSpeed > 0.35;
+        var stableSince = measuredSpeed <= SettledSpeedMetersPerSecond && displacement <= MotionDeadbandMeters
+            ? previous.StableSinceElapsedMs : batch.CapturedElapsedMs;
+        var lifecycle = manipulator ? ObstacleLifecycleState.TransientManipulator :
+            batch.CapturedElapsedMs - stableSince >= SettlingConfirmationMilliseconds
+                ? ObstacleLifecycleState.SettledObstacle : ObstacleLifecycleState.Settling;
+        var filteredPosition = displacement <= PositionEmaMaximumStepMeters
+            ? Smooth(previous.SmoothedPosition, observation.Position, PositionEmaAlpha)
+            : observation.Position;
+        var refreshed = new Track(previous.Id, observation, batch.CapturedElapsedMs, batch.CapturedAtUnixMs, vx, vz, true,
+            filteredPosition,
+            Smooth(previous.SmoothedRadius, observation.RadiusMeters, RadiusEmaAlpha), stableSince, lifecycle, observationSource);
         refreshed.History.AddRange(previous.History);
         return refreshed;
     }
@@ -201,6 +232,32 @@ public sealed class ObstacleTracker
         if (now < 0 || now < _lastNow) throw new ArgumentOutOfRangeException(nameof(now), "Monotonic tracker time cannot move backwards.");
     }
     private static bool FinitePositive(double value) => !double.IsNaN(value) && !double.IsInfinity(value) && value > 0;
+    private long RetentionFor(ObstacleLifecycleState lifecycle) => lifecycle switch
+    {
+        ObstacleLifecycleState.TransientManipulator => Math.Min(_retentionMs, TransientRetentionMilliseconds),
+        _ => _retentionMs
+    };
+    private bool IsActive(Track track, long nowElapsedMs)
+    {
+        var observationAge = nowElapsedMs - track.CapturedElapsedMs;
+        if (observationAge >= _retentionMs) return false;
+        if (track.LocalCapture.HasValue && nowElapsedMs - track.LocalCapture.Value < PerceptionTiming.LocalMotionAgeMilliseconds) return true;
+        return observationAge < RetentionFor(track.Lifecycle);
+    }
+    private static bool IsManipulator(string label) =>
+        label.IndexOf("hand", StringComparison.OrdinalIgnoreCase) >= 0 ||
+        label.IndexOf("person", StringComparison.OrdinalIgnoreCase) >= 0 ||
+        label.IndexOf("finger", StringComparison.OrdinalIgnoreCase) >= 0 ||
+        label.IndexOf("arm", StringComparison.OrdinalIgnoreCase) >= 0 ||
+        label.IndexOf("human", StringComparison.OrdinalIgnoreCase) >= 0;
+    private static Vector2D Smooth(Vector2D previous, Vector2D measured, double alpha)
+    {
+        if (previous.DistanceTo(measured) <= MotionDeadbandMeters) return previous;
+        return new Vector2D((float)(previous.X + (measured.X - previous.X) * alpha),
+            (float)(previous.Z + (measured.Z - previous.Z) * alpha));
+    }
+    private static float Smooth(float previous, float measured, double alpha) =>
+        Math.Abs(previous - measured) <= 0.015 ? previous : (float)(previous + (measured - previous) * alpha);
     private static int CompareObservations(ObstacleObservation a, ObstacleObservation b)
     {
         var comparison = string.CompareOrdinal(a.Label, b.Label);
@@ -214,8 +271,16 @@ public sealed class ObstacleTracker
 
     private sealed class Track
     {
-        internal Track(int id, ObstacleObservation observation, long capture, long unix, double vx, double vz, bool seen)
-        { Id = id; Observation = observation; CapturedElapsedMs = capture; CapturedAtUnixMs = unix; Vx = vx; Vz = vz; Seen = seen; }
+        internal Track(int id, ObstacleObservation observation, long capture, long unix, double vx, double vz, bool seen,
+            Vector2D? smoothedPosition = null, float? smoothedRadius = null, long? stableSinceElapsedMs = null,
+            ObstacleLifecycleState? lifecycle = null, ObservationSource observationSource = ObservationSource.SamVerified)
+        {
+            Id = id; Observation = observation; CapturedElapsedMs = capture; CapturedAtUnixMs = unix; Vx = vx; Vz = vz; Seen = seen;
+            SmoothedPosition = smoothedPosition ?? observation.Position; SmoothedRadius = smoothedRadius ?? observation.RadiusMeters;
+            StableSinceElapsedMs = stableSinceElapsedMs ?? capture;
+            Lifecycle = lifecycle ?? (IsManipulator(observation.Label) ? ObstacleLifecycleState.TransientManipulator : ObstacleLifecycleState.Settling);
+            CurrentObservationSource = observationSource;
+        }
         internal int Id { get; }
         internal ObstacleObservation Observation { get; }
         internal long CapturedElapsedMs { get; }
@@ -223,6 +288,11 @@ public sealed class ObstacleTracker
         internal double Vx { get; }
         internal double Vz { get; }
         internal bool Seen { get; }
+        internal Vector2D SmoothedPosition { get; }
+        internal float SmoothedRadius { get; }
+        internal long StableSinceElapsedMs { get; set; }
+        internal ObstacleLifecycleState Lifecycle { get; set; }
+        internal ObservationSource CurrentObservationSource { get; }
         internal Vector2D? LocalPosition { get; set; }
         internal long? LocalCapture { get; set; }
         internal long? LocalUnix { get; set; }
@@ -230,7 +300,8 @@ public sealed class ObstacleTracker
         internal List<(long Time, Vector2D Position)> History { get; } = new List<(long, Vector2D)>();
         internal Track Retain()
         {
-            var retained = new Track(Id, Observation, CapturedElapsedMs, CapturedAtUnixMs, Vx, Vz, false)
+            var retained = new Track(Id, Observation, CapturedElapsedMs, CapturedAtUnixMs, Vx, Vz, false,
+                SmoothedPosition, SmoothedRadius, StableSinceElapsedMs, Lifecycle, CurrentObservationSource)
             { LocalPosition = LocalPosition, LocalCapture = LocalCapture, LocalUnix = LocalUnix, LocalQuality = LocalQuality };
             retained.History.AddRange(History);
             return retained;

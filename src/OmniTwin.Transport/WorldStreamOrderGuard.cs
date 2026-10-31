@@ -18,6 +18,7 @@ public sealed class WorldStreamOrderGuard
         {
             if (message.StreamId != _last.StreamId || message.SequenceNumber <= _last.SequenceNumber)
                 throw new WorldStreamProtocolException("stream_order");
+            if (message.SourceMode != _last.SourceMode) throw new WorldStreamProtocolException("source_mode_changed_without_restart");
             if (message.World.SessionId == _last.World.SessionId)
             {
                 if (message.World.CalibrationId != _last.World.CalibrationId || message.World.SequenceNumber <= _last.World.SequenceNumber)

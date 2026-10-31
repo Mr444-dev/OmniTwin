@@ -17,6 +17,7 @@ namespace OmniTwin.Simulation.Agents
         [SerializeField] private float batteryDrainPerMeter = 0.0005f;
         [SerializeField] private LineRenderer trajectory;
         private NavMeshAgent _navigation;
+        private NavMeshPath _navigationPath;
         private LidarSensor _lidar;
         private AgentTargetDirective _directive;
         private AgentStatus _status = AgentStatus.Holding;
@@ -31,6 +32,10 @@ namespace OmniTwin.Simulation.Agents
         public AgentRole Role => role;
         /// <summary>Gets its current operational state.</summary>
         public AgentStatus Status => _status;
+        /// <summary>Gets the most recently sampled world velocity for rig tilt and callouts.</summary>
+        public Vector3 MeasuredVelocity => _velocity;
+        /// <summary>Gets the current policy-provided visualization mode tag, if moving.</summary>
+        public string DirectiveStatusTag => _directive?.StatusTag;
         /// <summary>Gets the independently sampled local sensor.</summary>
         public LidarSensor Lidar => _lidar;
         /// <summary>Gets the current planar transform position without allocating telemetry.</summary>
@@ -45,10 +50,20 @@ namespace OmniTwin.Simulation.Agents
             if (agentId < 0 || !Enum.IsDefined(typeof(AgentRole), role) || maximumSpeed <= 0 || maximumSpeed > 4 ||
                 flightAltitude < 1 || float.IsNaN(flightAltitude) || float.IsInfinity(flightAltitude))
                 throw new InvalidOperationException("Invalid authored swarm agent configuration.");
-            _previous = transform.position; _navigation = GetComponent<NavMeshAgent>(); _lidar = GetComponent<LidarSensor>();
+            EnsureRuntimeState();
+            _previous = transform.position;
             if (role == AgentRole.GroundVehicle && (_navigation == null || !_navigation.isOnNavMesh))
                 throw new InvalidOperationException("Ground agent must start on the baked navigation surface.");
             Hold();
+        }
+
+        private void OnEnable() => EnsureRuntimeState();
+
+        private void EnsureRuntimeState()
+        {
+            if (_navigation == null) _navigation = GetComponent<NavMeshAgent>();
+            if (_navigation != null && _navigationPath == null) _navigationPath = new NavMeshPath();
+            if (_lidar == null) _lidar = GetComponent<LidarSensor>();
         }
 
         /// <summary>Applies one already validated directive. Zero speed immediately clears navigation.</summary>
@@ -130,8 +145,11 @@ namespace OmniTwin.Simulation.Agents
             _pathRefresh = Time.unscaledTime + 0.1f;
             if (role == AgentRole.GroundVehicle)
             {
+                EnsureRuntimeState();
                 if (_navigation == null || !_navigation.hasPath) { trajectory.positionCount = 0; return; }
-                var count = _navigation.path.GetCornersNonAlloc(_corners); trajectory.positionCount = count;
+                if (!NavMesh.CalculatePath(transform.position, _navigation.destination, _navigation.areaMask, _navigationPath))
+                { trajectory.positionCount = 0; return; }
+                var count = _navigationPath.GetCornersNonAlloc(_corners); trajectory.positionCount = count;
                 for (var i = 0; i < count; i++) trajectory.SetPosition(i, _corners[i] + Vector3.up * 0.08f);
             }
             else

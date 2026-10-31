@@ -16,8 +16,10 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OmniTwin.Backend;
+using OmniTwin.Backend.Media;
 using OmniTwin.Backend.Services;
 using OmniTwin.Backend.Streaming;
+using OmniTwin.Contracts;
 using OmniTwin.Transport;
 using Xunit;
 
@@ -217,10 +219,32 @@ public sealed class BackendIntegrationTests
         while (!await condition()) await Task.Delay(10, deadline.Token);
     }
 
+    [Fact]
+    public async Task SyntheticTabletopReplayUsesLocalContoursAndNeverClaimsSamVerification()
+    {
+        var preview = new CameraPreviewStore(TimeProvider.System);
+        var source = new SyntheticTabletopReplaySource(new BackendOptions(retentionMilliseconds: 20_000), preview, TimeProvider.System);
+        using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using var updates = source.ReadAllAsync(stop.Token).GetAsyncEnumerator(stop.Token);
+        Assert.True(await updates.MoveNextAsync());
+        var first = updates.Current;
+        Assert.Equal(PerceptionSourceMode.SyntheticTabletopReplay, first.SourceMode);
+        Assert.Equal(3, first.Snapshot.Obstacles.Count);
+        Assert.All(first.Snapshot.Obstacles, track => Assert.Equal(ObservationSource.LocalImageSegmentation, track.ObservationSource));
+        Assert.Contains(first.Snapshot.Obstacles, track => track.Lifecycle == ObstacleLifecycleState.TransientManipulator);
+        Assert.Empty(preview.Read()!.Masks);
+
+        for (var i = 0; i < 6; i++) Assert.True(await updates.MoveNextAsync());
+        var settled = updates.Current.Snapshot.Obstacles;
+        Assert.Contains(settled, track => track.Obstacle.Label == "container" && track.Lifecycle == ObstacleLifecycleState.SettledObstacle);
+        Assert.Contains(settled, track => track.Obstacle.IsHazardZone);
+    }
+
     private sealed class Source : IWorldPerceptionSource
     {
         internal Channel<PerceptionPublication> Queue { get; } = Channel.CreateUnbounded<PerceptionPublication>();
         public bool IsEnabled => true;
+        public PerceptionSourceMode SourceMode => PerceptionSourceMode.LiveCamera;
         public System.Collections.Generic.IAsyncEnumerable<PerceptionPublication> ReadAllAsync(CancellationToken token = default) => Queue.Reader.ReadAllAsync(token);
     }
 

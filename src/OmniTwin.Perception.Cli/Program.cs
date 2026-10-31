@@ -14,7 +14,7 @@ internal static class Program
     {
         if (args.Length == 0 || (args.Length == 1 && args[0] == "--help"))
         {
-            Console.WriteLine("OmniTwin perception\n  capture <device> <seconds>\n  snapshot <device> <output.jpg>\n  segment <image.jpg> <noun phrase>\n  watch <device> <seconds> <noun phrase>\n  calibration-check <calibration.json>\n  watch-world <device> <seconds> <noun phrase> <calibration.json> [--hazard]\n  stream-probe <ws://host/ws/twin> <message count>\nUse META_API_KEY for inference. Quote the noun phrase as one shell argument.");
+            Console.WriteLine("OmniTwin perception\n  capture <device> <seconds>\n  snapshot <device> <output.jpg>\n  segment <image.jpg> <noun phrase>\n  watch <device> <seconds> <noun phrase>\n  calibration-check <calibration.json>\n  watch-world <device> <seconds> <noun phrase> <calibration.json> [--hazard]\n  stream-probe <ws://host/ws/twin> <message count>\n  live-preflight [--probe-models] [--synthetic-tabletop-replay]\nUse META_API_KEY for Meta inference and BASETEN_API_KEY for Muse Spark Open. --probe-models sends real requests, including one Muse Image generation.");
             return 0;
         }
         using var stop = new CancellationTokenSource();
@@ -22,6 +22,7 @@ internal static class Program
         Console.CancelKeyPress += cancel;
         try
         {
+            if (args[0] == "live-preflight") return await LivePreflight.RunAsync(args[1..], stop.Token).ConfigureAwait(false);
             if (args[0] == "snapshot" && args.Length == 3)
             {
                 if (!int.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out var device))

@@ -102,6 +102,18 @@ public static class VisualWireCodec
         }
         return new SemanticSceneState(root.GetProperty("sessionId").ValueKind == JsonValueKind.Null ? (Guid?)null : Id(root, "sessionId"), list);
     });
+    /// <summary>Decodes local key-presence and sandbox prerequisites without accepting secret values.</summary>
+    public static BackendModelReadiness DecodeBackendReadiness(ReadOnlyMemory<byte> bytes) => Decode(bytes, root =>
+    {
+        Keys(root, "schemaVersion", "samModelId", "museSemanticModelId", "museVoiceModelId", "museImageModelId",
+            "basetenRequiredModelId", "basetenAliasModelId", "metaApiKeyConfigured", "basetenApiKeyConfigured",
+            "windowsAppContainerSupported", "policyWorkerPresent");
+        if (Int(root, "schemaVersion") != 1) throw new WorldStreamProtocolException("backend_readiness_schema");
+        return new BackendModelReadiness(Text(root, "samModelId"), Text(root, "museSemanticModelId"), Text(root, "museVoiceModelId"),
+            Text(root, "museImageModelId"), Text(root, "basetenRequiredModelId"), Text(root, "basetenAliasModelId"),
+            Boolean(root, "metaApiKeyConfigured"), Boolean(root, "basetenApiKeyConfigured"),
+            Boolean(root, "windowsAppContainerSupported"), Boolean(root, "policyWorkerPresent"));
+    });
     private static ObjectSemantics? ReadTag(JsonElement value)
     {
         if (value.ValueKind == JsonValueKind.Null) return null;

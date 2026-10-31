@@ -45,7 +45,7 @@ namespace OmniTwin.Simulation.Editor
             scene.name = "TacticalDesk";
 
             var floorMaterial = new Material(pipeline.defaultMaterial) { name = "Tactical Floor" };
-            floorMaterial.SetColor("_BaseColor", new Color(0.035f, 0.06f, 0.085f));
+            floorMaterial.SetColor("_BaseColor", new Color(0.065f, 0.095f, 0.12f));
             floorMaterial.SetFloat("_Smoothness", 0.45f);
             var floorPath = RootPath + "/Materials/TacticalFloor.mat";
             SaveNew(floorMaterial, floorPath);
@@ -57,6 +57,9 @@ namespace OmniTwin.Simulation.Editor
             var borderMaterial = new Material(unlit) { name = "Workspace Boundary" };
             borderMaterial.SetColor("_BaseColor", new Color(0.08f, 0.9f, 0.78f));
             SaveNew(borderMaterial, RootPath + "/Materials/WorkspaceBoundary.mat");
+            var minorGridMaterial = new Material(unlit) { name = "Tactical Minor Grid" };
+            minorGridMaterial.SetColor("_BaseColor", new Color(0.025f, 0.12f, 0.15f));
+            SaveNew(minorGridMaterial, RootPath + "/Materials/TacticalMinorGrid.mat");
 
             var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
             floor.name = "Reference Workspace 20 x 12.5 m";
@@ -76,6 +79,16 @@ namespace OmniTwin.Simulation.Editor
             surface.AddData();
 
             var grid = Root("Reference Grid");
+            for (var halfX = -19; halfX <= 19; halfX += 2)
+            {
+                var x = halfX * 0.5f;
+                Line(grid.transform, "Minor X " + x.ToString("F1", System.Globalization.CultureInfo.InvariantCulture), new Vector3(x, 0.008f, -6.25f), new Vector3(x, 0.008f, 6.25f), minorGridMaterial, 0.006f);
+            }
+            for (var halfZ = -11; halfZ <= 11; halfZ += 2)
+            {
+                var z = halfZ * 0.5f;
+                Line(grid.transform, "Minor Z " + z.ToString("F1", System.Globalization.CultureInfo.InvariantCulture), new Vector3(-10, 0.008f, z), new Vector3(10, 0.008f, z), minorGridMaterial, 0.006f);
+            }
             for (var x = -10; x <= 10; x++) Line(grid.transform, "X " + x, new Vector3(x, 0.01f, -6.25f), new Vector3(x, 0.01f, 6.25f), gridMaterial, x == 0 ? 0.025f : 0.012f);
             for (var z = -6; z <= 6; z++) Line(grid.transform, "Z " + z, new Vector3(-10, 0.01f, z), new Vector3(10, 0.01f, z), gridMaterial, z == 0 ? 0.025f : 0.012f);
             Line(grid.transform, "Boundary south", new Vector3(-10, 0.02f, -6.25f), new Vector3(10, 0.02f, -6.25f), borderMaterial, 0.035f);
@@ -86,6 +99,8 @@ namespace OmniTwin.Simulation.Editor
             var connection = Root("TwinConnection").AddComponent<TwinWebSocketClient>();
             var spawner = Root("TrackedObstacles").AddComponent<DynamicObstacleSpawner>();
             Assign(spawner, "stream", connection);
+            Assign(spawner, "hologramMaterial", CreateSurfaceMaterial("ObstacleHologram", new Color(0.07f, 0.63f, 0.78f, 0.32f), true));
+            Assign(spawner, "accentMaterial", CreateSurfaceMaterial("TacticalAccent", new Color(0.2f, 0.92f, 0.95f, 1), false));
 
             var cameraObject = Root("Tactical Camera");
             cameraObject.tag = "MainCamera";
@@ -110,7 +125,7 @@ namespace OmniTwin.Simulation.Editor
             key.shadows = LightShadows.Soft;
             key.transform.rotation = Quaternion.Euler(50, -30, 0);
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.12f, 0.19f, 0.24f);
+            RenderSettings.ambientLight = new Color(0.17f, 0.22f, 0.27f);
             RenderSettings.skybox = null;
             RenderSettings.fog = false;
 
@@ -121,6 +136,8 @@ namespace OmniTwin.Simulation.Editor
             var bloom = profile.Add<Bloom>(true);
             bloom.intensity.Override(0.2f);
             bloom.threshold.Override(1);
+            var vignette = profile.Add<Vignette>(true);
+            vignette.intensity.Override(0.16f); vignette.smoothness.Override(0.48f); vignette.rounded.Override(true);
             var profilePath = RootPath + "/Settings/TacticalTone.asset";
             SaveNew(profile, profilePath);
             foreach (var component in profile.components) AssetDatabase.AddObjectToAsset(component, profile);
@@ -211,10 +228,14 @@ namespace OmniTwin.Simulation.Editor
             if (EditorApplication.isPlaying || scene.name != "TacticalDesk" || scene.path != ScenePath) throw new InvalidOperationException("Open the saved TacticalDesk in Edit mode.");
             var hud = UnityEngine.Object.FindObjectsByType<TacticalHudController>(); var services = UnityEngine.Object.FindObjectsByType<VisualServicesController>();
             if (hud.Length != 1 || services.Length > 1) throw new InvalidOperationException("One tactical HUD and at most one visual service are required.");
+            var spawners = UnityEngine.Object.FindObjectsByType<DynamicObstacleSpawner>();
+            if (spawners.Length != 1) throw new InvalidOperationException("One tracked obstacle spawner is required.");
             var floor = GameObject.Find("Reference Workspace 20 x 12.5 m");
             if (floor == null || floor.GetComponent<Renderer>() == null) throw new InvalidOperationException("Reference workspace renderer is missing.");
             var service = services.Length == 0 ? Root("Visual Services").AddComponent<VisualServicesController>() : services[0];
             Assign(service, "workspaceSurface", floor.GetComponent<Renderer>()); Assign(hud[0], "visuals", service);
+            Assign(spawners[0], "hologramMaterial", CreateSurfaceMaterial("ObstacleHologram", new Color(0.07f, 0.63f, 0.78f, 0.32f), true));
+            Assign(spawners[0], "accentMaterial", CreateLitMaterial("TacticalAccent", new Color(0.12f, 0.7f, 0.78f, 1), 0.2f, 0.78f, new Color(0.04f, 0.55f, 0.68f, 1)));
             foreach (var agent in UnityEngine.Object.FindObjectsByType<SwarmAgentController>()) if (agent.GetComponent<LidarSensor>() == null) Undo.AddComponent<LidarSensor>(agent.gameObject);
             EditorSceneManager.MarkSceneDirty(scene); if (!EditorSceneManager.SaveScene(scene)) throw new IOException("Visual systems scene save failed.");
         }
@@ -230,24 +251,22 @@ namespace OmniTwin.Simulation.Editor
             var hud = UnityEngine.Object.FindObjectsByType<TacticalHudController>();
             if (connection.Length != 1 || hud.Length != 1) throw new InvalidOperationException("One stream and HUD are required.");
             var existing = UnityEngine.Object.FindObjectsByType<PolicyExecutor>();
+            var groundMaterial = CreateLitMaterial("SwarmGround", new Color(0.055f, 0.085f, 0.11f, 1), 0.86f, 0.68f, Color.black);
+            var aerialMaterial = CreateLitMaterial("SwarmAerial", new Color(0.07f, 0.13f, 0.16f, 1), 0.72f, 0.62f, Color.black);
+            var accentMaterial = CreateLitMaterial("TacticalAccent", new Color(0.12f, 0.7f, 0.78f, 1), 0.2f, 0.78f, new Color(0.04f, 0.55f, 0.68f, 1));
+            var hazardMaterial = CreateLitMaterial("TacticalWarning", new Color(1, 0.4f, 0.12f, 1), 0.25f, 0.68f, new Color(0.75f, 0.18f, 0.03f, 1));
+            var scanMaterial = CreateSurfaceMaterial("DroneScanCone", new Color(0.18f, 0.75f, 0.82f, 0.14f), true);
+            var scanMesh = ScannerConeMesh();
             if (existing.Length > 0)
             {
                 if (existing.Length != 1 || existing[0].Agents.Count != 5) throw new InvalidOperationException("Existing swarm configuration requires review.");
                 Assign(hud[0], "executor", existing[0]);
-                EditorSceneManager.SaveScene(scene, ScenePath); return;
+                foreach (var agent in existing[0].Agents) UpgradeAgentRig(agent, groundMaterial, aerialMaterial, accentMaterial, hazardMaterial, scanMesh, scanMaterial);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene, ScenePath)) throw new IOException("Swarm presentation update failed to save.");
+                AssetDatabase.SaveAssets(); return;
             }
             if (UnityEngine.AI.NavMesh.CalculateTriangulation().vertices.Length == 0) throw new InvalidOperationException("The reference NavMesh must be loaded first.");
-            var unlit = Shader.Find("Universal Render Pipeline/Unlit");
-            if (unlit == null) throw new InvalidOperationException("URP Unlit is required.");
-            Material MaterialFor(string name, Color color)
-            {
-                var path = RootPath + "/Materials/" + name + ".mat";
-                var material = AssetDatabase.LoadAssetAtPath<Material>(path);
-                if (material != null) return material;
-                material = new Material(unlit) { name = name }; material.SetColor("_BaseColor", color); SaveNew(material, path); return material;
-            }
-            var groundMaterial = MaterialFor("SwarmGround", new Color(0.08f, 0.83f, 0.93f));
-            var aerialMaterial = MaterialFor("SwarmAerial", new Color(1, 0.65f, 0.18f));
             var root = Root("Swarm Agents");
             var controllers = new SwarmAgentController[5];
             for (var index = 0; index < controllers.Length; index++)
@@ -257,11 +276,6 @@ namespace OmniTwin.Simulation.Editor
                 entity.transform.SetParent(root.transform);
                 var altitude = index == 4 ? 2.8f : 2.2f;
                 entity.transform.position = aerial ? new Vector3(index == 3 ? -6 : -3, altitude, 1) : new Vector3(-7 + index * 2, 0, -3);
-                var body = GameObject.CreatePrimitive(aerial ? PrimitiveType.Sphere : PrimitiveType.Cube);
-                body.name = "Simulation body"; body.transform.SetParent(entity.transform, false);
-                body.transform.localPosition = aerial ? Vector3.zero : new Vector3(0, 0.3f, 0);
-                body.transform.localScale = aerial ? new Vector3(0.55f, 0.22f, 0.55f) : new Vector3(0.6f, 0.45f, 0.8f);
-                body.GetComponent<Renderer>().sharedMaterial = aerial ? aerialMaterial : groundMaterial;
                 if (!aerial)
                 {
                     var navigation = entity.AddComponent<NavMeshAgent>();
@@ -277,12 +291,195 @@ namespace OmniTwin.Simulation.Editor
                 controllers[index] = entity.AddComponent<SwarmAgentController>();
                 controllers[index].Configure(id, aerial ? AgentRole.AerialDrone : AgentRole.GroundVehicle, altitude, pathLine);
                 entity.AddComponent<LidarSensor>();
+                UpgradeAgentRig(controllers[index], groundMaterial, aerialMaterial, accentMaterial, hazardMaterial, scanMesh, scanMaterial);
             }
             var executor = Root("Swarm Control").AddComponent<PolicyExecutor>(); executor.Configure(connection[0], controllers);
             Assign(hud[0], "executor", executor);
             if (!EditorSceneManager.SaveScene(scene, ScenePath)) throw new IOException("Swarm scene save failed.");
             AssetDatabase.SaveAssets();
             Debug.Log("OmniTwin: three NavMesh vehicles and two aerial agents authored. Source loss enforces EmergencyHold.");
+        }
+
+        /// <summary>Applies the current procedural rig, callout, URP and overlay setup to a previously authored TacticalDesk.</summary>
+        [MenuItem("OmniTwin/Upgrade Tactical Desk Presentation")]
+        public static void UpgradeTacticalDeskPresentation()
+        {
+            AddSwarmToScene();
+            AddVisualSystemsToScene();
+            var volume = UnityEngine.Object.FindAnyObjectByType<Volume>();
+            if (volume == null || volume.sharedProfile == null) throw new InvalidOperationException("A global URP Volume profile is required.");
+            if (!volume.sharedProfile.TryGet(out Vignette vignette)) vignette = volume.sharedProfile.Add<Vignette>(true);
+            vignette.intensity.Override(0.16f); vignette.smoothness.Override(0.48f); vignette.rounded.Override(true);
+            var floorMaterial = AssetDatabase.LoadAssetAtPath<Material>(RootPath + "/Materials/TacticalFloor.mat");
+            if (floorMaterial != null && floorMaterial.HasProperty("_BaseColor"))
+            {
+                floorMaterial.SetColor("_BaseColor", new Color(0.065f, 0.095f, 0.12f));
+                EditorUtility.SetDirty(floorMaterial);
+            }
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.17f, 0.22f, 0.27f);
+            var keyLightObject = GameObject.Find("Workspace Key Light");
+            if (keyLightObject != null && keyLightObject.TryGetComponent<Light>(out var keyLight))
+            { keyLight.color = new Color(0.72f, 0.87f, 1f); keyLight.intensity = 2.2f; keyLight.shadows = LightShadows.Soft; }
+            var fillLightObject = GameObject.Find("Tactical Fill Light");
+            if (fillLightObject == null)
+            {
+                fillLightObject = new GameObject("Tactical Fill Light");
+                Undo.RegisterCreatedObjectUndo(fillLightObject, "Create OmniTwin fill light");
+            }
+            var fillLight = fillLightObject.GetComponent<Light>();
+            if (fillLight == null) fillLight = Undo.AddComponent<Light>(fillLightObject);
+            fillLight.type = LightType.Directional; fillLight.color = new Color(0.28f, 0.78f, 0.88f);
+            fillLight.intensity = 0.55f; fillLight.shadows = LightShadows.None;
+            fillLight.transform.rotation = Quaternion.Euler(26f, 145f, 0f);
+            EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+            if (!EditorSceneManager.SaveScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene(), ScenePath)) throw new IOException("Upgraded scene could not be saved.");
+            AssetDatabase.SaveAssets();
+        }
+
+        private static void UpgradeAgentRig(SwarmAgentController agent, Material ground, Material aerial, Material accent,
+            Material warning, Mesh scannerMesh, Material scannerMaterial)
+        {
+            if (agent == null) throw new InvalidOperationException("Swarm agent reference is missing.");
+            var oldBody = agent.transform.Find("Simulation body");
+            if (oldBody != null)
+            {
+                var oldRenderer = oldBody.GetComponent<Renderer>();
+                if (oldRenderer != null) oldRenderer.enabled = false;
+                var oldCollider = oldBody.GetComponent<Collider>();
+                if (oldCollider != null) UnityEngine.Object.DestroyImmediate(oldCollider);
+            }
+            var root = agent.transform.Find("OmniTwin Visual Rig");
+            if (root == null) { var rig = new GameObject("OmniTwin Visual Rig"); rig.transform.SetParent(agent.transform, false); root = rig.transform; }
+            var role = agent.Role;
+            var lights = new System.Collections.Generic.List<Renderer>(4);
+            Transform pivot;
+            Transform turret = null;
+            var rotors = new System.Collections.Generic.List<Transform>(4);
+            if (role == AgentRole.GroundVehicle)
+            {
+                pivot = EnsureChild(root, "Armored chassis");
+                EnsurePrimitive(pivot, "Lower armor", PrimitiveType.Cube, new Vector3(0, 0.31f, 0), new Vector3(0.78f, 0.26f, 0.98f), ground);
+                EnsurePrimitive(pivot, "Upper armor", PrimitiveType.Cube, new Vector3(0, 0.48f, -0.04f), new Vector3(0.58f, 0.12f, 0.62f), aerial);
+                EnsurePrimitive(pivot, "Front bumper", PrimitiveType.Cube, new Vector3(0, 0.32f, 0.51f), new Vector3(0.57f, 0.12f, 0.12f), ground);
+                for (var side = -1; side <= 1; side += 2)
+                    for (var axle = -1; axle <= 1; axle += 2)
+                        EnsurePrimitive(pivot, "Run-flat wheel " + side + " " + axle, PrimitiveType.Cylinder,
+                            new Vector3(side * 0.38f, 0.17f, axle * 0.31f), new Vector3(0.16f, 0.09f, 0.17f), ground, new Vector3(0, 0, 90));
+                turret = EnsureChild(pivot, "LiDAR turret"); turret.localPosition = new Vector3(0, 0.57f, -0.04f);
+                EnsurePrimitive(turret, "Turret base", PrimitiveType.Cylinder, Vector3.zero, new Vector3(0.31f, 0.04f, 0.31f), aerial);
+                EnsurePrimitive(turret, "Spinning rangefinder", PrimitiveType.Sphere, new Vector3(0, 0.1f, 0), new Vector3(0.16f, 0.1f, 0.16f), accent);
+                lights.Add(EnsurePrimitive(pivot, "Front status LED", PrimitiveType.Cube, new Vector3(0, 0.4f, 0.58f), new Vector3(0.42f, 0.035f, 0.025f), accent).GetComponent<Renderer>());
+                lights.Add(EnsurePrimitive(pivot, "Left status LED", PrimitiveType.Sphere, new Vector3(-0.4f, 0.34f, 0), new Vector3(0.035f, 0.06f, 0.16f), accent).GetComponent<Renderer>());
+                lights.Add(EnsurePrimitive(pivot, "Right status LED", PrimitiveType.Sphere, new Vector3(0.4f, 0.34f, 0), new Vector3(0.035f, 0.06f, 0.16f), accent).GetComponent<Renderer>());
+            }
+            else
+            {
+                pivot = EnsureChild(root, "Quadcopter frame");
+                EnsurePrimitive(pivot, "Central avionics pod", PrimitiveType.Cube, Vector3.zero, new Vector3(0.34f, 0.14f, 0.3f), aerial);
+                EnsurePrimitive(pivot, "Forward sensor nose", PrimitiveType.Sphere, new Vector3(0, -0.01f, 0.17f), new Vector3(0.12f, 0.09f, 0.1f), accent);
+                EnsurePrimitive(pivot, "Crosswise carbon arms", PrimitiveType.Cube, Vector3.zero, new Vector3(0.98f, 0.055f, 0.07f), ground);
+                EnsurePrimitive(pivot, "Fore-aft carbon arms", PrimitiveType.Cube, Vector3.zero, new Vector3(0.07f, 0.055f, 0.98f), ground);
+                for (var x = -1; x <= 1; x += 2)
+                    for (var z = -1; z <= 1; z += 2)
+                    {
+                        var rotor = EnsureChild(pivot, "Ducted rotor " + x + " " + z); rotor.localPosition = new Vector3(x * 0.39f, 0.01f, z * 0.39f);
+                        EnsurePrimitive(rotor, "Duct guard", PrimitiveType.Cylinder, Vector3.zero, new Vector3(0.25f, 0.035f, 0.25f), ground);
+                        EnsurePrimitive(rotor, "Propeller blade A", PrimitiveType.Cube, new Vector3(0, 0.035f, 0), new Vector3(0.32f, 0.025f, 0.055f), accent);
+                        EnsurePrimitive(rotor, "Propeller blade B", PrimitiveType.Cube, new Vector3(0, 0.038f, 0), new Vector3(0.055f, 0.025f, 0.32f), accent);
+                        rotors.Add(rotor);
+                    }
+                var scanner = EnsureChild(pivot, "Downward scanner cone"); scanner.localPosition = new Vector3(0, -0.12f, 0);
+                if (scanner.GetComponent<MeshFilter>() == null) scanner.gameObject.AddComponent<MeshFilter>();
+                if (scanner.GetComponent<MeshRenderer>() == null) scanner.gameObject.AddComponent<MeshRenderer>();
+                scanner.GetComponent<MeshFilter>().sharedMesh = scannerMesh; scanner.GetComponent<MeshRenderer>().sharedMaterial = scannerMaterial;
+                lights.Add(EnsurePrimitive(pivot, "Drone mode lamp", PrimitiveType.Sphere, new Vector3(0, 0.13f, -0.15f), new Vector3(0.09f, 0.04f, 0.07f), warning).GetComponent<Renderer>());
+            }
+            var collider = agent.GetComponent<CapsuleCollider>();
+            if (collider == null) collider = agent.gameObject.AddComponent<CapsuleCollider>();
+            collider.direction = 1; collider.radius = role == AgentRole.GroundVehicle ? 0.36f : 0.38f;
+            collider.height = role == AgentRole.GroundVehicle ? 0.72f : 0.24f;
+            collider.center = role == AgentRole.GroundVehicle ? new Vector3(0, 0.35f, 0) : Vector3.zero;
+            var animation = agent.GetComponent<SwarmRigAnimator>();
+            if (animation == null) animation = agent.gameObject.AddComponent<SwarmRigAnimator>();
+            animation.Configure(agent, role, pivot, turret, rotors.ToArray(), lights.ToArray());
+            if (agent.GetComponent<AgentWorldCallout>() == null) agent.gameObject.AddComponent<AgentWorldCallout>();
+        }
+
+        private static Transform EnsureChild(Transform parent, string name)
+        {
+            var existing = parent.Find(name); if (existing != null) return existing;
+            var child = new GameObject(name); child.transform.SetParent(parent, false); return child.transform;
+        }
+
+        private static GameObject EnsurePrimitive(Transform parent, string name, PrimitiveType type, Vector3 position,
+            Vector3 scale, Material material, Vector3? euler = null)
+        {
+            var existing = parent.Find(name);
+            if (existing != null)
+            {
+                existing.localPosition = position; existing.localRotation = Quaternion.Euler(euler ?? Vector3.zero); existing.localScale = scale;
+                var existingRenderer = existing.GetComponent<Renderer>(); if (existingRenderer != null) existingRenderer.sharedMaterial = material;
+                var existingCollider = existing.GetComponent<Collider>(); if (existingCollider != null) UnityEngine.Object.DestroyImmediate(existingCollider);
+                return existing.gameObject;
+            }
+            var part = GameObject.CreatePrimitive(type); part.name = name; part.transform.SetParent(parent, false);
+            part.transform.localPosition = position; part.transform.localRotation = Quaternion.Euler(euler ?? Vector3.zero); part.transform.localScale = scale;
+            part.GetComponent<Renderer>().sharedMaterial = material;
+            var collider = part.GetComponent<Collider>(); if (collider != null) UnityEngine.Object.DestroyImmediate(collider);
+            Undo.RegisterCreatedObjectUndo(part, "Create " + name); return part;
+        }
+
+        private static Material CreateSurfaceMaterial(string name, Color color, bool transparent)
+        {
+            var path = RootPath + "/Materials/" + name + ".mat";
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path); if (existing != null) return existing;
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) throw new InvalidOperationException("URP Unlit is required.");
+            var material = new Material(shader) { name = name }; material.SetColor("_BaseColor", color);
+            if (transparent)
+            {
+                material.SetFloat("_Surface", 1); material.SetFloat("_Blend", 0); material.SetFloat("_ZWrite", 0);
+                material.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha); material.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+                material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); material.renderQueue = (int)RenderQueue.Transparent;
+            }
+            SaveNew(material, path); return material;
+        }
+
+        private static Material CreateLitMaterial(string name, Color color, float metallic, float smoothness, Color emission)
+        {
+            var path = RootPath + "/Materials/" + name + ".mat";
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) throw new InvalidOperationException("URP Lit is required for metallic agent materials.");
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                material = new Material(shader) { name = name };
+                SaveNew(material, path);
+            }
+            else if (material.shader != shader) material.shader = shader;
+            material.SetColor("_BaseColor", color);
+            material.SetFloat("_Metallic", Mathf.Clamp01(metallic));
+            material.SetFloat("_Smoothness", Mathf.Clamp01(smoothness));
+            material.SetColor("_EmissionColor", emission);
+            if (emission.maxColorComponent > 0.001f) material.EnableKeyword("_EMISSION");
+            else material.DisableKeyword("_EMISSION");
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        private static Mesh ScannerConeMesh()
+        {
+            const int sides = 24; var path = RootPath + "/Models/ScannerCone.asset";
+            var existing = AssetDatabase.LoadAssetAtPath<Mesh>(path); if (existing != null) return existing;
+            Directory.CreateDirectory(RootPath + "/Models"); AssetDatabase.Refresh();
+            var vertices = new Vector3[sides + 1]; var triangles = new int[sides * 3]; vertices[0] = Vector3.zero;
+            for (var i = 0; i < sides; i++)
+            {
+                var angle = (float)(i * (Math.PI * 2 / sides)); vertices[i + 1] = new Vector3(Mathf.Cos(angle) * 0.5f, -1, Mathf.Sin(angle) * 0.5f);
+                var index = i * 3; triangles[index] = 0; triangles[index + 1] = i + 1; triangles[index + 2] = (i + 1) % sides + 1;
+            }
+            var mesh = new Mesh { name = "Drone downward sensor cone" }; mesh.vertices = vertices; mesh.triangles = triangles; mesh.RecalculateNormals(); SaveNew(mesh, path); return mesh;
         }
 
         private static void SaveNew(UnityEngine.Object asset, string path)

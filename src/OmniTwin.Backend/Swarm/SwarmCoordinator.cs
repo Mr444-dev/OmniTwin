@@ -115,6 +115,7 @@ public sealed class SwarmCoordinator : IDisposable
     public async Task<SwarmControlSnapshot> EvaluateAsync(SwarmTelemetrySnapshot telemetry, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(telemetry);
+        var evaluationStarted = _time.GetTimestamp();
         await _evaluation.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -189,7 +190,8 @@ public sealed class SwarmCoordinator : IDisposable
                 { current = false; directives = new EmergencyHoldPolicy().ComputeDirectives(world, seconds); policyName = nameof(EmergencyHoldPolicy); }
                 _control = new SwarmControlSnapshot(telemetry.SessionId, telemetry.SequenceNumber, _time.GetUtcNow().ToUnixTimeMilliseconds(), current,
                     frame?.Message.StreamId, frame?.Message.World.CalibrationId, frame?.Message.SequenceNumber, workspace, policyName,
-                    source.Reason ?? (current ? null : "observation_not_current"), _brainStatus, _brainDiagnostic, _model, _modelFallback, _attempts, _diagnostics, directives);
+                    source.Reason ?? (current ? null : "observation_not_current"), _brainStatus, _brainDiagnostic, _model, _modelFallback, _attempts, _diagnostics, directives,
+                    Math.Clamp(_time.GetElapsedTime(evaluationStarted, _time.GetTimestamp()).TotalMilliseconds, 0, 60_000));
                 return _control;
             }
         }

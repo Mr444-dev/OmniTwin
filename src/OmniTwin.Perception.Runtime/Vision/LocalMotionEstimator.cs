@@ -8,7 +8,7 @@ using OpenCvSharp;
 namespace OmniTwin.Perception.Vision;
 
 /// <summary>A measured image displacement with its original SAM identity and independent capture age.</summary>
-public sealed record LocalMotionEstimate(int TrackId, Vector2D Position, float Quality, long CaptureTimestamp, long CapturedAtUnixMs);
+public readonly record struct LocalMotionEstimate(int TrackId, Vector2D Position, float Quality, long CaptureTimestamp, long CapturedAtUnixMs);
 
 /// <summary>Measures sparse bidirectional optical flow inside verified object ROIs, with delayed-mask image alignment.</summary>
 /// <remarks>Owns bounded grayscale images. Native work is serialized by a private lock and must run outside UI threads.</remarks>
@@ -149,9 +149,32 @@ public sealed class LocalMotionEstimator : IDisposable
         }
     }
 
+    /// <summary>Copies valid current measurements into caller-owned storage without per-frame list or wrapper allocations.</summary>
+    public int CopyEstimates(Span<LocalMotionEstimate> destination)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (destination.Length < _regions.Count) throw new ArgumentException("Destination must hold every bounded tracking region.", nameof(destination));
+            if (_latest is null) return 0;
+            var count = 0;
+            foreach (var region in _regions)
+            {
+                if (!region.Measured || region.Lost) continue;
+                var u = region.BaseU + region.ShiftX / _scale; var v = region.BaseV + region.ShiftY / _scale;
+                if (!_profile.Workspace.ContainsPixel(u, v) || !_profile.Workspace.Mapper.TryPixelToWorld(u, v, out var position) ||
+                    !_profile.Workspace.ContainsCircle(position, region.Radius))
+                { region.Lost = true; _lost = true; continue; }
+                destination[count++] = new LocalMotionEstimate(region.Id, position, region.Quality, _latest.CaptureTimestamp,
+                    _latest.CapturedAt.ToUnixTimeMilliseconds());
+            }
+            return count;
+        }
+    }
+
     private Mat Gray(CapturedFrame frame)
     {
-        using var color = Cv2.ImDecode(frame.CopyJpeg(), ImreadModes.Grayscale);
+        using var color = Cv2.ImDecode(frame.EncodedJpeg, ImreadModes.Grayscale);
         var gray = new Mat();
         _scale = Math.Min(1, 320.0 / frame.Width);
         Cv2.Resize(color, gray, new Size((int)Math.Round(frame.Width * _scale), (int)Math.Round(frame.Height * _scale)), interpolation: InterpolationFlags.Area);

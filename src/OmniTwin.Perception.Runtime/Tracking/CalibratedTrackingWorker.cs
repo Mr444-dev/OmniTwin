@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -57,8 +58,18 @@ public sealed class CalibratedTrackingWorker
         using var motion = new LocalMotionEstimator(_profile);
         async IAsyncEnumerable<CapturedFrame> Observe([EnumeratorCancellation] CancellationToken token = default)
         {
+            long lastPreviewTimestamp = -1;
             await foreach (var frame in frames.WithCancellation(token).ConfigureAwait(false))
-            { motion.Observe(frame); onFrame?.Invoke(frame, motion.ReadMaskOverlays(frame.SequenceNumber)); yield return frame; }
+            {
+                motion.Observe(frame);
+                if (onFrame is not null && (lastPreviewTimestamp < 0 ||
+                    Stopwatch.GetElapsedTime(lastPreviewTimestamp, frame.CaptureTimestamp).TotalMilliseconds >= 200))
+                {
+                    lastPreviewTimestamp = frame.CaptureTimestamp;
+                    onFrame(frame, motion.ReadMaskOverlays(frame.SequenceNumber));
+                }
+                yield return frame;
+            }
         }
         var segmentation = new SegmentationWorker(client, TimeSpan.FromMilliseconds(Math.Min(PerceptionTiming.MaximumFrameAgeMilliseconds, _retentionMs - 1)), _time);
         await foreach (var update in RunCoreAsync(segmentation.RunAsync(Observe(cancellationToken), _label, cancellationToken), motion, cancellationToken, onVerified).ConfigureAwait(false))
@@ -76,6 +87,7 @@ public sealed class CalibratedTrackingWorker
         var projector = new MaskObstacleProjector(_profile);
         string? lastFailure = null;
         IReadOnlyList<ProjectionRejection> rejections = Array.Empty<ProjectionRejection>();
+        var motionBuffer = motion is null ? Array.Empty<LocalMotionEstimate>() : new LocalMotionEstimate[128];
         var consumer = Task.Run(async () =>
         {
             try
@@ -124,9 +136,13 @@ public sealed class CalibratedTrackingWorker
         {
             if (motion is null) return;
             var now = Milliseconds(_time.GetTimestamp());
-            foreach (var estimate in motion.ReadEstimates())
+            var count = motion.CopyEstimates(motionBuffer);
+            for (var i = 0; i < count; i++)
+            {
+                var estimate = motionBuffer[i];
                 tracker.ApplyLocalMotion(estimate.TrackId, estimate.Position, Milliseconds(estimate.CaptureTimestamp),
                     estimate.CapturedAtUnixMs, estimate.Quality, now);
+            }
         }
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1 / _publicationHz), _time);
         try

@@ -21,14 +21,20 @@ namespace OmniTwin.Simulation.Media
         private Task _poll, _generation, _edit;
         private Uri _origin;
         private SemanticSceneState _semantics;
+        private BackendModelReadiness _readiness;
+        private string _readinessStatus = "Backend readiness not checked";
         private string _semanticStatus = "Waiting for a confirmed object", _sceneryStatus = "Default tactical surface";
         private byte[] _pendingTexture;
         private bool _restoreRequested;
-        private long _generationVersion;
+        private readonly CommandEpoch _generationEpoch = new CommandEpoch();
         private Material _defaultMaterial, _generatedMaterial;
         private Texture2D _texture;
         /// <summary>Gets immutable session-scoped remembered tags.</summary>
         public SemanticSceneState Semantics { get { lock (_gate) return _semantics; } }
+        /// <summary>Gets the latest secret-free model credential and sandbox prerequisite status.</summary>
+        public BackendModelReadiness Readiness { get { lock (_gate) return _readiness; } }
+        /// <summary>Gets a bounded local readiness polling status.</summary>
+        public string ReadinessStatus { get { lock (_gate) return _readinessStatus; } }
         /// <summary>Gets safe classifier/operator status.</summary>
         public string SemanticStatus { get { lock (_gate) return _semanticStatus; } }
         /// <summary>Gets safe generation status.</summary>
@@ -64,6 +70,13 @@ namespace OmniTwin.Simulation.Media
                 }
                 catch (MediaTransportException error) { lock (_gate) _semanticStatus = error.Category; }
                 catch (WorldStreamProtocolException) { lock (_gate) _semanticStatus = "invalid_semantic_state"; }
+                try
+                {
+                    var readiness = await client.ReadBackendReadinessAsync(_origin, token).ConfigureAwait(false);
+                    lock (_gate) { token.ThrowIfCancellationRequested(); _readiness = readiness; _readinessStatus = "Backend configuration observed · endpoint latency requires live-preflight"; }
+                }
+                catch (MediaTransportException error) { lock (_gate) _readinessStatus = error.Category; }
+                catch (WorldStreamProtocolException) { lock (_gate) _readinessStatus = "invalid_backend_readiness"; }
                 await Task.Delay(1000, token).ConfigureAwait(false);
             }
         }
@@ -87,28 +100,35 @@ namespace OmniTwin.Simulation.Media
         /// <summary>Starts one explicit paid API request; a late reply cannot replace a reset or newer surface.</summary>
         public void GenerateSurface(string prompt)
         {
-            if (!isActiveAndEnabled || IsGenerating) return;
+            if (!isActiveAndEnabled) return;
             if (string.IsNullOrWhiteSpace(prompt) || prompt.Length > 1000) throw new ArgumentException("Enter a surface prompt of 1–1000 characters.");
             foreach (var character in prompt) if (char.IsControl(character)) throw new ArgumentException("Use a single-line surface prompt.");
-            _generationStop?.Dispose(); _generationStop = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token); _generationStop.CancelAfter(TimeSpan.FromSeconds(160));
-            var token = _generationStop.Token; var client = _client; long version;
-            lock (_gate) { version = ++_generationVersion; _pendingTexture = null; _restoreRequested = false; _sceneryStatus = "Generating with Muse Image · default remains available"; }
+            var previous = _generation; var previousStop = _generationStop;
+            if (previous != null && !previous.IsCompleted) previousStop?.Cancel();
+            var generationStop = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token); generationStop.CancelAfter(TimeSpan.FromSeconds(160));
+            _generationStop = generationStop;
+            var token = generationStop.Token; var client = _client; var version = _generationEpoch.Advance();
+            lock (_gate) { _pendingTexture = null; _restoreRequested = false; _sceneryStatus = "Replacing prior Muse Image request · default remains available"; }
             _generation = Task.Run(async () =>
             {
                 try
                 {
+                    if (previous != null) await previous.ConfigureAwait(false);
+                    token.ThrowIfCancellationRequested();
                     var id = Guid.NewGuid(); var state = await client.GenerateAsync(_origin, id, prompt, token).ConfigureAwait(false);
                     while (state.Status == "generating") { await Task.Delay(750, token).ConfigureAwait(false); state = await client.ReadSceneryAsync(_origin, id, token).ConfigureAwait(false); }
                     if (state.Status != "ready") throw new MediaTransportException(state.FailureCategory ?? "scenery_generation_failed");
                     var image = await client.ReadSceneryImageAsync(_origin, id, token).ConfigureAwait(false);
-                    lock (_gate) { token.ThrowIfCancellationRequested(); if (version != _generationVersion) return; _pendingTexture = image; _sceneryStatus = "Generated texture validated · applying"; }
+                    lock (_gate) { token.ThrowIfCancellationRequested(); if (!_generationEpoch.IsCurrent(version)) return; _pendingTexture = image; _sceneryStatus = "Generated texture validated · applying"; }
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested) { Fail(version, "Scenery wait cancelled / timed out · default restored"); }
                 catch (Exception error) when (error is MediaTransportException || error is WorldStreamProtocolException || error is InvalidDataException)
                 { Fail(version, error is MediaTransportException media ? media.Category + " · default restored" : "invalid_generated_surface · default restored"); }
+                catch (Exception) { Fail(version, "scenery_worker_failed · default restored"); }
+                finally { generationStop.Dispose(); }
             });
         }
-        private void Fail(long version, string status) { lock (_gate) { if (version != _generationVersion) return; _pendingTexture = null; _restoreRequested = true; _sceneryStatus = status; } }
+        private void Fail(long version, string status) { lock (_gate) { if (!_generationEpoch.IsCurrent(version)) return; _pendingTexture = null; _restoreRequested = true; _sceneryStatus = status; } }
         private void Update()
         {
             byte[] image; bool restore;
@@ -130,8 +150,9 @@ namespace OmniTwin.Simulation.Media
         /// <summary>Immediately restores the authored URP material and cancels local waiting. An accepted backend job may finish.</summary>
         public void RestoreDefault()
         {
-            _generationStop?.Cancel();
-            lock (_gate) { _generationVersion++; _pendingTexture = null; _restoreRequested = false; _sceneryStatus = "Default tactical surface"; }
+            if (_generation != null && !_generation.IsCompleted) _generationStop?.Cancel();
+            _generationEpoch.Advance();
+            lock (_gate) { _pendingTexture = null; _restoreRequested = false; _sceneryStatus = "Default tactical surface"; }
             RestoreResources();
         }
         private void RestoreResources()
@@ -143,9 +164,9 @@ namespace OmniTwin.Simulation.Media
         private void OnDisable()
         {
             RestoreDefault(); _stop?.Cancel();
-            var client = _client; var stop = _stop; var generationStop = _generationStop;
+            var client = _client; var stop = _stop;
             _ = Task.WhenAll(_poll ?? Task.CompletedTask, _generation ?? Task.CompletedTask, _edit ?? Task.CompletedTask)
-                .ContinueWith(done => { var error = done.Exception; client?.Dispose(); generationStop?.Dispose(); stop?.Dispose(); }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                .ContinueWith(done => { var error = done.Exception; client?.Dispose(); stop?.Dispose(); }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
             _client = null; _stop = null; _generationStop = null;
         }
     }

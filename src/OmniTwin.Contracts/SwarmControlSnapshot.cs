@@ -47,7 +47,7 @@ public sealed class SwarmControlSnapshot
         bool isSourceCurrent, Guid? perceptionStreamId, Guid? calibrationId, long? worldSequenceNumber, WorkspaceBounds bounds,
         string policyName, string? perceptionFailureCategory, string brainStatus, string? brainDiagnostic,
         string? modelIdUsed, bool usedModelFallback, int generationAttempts, IReadOnlyList<string> compilationDiagnostics,
-        IReadOnlyList<AgentTargetDirective> directives)
+        IReadOnlyList<AgentTargetDirective> directives, double evaluationDurationMilliseconds = 0)
     {
         if (telemetrySessionId == Guid.Empty) throw new ArgumentException("Telemetry session is required.", nameof(telemetrySessionId));
         if (perceptionStreamId == Guid.Empty || calibrationId == Guid.Empty ||
@@ -64,6 +64,9 @@ public sealed class SwarmControlSnapshot
         if (usedModelFallback && modelIdUsed is null) throw new ArgumentException("Model fallback requires an identified model.");
         if (generationAttempts < 0 || generationAttempts > 3) throw new ArgumentOutOfRangeException(nameof(generationAttempts));
         GenerationAttempts = generationAttempts;
+        if (!double.IsFinite(evaluationDurationMilliseconds) || evaluationDurationMilliseconds < 0 || evaluationDurationMilliseconds > 60_000)
+            throw new ArgumentOutOfRangeException(nameof(evaluationDurationMilliseconds));
+        EvaluationDurationMilliseconds = evaluationDurationMilliseconds;
         if (compilationDiagnostics is null || compilationDiagnostics.Count > 20) throw new ArgumentException("At most twenty diagnostics are allowed.");
         var messages = new string[compilationDiagnostics.Count];
         for (var i = 0; i < messages.Length; i++) messages[i] = ContractGuard.Text(compilationDiagnostics[i], 512, nameof(compilationDiagnostics));
@@ -76,7 +79,7 @@ public sealed class SwarmControlSnapshot
     }
     private static string? Optional(string? value) => value is null ? null : ContractGuard.Text(value, 128, nameof(value));
     /// <summary>Gets the control schema.</summary>
-    public int SchemaVersion => 1;
+    public int SchemaVersion => 2;
     /// <summary>Gets the client's run identity.</summary>
     public Guid TelemetrySessionId { get; }
     /// <summary>Gets the telemetry publication evaluated by the server.</summary>
@@ -107,6 +110,8 @@ public sealed class SwarmControlSnapshot
     public bool UsedModelFallback { get; }
     /// <summary>Gets the bounded number of generation/verification attempts.</summary>
     public int GenerationAttempts { get; }
+    /// <summary>Gets measured end-to-end backend evaluation duration, including the isolated worker exchange.</summary>
+    public double EvaluationDurationMilliseconds { get; }
     /// <summary>Gets bounded compiler/verification diagnostics.</summary>
     public IReadOnlyList<string> CompilationDiagnostics { get; }
     /// <summary>Gets the owned target directives.</summary>

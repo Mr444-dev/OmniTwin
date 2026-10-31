@@ -45,10 +45,11 @@ dotnet run --project src/OmniTwin.Backend -c Release
 | `GET /health/live` | HTTP 200 while the host serves requests |
 | `GET /health/ready` | HTTP 200 only for a running source with recent observations and no active failure/rejections; otherwise 503 |
 | `GET /api/status` | Operational mode, sanitized reason, subscriber count, cache/source age, and effective currentness |
+| `GET /api/diagnostics/system` | Model IDs, credential-presence booleans, and isolated-worker prerequisites; never returns credential values |
 | `GET /api/world/latest` | Recent encoded wire message, or 503 when absent, too old, or terminated |
 | `GET /calibration` | Local JPEG/corner calibration page; image bytes stay in the browser |
 | `POST /api/calibration/validate` | Validated JSON attachment or a bounded schema/geometry error; no files or running calibration are changed |
-| `/ws/twin` | WebSocket upgrade requiring subprotocol `omnitwin.v2` |
+| `/ws/twin` | WebSocket upgrade requiring subprotocol `omnitwin.v3` |
 
 Liveness is independent of camera/model readiness. A recently published snapshot may report expired or absent source observations; HTTP 200 from latest-world establishes publication availability, not scene freshness. Read the source metadata and diagnostics. Responses use `Cache-Control: no-store`.
 
@@ -62,13 +63,14 @@ The endpoint owns one sender and one receiver per socket, retains the request pi
 
 This lifetime model follows the asynchronous WebSocket ownership requirements described by [ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/websockets?view=aspnetcore-8.0) and the single-send/single-receive constraint in [ClientWebSocket](https://learn.microsoft.com/en-us/dotnet/api/system.net.websockets.clientwebsocket?view=net-8.0).
 
-## Wire protocol v2
+## Wire protocol v3
 
 One UTF-8 JSON text WebSocket message carries one `WorldStreamMessage`. Compression is not enabled. Every key is required, including explicit nulls; all names are case-sensitive camel case. Unknown/duplicate fields, invalid versions, nonfinite values, and inconsistent metadata are rejected before a DTO is returned.
 
 | Root field | Meaning |
 | --- | --- |
-| `protocolVersion` | Exactly 2; prior clients must be reimported |
+| `protocolVersion` | Exactly 3; v2 clients must be upgraded |
+| `sourceMode` | `0` for live camera, `1` for deterministic synthetic tabletop replay |
 | `messageType` | Exactly `world.perception` |
 | `streamId` | Backend-run GUID; changes after restart |
 | `sequenceNumber` | Increasing delivery sequence; gaps permitted |
@@ -78,13 +80,13 @@ One UTF-8 JSON text WebSocket message carries one `WorldStreamMessage`. Compress
 | `failureCategory` | Sanitized category or explicit null |
 | `rejectedDetectionCount` | Count from 0 through 128 |
 
-The codec accepts at most 256 KiB and 128 tracks, with JSON depth limited to 16. It validates every nested object, vector, scalar, list ID, and constructor invariant. Tracks must be younger than retention and at least as old as the latest accepted source capture. The source currentness flag must agree with source age and transmitted retention.
+The codec accepts at most 256 KiB and 128 tracks, with JSON depth limited to 16. It validates every nested object, vector, scalar, list ID, and constructor invariant. Tracks must be younger than retention and at least as old as the latest accepted source capture. The source currentness flag must agree with source age and transmitted retention. Synthetic replay is explicitly marked at the message root and is never represented as camera or SAM evidence.
 
 `WorldStreamOrderGuard` requires increasing delivery/world sequences. The source sequence cannot decrease; the age of an unchanged source cannot decrease. Calibration stays fixed within one tracking session. A new session can reset world sequence, but returning to a retired session fails. At most sixteen session IDs are retained per connection, bounding the replay guard's memory. Restart the connection to establish a new guard context.
 
 ## Portable receiver and freshness
 
-`OmniTwin.Transport` builds for .NET 10 and .NET Standard 2.1. `WorldStreamReceiver` consumes an already connected `WebSocket` negotiated with `omnitwin.v2`; the caller owns connection setup/disposal. It allows one active enumeration per receiver. It reassembles at most 128 receive chunks, rejects binary payloads and oversized messages, and imposes a ten-second whole-message deadline including idle time. Protocol failure ends the enumeration; invalid data is never yielded.
+`OmniTwin.Transport` builds for .NET 10 and .NET Standard 2.1. `WorldStreamReceiver` consumes an already connected `WebSocket` negotiated with `omnitwin.v3`; the caller owns connection setup/disposal. It allows one active enumeration per receiver. It reassembles at most 128 receive chunks, rejects binary payloads and oversized messages, and imposes a ten-second whole-message deadline including idle time. Protocol failure ends the enumeration; invalid data is never yielded.
 
 Use `WorldStreamFreshness.IsObservationCurrent` with locally recorded receive wall/monotonic times. It accounts for source age, delivery age, time spent in the client's cache, two-second default silence, failure/rejection metadata, and allowed clock skew. The default future clock allowance is 500 ms. Clock synchronization assumptions must hold for meaningful wall-clock delivery checks.
 

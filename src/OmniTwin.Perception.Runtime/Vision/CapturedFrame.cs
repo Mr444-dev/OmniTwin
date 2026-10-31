@@ -28,6 +28,7 @@ public sealed class CapturedFrame
     /// <summary>Returns an independently owned copy of the encoded JPEG.</summary>
     public byte[] CopyJpeg() => (byte[])_jpeg.Clone();
     internal ReadOnlySpan<byte> Jpeg => _jpeg;
+    internal byte[] EncodedJpeg => _jpeg;
     internal long CaptureTimestamp { get; }
 
     /// <summary>Validates a JPEG and re-encodes its displayed orientation without EXIF metadata for segmentation.</summary>
@@ -69,5 +70,14 @@ public sealed class CapturedFrame
         Cv2.ImEncode(".jpg", image, out var normalized, new ImageEncodingParam(ImwriteFlags.JpegQuality, 85));
         if (normalized.Length == 0 || normalized.Length > 8_388_608) throw new InvalidDataException("JPEG normalization failed.");
         return new CapturedFrame(0, DateTimeOffset.UtcNow, image.Width, image.Height, normalized, new FrameChangeDecision(1, true));
+    }
+
+    /// <summary>Validates JPEG bytes and attaches an owned source sequence and capture clocks for a frame-source adapter.</summary>
+    public static CapturedFrame FromJpeg(ReadOnlySpan<byte> jpeg, long sequenceNumber, DateTimeOffset capturedAt, long captureTimestamp)
+    {
+        if (sequenceNumber < 0 || captureTimestamp < 0) throw new ArgumentOutOfRangeException(nameof(sequenceNumber));
+        var validated = FromJpeg(jpeg);
+        return new CapturedFrame(sequenceNumber, capturedAt, validated.Width, validated.Height, validated.CopyJpeg(),
+            new FrameChangeDecision(1, true), captureTimestamp);
     }
 }

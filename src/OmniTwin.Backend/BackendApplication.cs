@@ -23,7 +23,9 @@ public static class BackendApplication
     /// <summary>Creates a host with overridable source/clock dependencies for real transport integration tests.</summary>
     public static WebApplication Create(string[] args, Action<WebApplicationBuilder>? configure = null)
     {
-        var builder = WebApplication.CreateBuilder(args);
+        var replay = Array.Exists(args, argument => string.Equals(argument, "--synthetic-tabletop-replay", StringComparison.Ordinal));
+        var hostArgs = Array.FindAll(args, argument => !string.Equals(argument, "--synthetic-tabletop-replay", StringComparison.Ordinal));
+        var builder = WebApplication.CreateBuilder(hostArgs);
         configure?.Invoke(builder);
         var options = BackendOptions.FromConfiguration(builder.Configuration);
         builder.WebHost.ConfigureKestrel(server => server.Listen(IPAddress.Loopback, options.Port));
@@ -41,7 +43,8 @@ public static class BackendApplication
         builder.Services.AddHostedService(services => services.GetRequiredService<ObjectSemanticService>());
         builder.Services.TryAddSingleton<SceneryService>();
         builder.Services.AddHostedService(services => services.GetRequiredService<SceneryService>());
-        builder.Services.TryAddSingleton<IWorldPerceptionSource, CameraPerceptionSource>();
+        if (replay) builder.Services.AddSingleton<IWorldPerceptionSource, SyntheticTabletopReplaySource>();
+        else builder.Services.TryAddSingleton<IWorldPerceptionSource, CameraPerceptionSource>();
         builder.Services.AddHostedService<PerceptionBackgroundService>();
         builder.Services.AddHostedService<BrainMissionService>();
         var app = builder.Build();
@@ -60,10 +63,11 @@ public static class BackendApplication
         app.MapGet("/", () => Results.Json(new
         {
             service = "OmniTwin.Backend", subProtocol = WorldStreamCodec.SubProtocol,
-            endpoints = new[] { "/health/live", "/health/ready", "/api/status", "/api/world/latest", "/ws/twin", "/calibration", "/api/calibration/validate", "/api/swarm/telemetry", "/api/swarm/mission", "/api/swarm/status", "/api/voice/transcribe", "/api/camera/preview" }
+            endpoints = new[] { "/health/live", "/health/ready", "/api/status", "/api/diagnostics/system", "/api/world/latest", "/ws/twin", "/calibration", "/api/calibration/validate", "/api/swarm/telemetry", "/api/swarm/mission", "/api/swarm/status", "/api/voice/transcribe", "/api/camera/preview" }
         }));
         app.MapGet("/health/live", () => Results.Json(new { status = "live" }));
         app.MapGet("/api/status", (BackendRuntimeState state) => Results.Json(state.Read()));
+        app.MapGet("/api/diagnostics/system", () => Results.Json(BackendDiagnosticsSnapshot.Capture()));
         app.MapGet("/health/ready", (BackendRuntimeState state) =>
         {
             var status = state.Read();

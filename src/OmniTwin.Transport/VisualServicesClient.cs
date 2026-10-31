@@ -52,6 +52,9 @@ public sealed class VisualServicesClient : IDisposable
     }
     /// <summary>Reads bounded semantic memory without making a model request.</summary>
     public async Task<SemanticSceneState> ReadSemanticsAsync(Uri origin, CancellationToken token) => VisualWireCodec.DecodeSemantics(await SendAsync(origin, "api/semantics/status", null, "application/json", 131072, token).ConfigureAwait(false));
+    /// <summary>Reads local model IDs, credential presence, and isolated-worker prerequisites; no provider request is made.</summary>
+    public async Task<BackendModelReadiness> ReadBackendReadinessAsync(Uri origin, CancellationToken token) =>
+        VisualWireCodec.DecodeBackendReadiness(await SendAsync(origin, "api/diagnostics/system", null, "application/json", 4096, token).ConfigureAwait(false));
     /// <summary>Sets or clears a manual tag in an exact tracking session.</summary>
     public async Task<SemanticSceneState> OverrideAsync(Uri origin, Guid sessionId, int trackId, ObjectSemantics? classification, CancellationToken token)
         => VisualWireCodec.DecodeSemantics(await SendAsync(origin, "api/semantics/override", new { sessionId, trackId, classification }, "application/json", 131072, token).ConfigureAwait(false));

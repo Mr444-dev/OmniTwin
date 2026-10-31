@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -67,10 +68,16 @@ public sealed class CameraCaptureWorker
                     actualWidth = image.Width;
                     actualHeight = image.Height;
                     Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
-                    var pixels = new byte[checked(gray.Width * gray.Height)];
+                    var pixelCount = checked(gray.Width * gray.Height);
                     if (!gray.IsContinuous()) throw new InvalidDataException("Grayscale buffer is unexpectedly strided.");
-                    Marshal.Copy(gray.Data, pixels, 0, pixels.Length);
-                    var decision = trigger.Observe(pixels, clock.ElapsedMilliseconds);
+                    var pixels = ArrayPool<byte>.Shared.Rent(pixelCount);
+                    FrameChangeDecision decision;
+                    try
+                    {
+                        Marshal.Copy(gray.Data, pixels, 0, pixelCount);
+                        decision = trigger.Observe(pixels.AsSpan(0, pixelCount), clock.ElapsedMilliseconds);
+                    }
+                    finally { ArrayPool<byte>.Shared.Return(pixels); }
                     Cv2.ImEncode(".jpg", image, out var jpeg, new ImageEncodingParam(ImwriteFlags.JpegQuality, 85));
                     if (jpeg.Length == 0 || jpeg.Length > 8_388_608)
                         throw new InvalidDataException("JPEG encoding failed.");

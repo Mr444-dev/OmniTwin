@@ -4,9 +4,9 @@ OmniTwin maps camera pixels onto a calibrated simulation plane and defines immut
 
 The Windows desktop implementation includes hybrid OpenCV/SAM tracking, four deterministic policies, three NavMesh ground vehicles, two aerial agents, measured simulation telemetry, path rendering, and a UI Toolkit command HUD. Brain synthesizes C# through Baseten, verifies semantic symbols with Roslyn, and runs generated policies exclusively in a capability-free Windows AppContainer with a resource-limited Job Object. Unity receives validated directives, never generated executable code. Physical camera/model access and a complete live tabletop demonstration still require verification with the user's hardware and credentials.
 
-![Five simulated agents in EmergencyHold while calibrated perception is disabled](docs/images/tactical-swarm.png)
+![Unity 6 tactical map, five-agent swarm and explicit non-live replay banner](docs/images/tactical-desk.png)
 
-The screenshot shows the actual scene, five measured simulation agents and `EmergencyHoldPolicy` with perception disabled. Unavailable obstacle counters are not a claim that the workspace is clear. [Open and run the integrated scene](docs/unity-scene.md).
+This Unity 6000.6.3f1 Game-view capture uses the deterministic tabletop replay. The HUD labels it `SOURCE: SYNTHETIC TABLETOP REPLAY (NON-LIVE)`; it is not physical-camera or cloud-SAM evidence. [Open and run the integrated scene](docs/unity-scene.md).
 
 The [project audit](docs/project-audit.md) separates implemented modules from outstanding hardware/product acceptance. The [API key guide](docs/api-keys.md) covers masked local setup of both `META_API_KEY` and `BASETEN_API_KEY`. Model synthesis starts only after an explicit HUD command; normal baseline missions do not invoke Baseten.
 
@@ -82,6 +82,14 @@ dotnet run --project src/OmniTwin.Perception.Cli -c Release -- watch 0 30 "cup"
 
 These two commands send images to Meta and can consume API credits. They require account access to `sam-3.1`. Use a single noun phrase per request. SAM response IDs identify objects within that response; independent image calls do not establish persistent obstacle identities. The tools output pixel geometry, not fused world obstacles.
 
+Check local setup without opening a camera or calling models:
+
+```powershell
+dotnet run --project src/OmniTwin.Perception.Cli -c Release -- live-preflight --synthetic-tabletop-replay
+```
+
+`live-preflight` reports credential presence without printing values. Without the replay flag it probes camera devices 0–3. Provider endpoints are not contacted unless `--probe-models` is specified; that option sends real requests, including Muse Image generation, and may incur provider charges.
+
 The adapter requests non-streaming `one_bit` masks with confidence and validates the envelope, grammar, IDs, dimensions, confidence, allocation budgets and canonical mask. Queues retain one pending frame; inference is serial. SAM defaults to 6 seconds per attempt and 12 seconds per operation; a frame's remaining 12-second useful lifetime can cancel it earlier. [Detailed behavior](docs/perception.md).
 
 ## Track calibrated world obstacles
@@ -130,7 +138,7 @@ In another terminal, receive three validated publications:
 dotnet run --project src/OmniTwin.Perception.Cli -c Release -- stream-probe ws://127.0.0.1:5108/ws/twin 3
 ```
 
-`/ws/twin` requires subprotocol `omnitwin.v2` (breaking provenance update). Each client has one pending snapshot slot and its own send deadline. Source failure clears cached publications. Separate `/api/swarm/telemetry`, `/api/swarm/mission`, and `/api/swarm/status` endpoints carry actual agent measurements, commands and correlated directives. [Backend protocol](docs/backend.md), [swarm and Brain](docs/brain.md).
+`/ws/twin` requires subprotocol `omnitwin.v3`. The stream explicitly distinguishes live camera input from `SyntheticTabletopReplay`; Unity labels the latter as non-live. Each client has one pending snapshot slot and its own send deadline. Source failure clears cached publications. Separate `/api/swarm/telemetry`, `/api/swarm/mission`, and `/api/swarm/status` endpoints carry agent measurements, commands and correlated directives. [Backend protocol](docs/backend.md), [swarm and Brain](docs/brain.md).
 
 ## Calibrate a plane
 

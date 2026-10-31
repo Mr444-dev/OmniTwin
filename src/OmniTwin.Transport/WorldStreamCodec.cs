@@ -14,11 +14,11 @@ public sealed class WorldStreamProtocolException : FormatException
     public string Category { get; }
 }
 
-/// <summary>Encodes camel-case version-two messages and validates every field before constructing shared DTOs.</summary>
+/// <summary>Encodes camel-case version-three messages and validates every field before constructing shared DTOs.</summary>
 public static class WorldStreamCodec
 {
     /// <summary>The required WebSocket subprotocol.</summary>
-    public const string SubProtocol = "omnitwin.v2";
+    public const string SubProtocol = "omnitwin.v3";
     /// <summary>The maximum UTF-8 size of one complete WebSocket message.</summary>
     public const int MaximumMessageBytes = 262_144;
     private static readonly JsonSerializerOptions Options = new JsonSerializerOptions
@@ -42,12 +42,12 @@ public static class WorldStreamCodec
             using var document = JsonDocument.Parse(utf8Json, new JsonDocumentOptions { MaxDepth = 16 });
             var root = document.RootElement;
             Keys(root, "protocolVersion", "messageType", "streamId", "sequenceNumber", "sentAtUnixMs", "retentionMilliseconds",
-                "world", "failureCategory", "rejectedDetectionCount");
-            if (Int(root, "protocolVersion") != 2 || Text(root, "messageType") != "world.perception")
+                "sourceMode", "world", "failureCategory", "rejectedDetectionCount");
+            if (Int(root, "protocolVersion") != 3 || Text(root, "messageType") != "world.perception")
                 throw new WorldStreamProtocolException("unsupported_protocol");
             return new WorldStreamMessage(Id(root, "streamId"), Long(root, "sequenceNumber"), Long(root, "sentAtUnixMs"),
                 Long(root, "retentionMilliseconds"), World(root.GetProperty("world")), NullableText(root, "failureCategory"),
-                Int(root, "rejectedDetectionCount"));
+                Int(root, "rejectedDetectionCount"), sourceMode: EnumValue<PerceptionSourceMode>(root, "sourceMode"));
         }
         catch (WorldStreamProtocolException) { throw; }
         catch (JsonException) { throw new WorldStreamProtocolException("invalid_json"); }
@@ -66,7 +66,7 @@ public static class WorldStreamCodec
         foreach (var track in collection.EnumerateArray())
         {
             Keys(track, "obstacle", "lastObservedUnixMs", "ageMilliseconds", "trackingConfidence", "seenInLatestObservation",
-                "observationSource", "geometryAgeMilliseconds", "geometryObservedUnixMs");
+                "observationSource", "geometryAgeMilliseconds", "geometryObservedUnixMs", "lifecycle");
             var obstacle = track.GetProperty("obstacle");
             Keys(obstacle, "id", "label", "worldPosition", "radiusMeters", "confidence", "isHazardZone");
             var position = obstacle.GetProperty("worldPosition");
@@ -76,7 +76,7 @@ public static class WorldStreamCodec
                 Scalar(obstacle, "confidence"), Boolean(obstacle, "isHazardZone"));
             tracks.Add(new TrackedObstacleState(value, Long(track, "lastObservedUnixMs"), Long(track, "ageMilliseconds"),
                 Scalar(track, "trackingConfidence"), Boolean(track, "seenInLatestObservation"), (ObservationSource)Int(track, "observationSource"),
-                Long(track, "geometryAgeMilliseconds"), Long(track, "geometryObservedUnixMs")));
+                Long(track, "geometryAgeMilliseconds"), Long(track, "geometryObservedUnixMs"), EnumValue<ObstacleLifecycleState>(track, "lifecycle")));
         }
         return new ObstacleTrackingSnapshot(Id(root, "sessionId"), Id(root, "calibrationId"), Long(root, "sequenceNumber"),
             NullableLong(root, "sourceSequenceNumber"), NullableLong(root, "sourceAgeMilliseconds"), Boolean(root, "isObservationCurrent"),
@@ -124,6 +124,13 @@ public static class WorldStreamCodec
         if (item.ValueKind != JsonValueKind.True && item.ValueKind != JsonValueKind.False)
             throw new WorldStreamProtocolException("expected_boolean");
         return item.GetBoolean();
+    }
+    private static TEnum EnumValue<TEnum>(JsonElement value, string key) where TEnum : struct, Enum
+    {
+        var number = Int(value, key);
+        var result = (TEnum)Enum.ToObject(typeof(TEnum), number);
+        if (!Enum.IsDefined(typeof(TEnum), result)) throw new WorldStreamProtocolException("invalid_enum");
+        return result;
     }
     internal static float Scalar(JsonElement value, string key)
     {

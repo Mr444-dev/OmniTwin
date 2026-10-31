@@ -26,7 +26,8 @@ public sealed class WorldStreamTests
             Math.Max(100, sourceAge.Value), 0.8f, true) } : Array.Empty<TrackedObstacleState>();
         var snapshot = new ObstacleTrackingSnapshot(session ?? Session, calibration ?? Calibration, worldSequence ?? sequence,
             source, sourceAge, sourceAge.HasValue && sourceAge < 3000, 1_000_000, states);
-        return new WorldStreamMessage(stream ?? Stream, sequence, 1_000_000, 3000, snapshot, failure, rejected);
+        return new WorldStreamMessage(stream ?? Stream, sequence, 1_000_000, 3000, snapshot, failure, rejected,
+            sourceMode: PerceptionSourceMode.LiveCamera);
     }
 
     [Fact]
@@ -47,10 +48,11 @@ public sealed class WorldStreamTests
         var json = Encoding.UTF8.GetString(WorldStreamCodec.Encode(Message()));
         var invalid = new[]
         {
-            json.Replace("\"protocolVersion\":2", "\"protocolVersion\":3"),
-            json.Replace("\"protocolVersion\":2", "\"protocolVersion\":2,\"extra\":0"),
-            json.Replace("\"protocolVersion\":2", "\"protocolVersion\":2,\"protocolVersion\":2"),
-            json.Replace("\"protocolVersion\":2,", ""),
+            json.Replace("\"protocolVersion\":3", "\"protocolVersion\":2"),
+            json.Replace("\"protocolVersion\":3", "\"protocolVersion\":3,\"extra\":0"),
+            json.Replace("\"protocolVersion\":3", "\"protocolVersion\":3,\"protocolVersion\":3"),
+            json.Replace("\"protocolVersion\":3,", ""),
+            json.Replace("\"sourceMode\":0", "\"sourceMode\":99"),
             json.Replace("\"radiusMeters\":0.5", "\"radiusMeters\":0"),
             json.Replace("\"x\":1", "\"x\":1,\"x\":2"),
             json.Replace("\"confidence\":0.9", "\"confidence\":1e9999"),
@@ -99,6 +101,21 @@ public sealed class WorldStreamTests
         Assert.Throws<WorldStreamProtocolException>(() => guard.Accept(Message(1, stream: Guid.NewGuid())));
         guard.Accept(Message(1, worldSequence: 0, session: Guid.NewGuid(), calibration: Guid.NewGuid()));
         Assert.Throws<WorldStreamProtocolException>(() => guard.Accept(Message(2)));
+    }
+
+    [Fact]
+    public void StreamProvenanceIsExplicitAndCannotSwitchWithoutRestart()
+    {
+        var guard = new WorldStreamOrderGuard();
+        var live = Message();
+        guard.Accept(live);
+        var replay = new WorldStreamMessage(Stream, 1, 1_000_100, 3000,
+            new ObstacleTrackingSnapshot(Session, Calibration, 1, 4, 60, true, 1_000_100,
+                live.World.Obstacles), null, 0, sourceMode: PerceptionSourceMode.SyntheticTabletopReplay);
+        Assert.Throws<WorldStreamProtocolException>(() => guard.Accept(replay));
+        var decoded = WorldStreamCodec.Decode(WorldStreamCodec.Encode(live));
+        Assert.Equal(PerceptionSourceMode.LiveCamera, decoded.SourceMode);
+        Assert.Equal(ObstacleLifecycleState.SettledObstacle, Assert.Single(decoded.World.Obstacles).Lifecycle);
     }
 
     [Fact]

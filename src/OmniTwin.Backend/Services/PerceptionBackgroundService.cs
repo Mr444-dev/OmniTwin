@@ -31,7 +31,7 @@ public sealed class PerceptionBackgroundService : BackgroundService
         {
             await foreach (var publication in _source.ReadAllAsync(stoppingToken).WithCancellation(stoppingToken).ConfigureAwait(false))
             {
-                _broker.Publish(publication.Snapshot, publication.FailureCategory, publication.RejectedDetectionCount);
+                _broker.Publish(publication.Snapshot, publication.FailureCategory, publication.RejectedDetectionCount, publication.SourceMode);
                 var degraded = publication.FailureCategory is not null || publication.RejectedDetectionCount != 0;
                 _state.Set(degraded ? "degraded" : "running", publication.FailureCategory ?? (degraded ? "projection_rejected" : null));
             }

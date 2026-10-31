@@ -91,6 +91,46 @@ public sealed class ObstacleTrackerTests
     }
 
     [Fact]
+    public void SmoothsSmallGeometryNoiseAndConfirmsSettledObjects()
+    {
+        var tracker = new ObstacleTracker(Session, Calibration, retentionMilliseconds: 20_000);
+        tracker.Update(Batch(0, 0, Observation(0, 0, radius: 0.2f)), 0);
+        tracker.Update(Batch(1, 1000, Observation(9, 0.1f, radius: 0.3f)), 1000);
+        var settling = Assert.Single(tracker.Snapshot(1000, 2000).Obstacles);
+        Assert.Equal(ObstacleLifecycleState.Settling, settling.Lifecycle);
+        Assert.InRange(settling.Obstacle.WorldPosition.X, 0.034f, 0.036f);
+        Assert.InRange(settling.Obstacle.RadiusMeters, 0.229f, 0.231f);
+
+        tracker.Update(Batch(2, 2000, Observation(14, 0.1f, radius: 0.3f)), 2000);
+        var settled = Assert.Single(tracker.Snapshot(2000, 3000).Obstacles);
+        Assert.Equal(ObstacleLifecycleState.SettledObstacle, settled.Lifecycle);
+    }
+
+    [Fact]
+    public void HandRegionsAreTransientAndExpireWithoutBlockingAStationaryTable()
+    {
+        var tracker = new ObstacleTracker(Session, Calibration, retentionMilliseconds: 20_000);
+        tracker.Update(Batch(0, 0, Observation(0, 1, label: "hand")), 0);
+        var hand = Assert.Single(tracker.Snapshot(0, 1000).Obstacles);
+        Assert.Equal(ObstacleLifecycleState.TransientManipulator, hand.Lifecycle);
+        tracker.Update(Batch(1, 1000), 1000);
+        Assert.Single(tracker.Snapshot(1499, 2000).Obstacles);
+        Assert.Empty(tracker.Snapshot(1500, 2000).Obstacles);
+    }
+
+    [Fact]
+    public void LocalFastMotionDemotesSettledTrackToTransient()
+    {
+        var tracker = new ObstacleTracker(Session, Calibration, retentionMilliseconds: 20_000);
+        tracker.Update(Batch(0, 0, Observation(0, 1)), 0);
+        tracker.Update(Batch(1, 1000, Observation(0, 1)), 1000);
+        var track = Assert.Single(tracker.Snapshot(1000, 2000).Obstacles);
+        Assert.Equal(ObstacleLifecycleState.SettledObstacle, track.Lifecycle);
+        Assert.True(tracker.ApplyLocalMotion(track.Obstacle.Id, new Vector2D(2, 0), 1200, 2200, 0.9f, 1200));
+        Assert.Equal(ObstacleLifecycleState.TransientManipulator, Assert.Single(tracker.Snapshot(1200, 2200).Obstacles).Lifecycle);
+    }
+
+    [Fact]
     public void AgeIncludesInferenceDelayAndDoesNotUseWallClockDeltas()
     {
         var tracker = Tracker();

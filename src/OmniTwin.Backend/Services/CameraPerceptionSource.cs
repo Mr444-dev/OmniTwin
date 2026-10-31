@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using OmniTwin.Perception.Tracking;
 using OmniTwin.Perception.Vision;
 using OmniTwin.Backend.Media;
+using OmniTwin.Contracts;
 
 namespace OmniTwin.Backend.Services;
 
@@ -20,6 +21,8 @@ public sealed class CameraPerceptionSource : IWorldPerceptionSource
     { _options = options ?? throw new ArgumentNullException(nameof(options)); _preview = preview; _semantics = semantics; }
     /// <inheritdoc />
     public bool IsEnabled => _options.EnablePerception;
+    /// <inheritdoc />
+    public PerceptionSourceMode SourceMode => PerceptionSourceMode.LiveCamera;
     /// <inheritdoc />
     public async IAsyncEnumerable<PerceptionPublication> ReadAllAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {

@@ -9,7 +9,20 @@ public enum ObservationSource
     /// <summary>Geometry projected directly from a validated SAM mask.</summary>
     SamVerified,
     /// <summary>Image motion measured locally after the last SAM capture.</summary>
-    LocalMotionEstimate
+    LocalMotionEstimate,
+    /// <summary>Contours segmented locally from an explicitly synthetic replay frame; this is not a SAM result.</summary>
+    LocalImageSegmentation
+}
+
+/// <summary>Physical lifecycle of a tracked image region, independent of its latest geometry source.</summary>
+public enum ObstacleLifecycleState
+{
+    /// <summary>A confirmed, low-motion object retained as a persistent world obstacle.</summary>
+    SettledObstacle = 0,
+    /// <summary>A new region whose motion and identity have not stabilized yet.</summary>
+    Settling = 1,
+    /// <summary>A hand or rapidly moving manipulator that must not carve a persistent navigation block.</summary>
+    TransientManipulator = 2
 }
 
 /// <summary>An obstacle retained from an actual observation, with explicit age and decayed tracking confidence.</summary>
@@ -18,7 +31,8 @@ public sealed record TrackedObstacleState
     /// <summary>Creates tracking metadata. The obstacle's confidence remains the last detector confidence.</summary>
     public TrackedObstacleState(SegmentedObstacle obstacle, long lastObservedUnixMs, long ageMilliseconds,
         float trackingConfidence, bool seenInLatestObservation, ObservationSource observationSource = ObservationSource.SamVerified,
-        long geometryAgeMilliseconds = -1, long geometryObservedUnixMs = -1)
+        long geometryAgeMilliseconds = -1, long geometryObservedUnixMs = -1,
+        ObstacleLifecycleState lifecycle = ObstacleLifecycleState.SettledObstacle)
     {
         Obstacle = obstacle ?? throw new ArgumentNullException(nameof(obstacle));
         LastObservedUnixMs = ContractGuard.Nonnegative(lastObservedUnixMs, nameof(lastObservedUnixMs));
@@ -27,6 +41,8 @@ public sealed record TrackedObstacleState
         SeenInLatestObservation = seenInLatestObservation;
         if (!Enum.IsDefined(typeof(ObservationSource), observationSource)) throw new ArgumentOutOfRangeException(nameof(observationSource));
         ObservationSource = observationSource;
+        if (!Enum.IsDefined(typeof(ObstacleLifecycleState), lifecycle)) throw new ArgumentOutOfRangeException(nameof(lifecycle));
+        Lifecycle = lifecycle;
         GeometryAgeMilliseconds = ContractGuard.Nonnegative(geometryAgeMilliseconds == -1 ? ageMilliseconds : geometryAgeMilliseconds, nameof(geometryAgeMilliseconds));
         GeometryObservedUnixMs = ContractGuard.Nonnegative(geometryObservedUnixMs == -1 ? lastObservedUnixMs : geometryObservedUnixMs, nameof(geometryObservedUnixMs));
         if (GeometryAgeMilliseconds > AgeMilliseconds ||
@@ -45,6 +61,8 @@ public sealed record TrackedObstacleState
     public bool SeenInLatestObservation { get; }
     /// <summary>Gets the origin of the current geometry; local updates never renew SAM verification.</summary>
     public ObservationSource ObservationSource { get; }
+    /// <summary>Gets whether this geometry is transient, settling, or safe to persist as an obstacle.</summary>
+    public ObstacleLifecycleState Lifecycle { get; }
     /// <summary>Gets the monotonic age of the latest image geometry measurement.</summary>
     public long GeometryAgeMilliseconds { get; }
     /// <summary>Gets the capture wall-clock time of that geometry measurement.</summary>

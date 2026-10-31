@@ -24,11 +24,13 @@ public interface IMuseVoiceClient
 public sealed class VoiceApiException : Exception
 {
     /// <summary>Creates a safe error without audio, tokens, transcript or upstream body.</summary>
-    public VoiceApiException(string category, int attempts) : base(category) { Category = category; Attempts = attempts; }
+    public VoiceApiException(string category, int attempts, int? httpStatusCode = null) : base(category) { Category = category; Attempts = attempts; HttpStatusCode = httpStatusCode; }
     /// <summary>Gets the operator category.</summary>
     public string Category { get; }
     /// <summary>Gets attempted HTTP calls.</summary>
     public int Attempts { get; }
+    /// <summary>Gets a provider HTTP status without retaining its response body.</summary>
+    public int? HttpStatusCode { get; }
 }
 /// <summary>Real Meta file-transcription adapter: documented multipart PUSH_TO_TALK, bounded retries and strict JSON.</summary>
 public sealed class MuseVoiceClient : IMuseVoiceClient, IDisposable
@@ -73,7 +75,7 @@ public sealed class MuseVoiceClient : IMuseVoiceClient, IDisposable
                     {
                         var category = (int)response.StatusCode switch { 401 => "auth_missing_or_invalid_401", 403 => "permission_denied_403", 429 => "rate_limited_429", 408 or 504 => "upstream_timeout", _ => "voice_upstream_error" };
                         var transient = response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests || (int)response.StatusCode >= 500;
-                        if (!transient || attempts >= 3) throw new VoiceApiException(category, attempts);
+                        if (!transient || attempts >= 3) throw new VoiceApiException(category, attempts, (int)response.StatusCode);
                         var retry = response.Headers.RetryAfter?.Delta ?? (response.Headers.RetryAfter?.Date is DateTimeOffset date ? date - DateTimeOffset.UtcNow : wait);
                         if (retry > wait) wait = retry;
                         if (wait > TimeSpan.FromSeconds(5)) throw new VoiceApiException(category, attempts);

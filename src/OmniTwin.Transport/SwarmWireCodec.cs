@@ -64,7 +64,8 @@ public static class SwarmWireCodec
     {
         Keys(root, "schemaVersion", "telemetrySessionId", "telemetrySequenceNumber", "timestampUnixMs", "isSourceCurrent", "perceptionStreamId",
             "calibrationId", "worldSequenceNumber", "bounds", "policyName", "perceptionFailureCategory", "brainStatus", "brainDiagnostic",
-            "modelIdUsed", "usedModelFallback", "generationAttempts", "compilationDiagnostics", "directives"); Version(root);
+            "modelIdUsed", "usedModelFallback", "generationAttempts", "compilationDiagnostics", "directives", "evaluationDurationMilliseconds");
+        if (Int(root, "schemaVersion") != 2) throw new WorldStreamProtocolException("unsupported_swarm_schema");
         var bounds = root.GetProperty("bounds"); Keys(bounds, "minimumX", "maximumX", "minimumZ", "maximumZ");
         var diagnostics = new List<string>();
         foreach (var item in Array(root, "compilationDiagnostics", 20))
@@ -74,7 +75,8 @@ public static class SwarmWireCodec
             Boolean(root, "isSourceCurrent"), NullableId(root, "perceptionStreamId"), NullableId(root, "calibrationId"), NullableLong(root, "worldSequenceNumber"),
             new WorkspaceBounds(Scalar(bounds, "minimumX"), Scalar(bounds, "maximumX"), Scalar(bounds, "minimumZ"), Scalar(bounds, "maximumZ")),
             Text(root, "policyName"), NullableText(root, "perceptionFailureCategory"), Text(root, "brainStatus"), NullableText(root, "brainDiagnostic"),
-            NullableText(root, "modelIdUsed"), Boolean(root, "usedModelFallback"), Int(root, "generationAttempts"), diagnostics, directives);
+            NullableText(root, "modelIdUsed"), Boolean(root, "usedModelFallback"), Int(root, "generationAttempts"), diagnostics, directives,
+            Number(root, "evaluationDurationMilliseconds"));
     });
 
     /// <summary>Decodes worker output using the same strict vector, recipient, speed and collection boundary.</summary>
@@ -108,5 +110,12 @@ public static class SwarmWireCodec
             value.GetProperty("minimumDistanceMeters").ValueKind == JsonValueKind.Null ? (float?)null : Scalar(value, "minimumDistanceMeters"), Int(value, "ageMilliseconds"));
     }
     private static Guid? NullableId(JsonElement root, string key) => root.GetProperty(key).ValueKind == JsonValueKind.Null ? (Guid?)null : Id(root, key);
+    private static double Number(JsonElement root, string key)
+    {
+        var value = root.GetProperty(key);
+        if (value.ValueKind != JsonValueKind.Number || !value.TryGetDouble(out var number) || !double.IsFinite(number))
+            throw new WorldStreamProtocolException("nonfinite_or_invalid_number");
+        return number;
+    }
     private static void Version(JsonElement root) { if (Int(root, "schemaVersion") != 1) throw new WorldStreamProtocolException("unsupported_swarm_schema"); }
 }

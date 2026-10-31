@@ -9,6 +9,7 @@
             <ui:VisualElement class="header-right">
                 <ui:Label name="statusBadge" text="NO OBSERVATION" class="badge" />
                 <ui:Label name="connectionState" text="Connecting to local backend" class="connection" />
+                <ui:Label name="sourceModeBanner" text="SOURCE: WAITING FOR BACKEND" class="source-mode" />
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement class="body" picking-mode="Ignore">
@@ -41,6 +42,10 @@
                     <ui:Label name="calibration" text="--" class="metric-value" />
                 </ui:VisualElement>
                 <ui:VisualElement class="divider" />
+                <ui:Label text="MODEL / SANDBOX MATRIX" class="section-title" />
+                <ui:Label name="modelMatrix" text="Waiting for backend diagnostics" class="model-matrix" />
+                <ui:Label text="CONFIGURATION ONLY · RUN live-preflight --probe-models FOR HTTP STATUS" class="matrix-caption" />
+                <ui:VisualElement class="divider" />
                 <ui:Label name="sourceNotice" text="Waiting for a calibrated camera observation." class="notice" />
                 <ui:Button name="reconnectButton" text="RECONNECT STREAM" class="action" />
                 <ui:VisualElement class="divider" />
@@ -64,6 +69,12 @@
             <ui:VisualElement class="world-caption" picking-mode="Ignore">
                 <ui:Label text="REFERENCE WORKSPACE" class="world-title" />
                 <ui:Label text="20 x 12.5 m / X-Z PLANE" class="world-detail" />
+                <ui:VisualElement class="camera-presets" picking-mode="Position">
+                    <ui:Button name="view1Button" text="1 · ISO" class="camera-button" />
+                    <ui:Button name="view2Button" text="2 · MAP" class="camera-button" />
+                    <ui:Button name="view3Button" text="3 · CHASE" class="camera-button" />
+                </ui:VisualElement>
+                <ui:DropdownField name="cameraAgent" label="CHASE AGENT" class="camera-agent" />
             </ui:VisualElement>
             <ui:ScrollView class="swarm-panel" mode="Vertical">
                 <ui:Label text="SWARM CONTROL" class="section-title" />
@@ -86,7 +97,7 @@
             </ui:ScrollView>
         </ui:VisualElement>
         <ui:VisualElement class="footer" picking-mode="Ignore">
-            <ui:Label text="RMB drag: orbit    Scroll: zoom    Home: reset view" class="footer-text" />
+            <ui:Label name="performanceMetrics" text="FPS --  /  FRAME -- ms  /  SOURCE AGE -- ms  /  SANDBOX -- ms" class="footer-text" />
             <ui:Label text="LIVE GEOMETRY APPEARS ONLY FROM CURRENT OBSERVATIONS" class="footer-text" />
         </ui:VisualElement>
     </ui:VisualElement>

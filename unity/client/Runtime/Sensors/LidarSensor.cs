@@ -11,6 +11,7 @@ namespace OmniTwin.Simulation.Sensors
     [DisallowMultipleComponent, DefaultExecutionOrder(-80)]
     public sealed class LidarSensor : MonoBehaviour
     {
+        private const int RenderedBeamStride = 4;
         [SerializeField, Range(8, 128)] private int beamCount = 48;
         [SerializeField, Range(30, 360)] private float fieldOfView = 360;
         [SerializeField, Range(0.5f, 30)] private float rangeMeters = 6;
@@ -46,20 +47,28 @@ namespace OmniTwin.Simulation.Sensors
             if (_owner == null) throw new InvalidOperationException("LiDAR requires its owning agent.");
             _directions = new Vector3[beamCount]; _ends = new Vector3[beamCount]; _distances = new float[beamCount];
             _rayVertices = new Vector3[beamCount * 2]; _hitVertices = new Vector3[beamCount * 6];
-            _rayIndices = new int[_rayVertices.Length]; _hitIndices = new int[_hitVertices.Length];
-            for (var i = 0; i < _rayIndices.Length; i++) _rayIndices[i] = i;
+            _rayIndices = new int[((beamCount + RenderedBeamStride - 1) / RenderedBeamStride) * 2]; _hitIndices = new int[_hitVertices.Length];
+            var renderedIndex = 0;
+            for (var beam = 0; beam < beamCount; beam += RenderedBeamStride)
+            { _rayIndices[renderedIndex++] = beam * 2; _rayIndices[renderedIndex++] = beam * 2 + 1; }
             for (var i = 0; i < _hitIndices.Length; i++) _hitIndices[i] = i;
-            _rays = Visual("LiDAR beams", new Color(0.04f, 0.42f, 0.48f), out _rayRenderer, out _rayMaterial);
-            _markers = Visual("LiDAR hit markers", new Color(1, 0.38f, 0.08f), out _markerRenderer, out _hitMaterial);
+            _rays = Visual("LiDAR beams · 1 of 4 sampled", new Color(0.04f, 0.42f, 0.48f, 0.24f), true, out _rayRenderer, out _rayMaterial);
+            _markers = Visual("LiDAR hit markers", new Color(1, 0.38f, 0.08f, 0.92f), false, out _markerRenderer, out _hitMaterial);
             SetVisualizationEnabled(false);
         }
-        private Mesh Visual(string name, Color color, out MeshRenderer renderer, out Material material)
+        private Mesh Visual(string name, Color color, bool transparent, out MeshRenderer renderer, out Material material)
         {
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
             if (shader == null) throw new InvalidOperationException("URP Unlit is required for LiDAR.");
             var child = new GameObject(name); child.transform.SetParent(transform, false);
             var filter = child.AddComponent<MeshFilter>(); renderer = child.AddComponent<MeshRenderer>();
             material = new Material(shader) { name = name }; material.SetColor("_BaseColor", color); renderer.sharedMaterial = material;
+            if (transparent)
+            {
+                material.SetFloat("_Surface", 1); material.SetFloat("_Blend", 0); material.SetFloat("_ZWrite", 0);
+                material.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha); material.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+                material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); material.renderQueue = (int)RenderQueue.Transparent;
+            }
             renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
             var mesh = new Mesh { name = name }; mesh.MarkDynamic(); filter.sharedMesh = mesh; return mesh;
         }

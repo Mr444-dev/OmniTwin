@@ -14,7 +14,7 @@ namespace OmniTwin.Backend.Swarm;
 public sealed class BrainMissionService : BackgroundService
 {
     private readonly Channel<(SwarmMissionRequest Request, long Revision)> _commands = Channel.CreateBounded<(SwarmMissionRequest, long)>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true, SingleWriter = false });
-    private readonly object _gate = new(); private CancellationTokenSource? _active; private long _revision;
+    private readonly object _gate = new(); private CancellationTokenSource? _active; private readonly CommandEpoch _epoch = new();
     private readonly SwarmCoordinator _swarm; private readonly BackendRuntimeState _runtime;
     private readonly SelfHealingLoop _loop; private readonly MuseSparkOpenClient _client;
     /// <summary>Registers the real model handler; no provider call occurs until an explicit model mission arrives.</summary>
@@ -27,7 +27,7 @@ public sealed class BrainMissionService : BackgroundService
     private Task QueueAsync(SwarmMissionRequest request, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        lock (_gate) { _active?.Cancel(); if (!_commands.Writer.TryWrite((request, ++_revision))) throw new InvalidOperationException("Brain service has stopped."); }
+        lock (_gate) { _active?.Cancel(); if (!_commands.Writer.TryWrite((request, _epoch.Advance()))) throw new InvalidOperationException("Brain service has stopped."); }
         return Task.CompletedTask;
     }
     /// <inheritdoc />
@@ -38,7 +38,7 @@ public sealed class BrainMissionService : BackgroundService
             var request = queued.Request;
             if (!request.UseBrain || request.Command.Kind == SwarmMissionKind.HoldPosition) continue;
             using var command = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken); command.CancelAfter(TimeSpan.FromMinutes(3));
-            lock (_gate) { if (queued.Revision != _revision) continue; _active = command; }
+            lock (_gate) { if (!_epoch.IsCurrent(queued.Revision)) continue; _active = command; }
             try
             {
                 if (!_runtime.Read().IsObservationCurrent)

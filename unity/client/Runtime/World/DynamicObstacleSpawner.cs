@@ -18,6 +18,8 @@ namespace OmniTwin.Simulation.World
         [SerializeField, Min(0.1f)] private float interpolationRate = 12;
         [SerializeField] private Color obstacleColor = new Color(0.1f, 0.8f, 1, 1);
         [SerializeField] private Color hazardColor = new Color(1, 0.2f, 0.1f, 1);
+        [SerializeField] private Material hologramMaterial;
+        [SerializeField] private Material accentMaterial;
         private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
         private readonly Dictionary<int, Visual> _visuals = new Dictionary<int, Visual>();
         private readonly HashSet<int> _seen = new HashSet<int>();
@@ -69,7 +71,7 @@ namespace OmniTwin.Simulation.World
                 _seen.Add(obstacle.Id);
                 if (!_visuals.TryGetValue(obstacle.Id, out var visual))
                 {
-                    visual = CreateVisual(obstacle);
+                    visual = CreateVisual(track);
                     _visuals.Add(obstacle.Id, visual);
                 }
                 if (!changed) continue;
@@ -77,8 +79,13 @@ namespace OmniTwin.Simulation.World
                 visual.Target = new Vector3(obstacle.WorldPosition.X, 0, obstacle.WorldPosition.Z);
                 visual.Body.localScale = new Vector3(2 * obstacle.RadiusMeters, proxyHeightMeters / 2, 2 * obstacle.RadiusMeters);
                 visual.Obstacle.radius = obstacle.RadiusMeters;
-                visual.Tint.SetColor(BaseColor, obstacle.IsHazardZone ? hazardColor : obstacleColor);
+                visual.Obstacle.carving = track.Lifecycle == ObstacleLifecycleState.SettledObstacle;
+                visual.Tint.SetColor(BaseColor, RenderColor(track));
                 visual.Renderer.SetPropertyBlock(visual.Tint);
+                var source = track.ObservationSource == ObservationSource.SamVerified ? "SAM VERIFIED" : track.ObservationSource == ObservationSource.LocalMotionEstimate ? "LOCAL ESTIMATE" : "LOCAL CV";
+                var state = track.Lifecycle == ObstacleLifecycleState.SettledObstacle ? "SETTLED" : track.Lifecycle == ObstacleLifecycleState.TransientManipulator ? "TRANSIENT" : "SETTLING";
+                var label = "#" + obstacle.Id + "  " + obstacle.Label + "\nR " + obstacle.RadiusMeters.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "m  C " + obstacle.Confidence.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "\n" + source + "  /  " + state;
+                visual.Callout.UpdateDetails(label, RenderColor(track), obstacle.RadiusMeters, proxyHeightMeters);
             }
             _removed.Clear();
             foreach (var id in _visuals.Keys) if (!_seen.Contains(id)) _removed.Add(id);
@@ -89,8 +96,9 @@ namespace OmniTwin.Simulation.World
                 visual.Root.transform.position = Vector3.Lerp(visual.Root.transform.position, visual.Target, blend);
         }
 
-        private Visual CreateVisual(SegmentedObstacle obstacle)
+        private Visual CreateVisual(TrackedObstacleState track)
         {
+            var obstacle = track.Obstacle;
             var root = new GameObject("Obstacle " + obstacle.Id);
             root.transform.SetParent(transform, true);
             root.transform.position = new Vector3(obstacle.WorldPosition.X, 0, obstacle.WorldPosition.Z);
@@ -100,17 +108,33 @@ namespace OmniTwin.Simulation.World
             body.transform.localPosition = new Vector3(0, proxyHeightMeters / 2, 0);
             var renderer = body.GetComponent<Renderer>();
             var pipeline = GraphicsSettings.currentRenderPipeline;
-            if (pipeline != null && pipeline.defaultMaterial != null) renderer.sharedMaterial = pipeline.defaultMaterial;
+            if (hologramMaterial != null) renderer.sharedMaterial = hologramMaterial;
+            else if (pipeline != null && pipeline.defaultMaterial != null) renderer.sharedMaterial = pipeline.defaultMaterial;
+            var tint = new MaterialPropertyBlock(); tint.SetColor(BaseColor, RenderColor(track)); renderer.SetPropertyBlock(tint);
             var nav = root.AddComponent<NavMeshObstacle>();
             nav.shape = NavMeshObstacleShape.Capsule;
             nav.center = new Vector3(0, proxyHeightMeters / 2, 0);
             nav.height = proxyHeightMeters;
             nav.radius = obstacle.RadiusMeters;
-            nav.carving = true;
+            nav.carving = track.Lifecycle == ObstacleLifecycleState.SettledObstacle;
             nav.carveOnlyStationary = true;
             nav.carvingMoveThreshold = 0.05f;
             nav.carvingTimeToStationary = 0.2f;
-            return new Visual(root, body.transform, renderer, nav);
+            var callout = root.AddComponent<WorldSpaceTacticalCallout>();
+            var accent = accentMaterial != null ? accentMaterial : renderer.sharedMaterial;
+            var source = track.ObservationSource == ObservationSource.SamVerified ? "SAM VERIFIED" : track.ObservationSource == ObservationSource.LocalMotionEstimate ? "LOCAL ESTIMATE" : "LOCAL CV";
+            var state = track.Lifecycle == ObstacleLifecycleState.SettledObstacle ? "SETTLED" : track.Lifecycle == ObstacleLifecycleState.TransientManipulator ? "TRANSIENT" : "SETTLING";
+            var label = "#" + obstacle.Id + "  " + obstacle.Label + "\nR " + obstacle.RadiusMeters.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "m  C " + obstacle.Confidence.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "\n" + source + "  /  " + state;
+            callout.Configure(accent, label, RenderColor(track), obstacle.RadiusMeters, proxyHeightMeters);
+            return new Visual(root, body.transform, renderer, nav, callout);
+        }
+
+        private Color RenderColor(TrackedObstacleState track)
+        {
+            if (track.Obstacle.IsHazardZone) return hazardColor;
+            if (track.ObservationSource == ObservationSource.LocalMotionEstimate) return new Color(0.92f, 0.66f, 0.24f, 0.85f);
+            if (track.ObservationSource == ObservationSource.LocalImageSegmentation) return new Color(0.25f, 0.86f, 0.7f, 0.88f);
+            return obstacleColor;
         }
 
         private void OnDisable() { IsWorldCurrent = false; Clear(); }
@@ -122,12 +146,13 @@ namespace OmniTwin.Simulation.World
         private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
         private sealed class Visual
         {
-            internal Visual(GameObject root, Transform body, Renderer renderer, NavMeshObstacle obstacle)
-            { Root = root; Body = body; Renderer = renderer; Obstacle = obstacle; Target = root.transform.position; }
+            internal Visual(GameObject root, Transform body, Renderer renderer, NavMeshObstacle obstacle, WorldSpaceTacticalCallout callout)
+            { Root = root; Body = body; Renderer = renderer; Obstacle = obstacle; Callout = callout; Target = root.transform.position; }
             internal readonly GameObject Root;
             internal readonly Transform Body;
             internal readonly Renderer Renderer;
             internal readonly NavMeshObstacle Obstacle;
+            internal readonly WorldSpaceTacticalCallout Callout;
             internal readonly MaterialPropertyBlock Tint = new MaterialPropertyBlock();
             internal Vector3 Target;
         }

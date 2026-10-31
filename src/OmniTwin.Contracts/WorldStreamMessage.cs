@@ -2,19 +2,20 @@ using System;
 
 namespace OmniTwin.Contracts;
 
-/// <summary>A versioned world-perception message delivered over the omnitwin.v1 WebSocket subprotocol.</summary>
+/// <summary>A versioned world-perception message delivered over the omnitwin.v3 WebSocket subprotocol.</summary>
 public sealed record WorldStreamMessage
 {
     /// <summary>Creates a bounded, internally consistent transport publication.</summary>
     public WorldStreamMessage(Guid streamId, long sequenceNumber, long sentAtUnixMs,
         long retentionMilliseconds, ObstacleTrackingSnapshot world, string? failureCategory,
-        int rejectedDetectionCount, int protocolVersion = 2)
+        int rejectedDetectionCount, int protocolVersion = 3, PerceptionSourceMode sourceMode = PerceptionSourceMode.LiveCamera)
     {
         if (streamId == Guid.Empty) throw new ArgumentException("Stream ID cannot be empty.", nameof(streamId));
-        if (protocolVersion != 2) throw new ArgumentOutOfRangeException(nameof(protocolVersion));
+        if (protocolVersion != 3) throw new ArgumentOutOfRangeException(nameof(protocolVersion));
         if (retentionMilliseconds < 1 || retentionMilliseconds > 60_000) throw new ArgumentOutOfRangeException(nameof(retentionMilliseconds));
         if (rejectedDetectionCount < 0 || rejectedDetectionCount > 128) throw new ArgumentOutOfRangeException(nameof(rejectedDetectionCount));
         if (failureCategory is not null) ContractGuard.Text(failureCategory, 128, nameof(failureCategory));
+        if (!Enum.IsDefined(typeof(PerceptionSourceMode), sourceMode)) throw new ArgumentOutOfRangeException(nameof(sourceMode));
         World = world ?? throw new ArgumentNullException(nameof(world));
         if (world.Obstacles.Count > 128) throw new ArgumentException("At most 128 tracks can be transmitted.", nameof(world));
         var expectedCurrent = world.SourceAgeMilliseconds.HasValue && world.SourceAgeMilliseconds.Value < retentionMilliseconds;
@@ -23,7 +24,7 @@ public sealed record WorldStreamMessage
             if (track.AgeMilliseconds >= retentionMilliseconds || !world.SourceAgeMilliseconds.HasValue ||
                 track.AgeMilliseconds < world.SourceAgeMilliseconds.Value)
                 throw new ArgumentException("Track age is inconsistent with source age or retention.", nameof(world));
-        StreamId = streamId; ProtocolVersion = protocolVersion;
+        StreamId = streamId; ProtocolVersion = protocolVersion; SourceMode = sourceMode;
         SequenceNumber = ContractGuard.Nonnegative(sequenceNumber, nameof(sequenceNumber));
         SentAtUnixMs = ContractGuard.Nonnegative(sentAtUnixMs, nameof(sentAtUnixMs));
         RetentionMilliseconds = retentionMilliseconds; FailureCategory = failureCategory;
@@ -31,6 +32,8 @@ public sealed record WorldStreamMessage
     }
     /// <summary>Gets the transport protocol version.</summary>
     public int ProtocolVersion { get; }
+    /// <summary>Gets whether the stream represents live camera data or an explicitly requested deterministic replay.</summary>
+    public PerceptionSourceMode SourceMode { get; }
     /// <summary>Gets the message discriminator.</summary>
     public string MessageType => "world.perception";
     /// <summary>Gets the backend stream identity, renewed after a backend restart.</summary>

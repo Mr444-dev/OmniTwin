@@ -2,7 +2,17 @@
 
 Verified on 2026-10-31 on Windows x64 using .NET SDK 10.0.403 with domain targets `net10.0` and `netstandard2.1`; the test hosts run on .NET 10.
 
-## Stage 6 visual systems acceptance (current)
+## Stage 7 synthetic replay and release verification (current)
+
+The Release solution build completed with **zero warnings and zero errors** (8.64 seconds). The full .NET suite passed **435/435 tests**, zero failures and zero skips, in 19.764 seconds. It ran after the Unity runtime-cache correction. `live-preflight --synthetic-tabletop-replay` completed without opening a camera or contacting any model: `META_API_KEY` and `BASETEN_API_KEY` were both reported missing, with no values printed.
+
+The Unity 6000.6.3f1 / URP 17.6.0 project imported **19 files** through its live AssetDatabase (nine portable DLLs and ten runtime scripts). Compilation completed with `compilationFailed=false`, `compiling=false`, and no compiler diagnostics. The final Play Mode connected one Unity client to the separate local backend process started with `--synthetic-tabletop-replay`. `/health/ready` returned 200; `/api/status` reported a running current source; `/api/world/latest` reported protocol v3, `sourceMode=1`, 20-second retention, and three synthetic tracks. The Unity HUD displayed `SOURCE: SYNTHETIC TABLETOP REPLAY (NON-LIVE)`.
+
+The scene ran its `PerimeterPatrolPolicy` with three NavMesh ground agents and two aerial agents. All five had 48-ray LiDAR sampling and telemetry; the three ground sensors reported 2, 2, and 3 hits in the captured sample, while the two planar aerial scans reported no hits within range. Beam visualization was hidden for the overview capture; hiding it does not stop sensing. In a settled, maximized Game View, two HUD samples measured **125–155 FPS** and **6.5–8.0 ms/frame**; source age was 58–82 ms. These are short Unity Editor observations on this workstation, not a standalone/IL2CPP or sustained-load benchmark. Sandbox evaluation was 0.0 ms because this baseline replay did not request model-generated policy execution.
+
+The final clean Play Mode console reported **zero errors and zero warnings**. A prior in-Play asset hot reload exposed stale nonserialized `NavMeshPath` and `MaterialPropertyBlock` caches. The Unity components now restore these runtime-only objects after enable/reload; the 19-file reimport, new Play run, and zero-error console check verified the correction. [Current Game-view capture](images/tactical-desk.png) includes the honest non-live source banner. No physical camera, live SAM, Baseten, voice, semantic classification, Muse Image generation, or paid provider request was used.
+
+## Stage 6 visual systems acceptance (previous milestone)
 
 Release build completed with **zero warnings and zero errors**. The complete `.NET` suite passed **426/426 tests**, zero failures/skips, across the shared `net10.0` and `netstandard2.1` targets and the backend, Brain and perception runtime. The Unity importer fixture also passed after the live-import update: all sixteen planned files (nine portable DLLs and seven scripts), repeat import, `.meta` preservation, local-edit rejection and duplicate-assembly rejection.
 

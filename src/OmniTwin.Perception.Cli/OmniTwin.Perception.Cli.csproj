@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../OmniTwin.Brain/OmniTwin.Brain.csproj" />
     <ProjectReference Include="../OmniTwin.Perception.Runtime/OmniTwin.Perception.Runtime.csproj" />
     <ProjectReference Include="../OmniTwin.Transport/OmniTwin.Transport.csproj" />
   </ItemGroup>

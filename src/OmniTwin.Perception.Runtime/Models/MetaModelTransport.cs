@@ -14,9 +14,11 @@ namespace OmniTwin.Perception.Models;
 public sealed class ModelApiException : Exception
 {
     /// <summary>Creates a safe operational category.</summary>
-    public ModelApiException(string category) : base(category) => Category = category;
+    public ModelApiException(string category, int? httpStatusCode = null) : base(category) { Category = category; HttpStatusCode = httpStatusCode; }
     /// <summary>Gets safe operator text.</summary>
     public string Category { get; }
+    /// <summary>Gets a provider HTTP status without retaining its response body.</summary>
+    public int? HttpStatusCode { get; }
 }
 
 internal sealed class MetaModelTransport : IDisposable
@@ -57,7 +59,7 @@ internal sealed class MetaModelTransport : IDisposable
                     {
                         var code = (int)response.StatusCode;
                         var category = code switch { 401 => "auth_missing_or_invalid_401", 403 => "permission_denied_403", 429 => "rate_limited_429", 408 or 504 => "upstream_timeout", _ => "model_upstream_error" };
-                        if (number >= 3 || !(code is 408 or 429 || code >= 500)) throw new ModelApiException(category);
+                        if (number >= 3 || !(code is 408 or 429 || code >= 500)) throw new ModelApiException(category, code);
                         var retry = response.Headers.RetryAfter?.Delta ?? (response.Headers.RetryAfter?.Date is DateTimeOffset date ? date - DateTimeOffset.UtcNow : delay);
                         if (retry > delay) delay = retry;
                         if (delay > TimeSpan.FromSeconds(5)) throw new ModelApiException(category);

@@ -25,6 +25,7 @@ namespace OmniTwin.Simulation.Runtime
         private long _sequence;
         private float _publishAt;
         private SwarmControlSnapshot _applied;
+        private IReadOnlyList<SwarmAgentController> _agentView;
         private bool _holding = true;
         private string _localFailure;
         private readonly List<SegmentedObstacle> _obstacles = new List<SegmentedObstacle>();
@@ -36,13 +37,15 @@ namespace OmniTwin.Simulation.Runtime
         /// <summary>Gets a safe reason for the current local hold.</summary>
         public string FailureCategory => _localFailure ?? _client?.GetView().FailureCategory ?? Control?.PerceptionFailureCategory;
         /// <summary>Gets the configured real simulation entities.</summary>
-        public IReadOnlyList<SwarmAgentController> Agents => Array.AsReadOnly(agents);
+        public IReadOnlyList<SwarmAgentController> Agents => _agentView ?? (IReadOnlyList<SwarmAgentController>)agents;
 
         /// <summary>Wires explicit references during Editor scene construction.</summary>
-        public void Configure(TwinWebSocketClient connection, SwarmAgentController[] entities) { stream = connection; agents = (SwarmAgentController[])entities.Clone(); }
+        public void Configure(TwinWebSocketClient connection, SwarmAgentController[] entities)
+        { stream = connection; agents = (SwarmAgentController[])entities.Clone(); _agentView = Array.AsReadOnly(agents); }
 
         private void OnEnable()
         {
+            _agentView ??= Array.AsReadOnly(agents);
             if (stream == null || agents.Length == 0 || agents.Length > 128 || !Uri.TryCreate(backendOrigin, UriKind.Absolute, out var origin))
                 throw new InvalidOperationException("Assign a world stream, local origin, and bounded authored agent set.");
             var ids = new HashSet<int>(); foreach (var agent in agents) if (agent == null || !ids.Add(agent.AgentId)) throw new InvalidOperationException("Agent IDs must be unique.");

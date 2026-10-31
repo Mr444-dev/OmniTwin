@@ -22,10 +22,14 @@ public sealed class SwarmWireTests
         var control = new SwarmControlSnapshot(input.SessionId, 1, 100000, false, null, null, null, WorkspaceBounds.TacticalDesk,
             "EmergencyHoldPolicy", "auth_missing_or_invalid_401", "fallback", "baseten_key_missing", null, false, 0,
             Array.Empty<string>(), input.Agents.Select(agent => new AgentTargetDirective(agent.AgentId, agent.CurrentPosition, 0, "hold")).ToArray());
-        var decoded = SwarmWireCodec.DecodeControl(SwarmWireCodec.EncodeControl(control));
+        var encodedControl = SwarmWireCodec.EncodeControl(control);
+        var decoded = SwarmWireCodec.DecodeControl(encodedControl);
         Assert.Equal("auth_missing_or_invalid_401", decoded.PerceptionFailureCategory);
         Assert.Equal(new Vector2D(1.25f, -2.5f), Assert.Single(decoded.Directives).TargetPosition);
         Assert.False(decoded.IsSourceCurrent);
+        Assert.Equal(0, decoded.EvaluationDurationMilliseconds);
+        var invalidEvaluation = Encoding.UTF8.GetString(encodedControl).Replace("\"evaluationDurationMilliseconds\":0", "\"evaluationDurationMilliseconds\":-1", StringComparison.Ordinal);
+        Assert.Throws<WorldStreamProtocolException>(() => SwarmWireCodec.DecodeControl(Encoding.UTF8.GetBytes(invalidEvaluation)));
     }
 
     [Fact]

@@ -9,6 +9,8 @@ using System.Collections.Generic;
 using OmniTwin.Contracts;
 using OmniTwin.Simulation.Runtime;
 using OmniTwin.Simulation.Media;
+using OmniTwin.Simulation.CameraControl;
+using OmniTwin.Simulation.Agents;
 
 namespace OmniTwin.Simulation.UI
 {
@@ -22,6 +24,7 @@ namespace OmniTwin.Simulation.UI
         [SerializeField] private VisualServicesController visuals = null;
         private VisualElement _screen;
         private Label _badge, _connection, _tracks, _hazards, _age, _publication, _calibration, _notice;
+        private Label _sourceMode, _modelMatrix, _performance;
         private Button _reconnect;
         private IVisualElementScheduledItem _refresh;
         private Label _policy, _telemetry, _reason, _brain, _model, _compiler;
@@ -45,6 +48,10 @@ namespace OmniTwin.Simulation.UI
         private bool _lidarVisible;
         private string _visualFeedback;
         private float _visualFeedbackUntil;
+        private Button _view1, _view2, _view3;
+        private DropdownField _cameraAgent;
+        private TacticalCameraController _cameraController;
+        private float _frameTimeEma = 1f / 60f;
 
         private void OnEnable()
         {
@@ -60,6 +67,9 @@ namespace OmniTwin.Simulation.UI
             _publication = Required<Label>(root, "publication");
             _calibration = Required<Label>(root, "calibration");
             _notice = Required<Label>(root, "sourceNotice");
+            _sourceMode = Required<Label>(root, "sourceModeBanner"); _modelMatrix = Required<Label>(root, "modelMatrix");
+            _performance = Required<Label>(root, "performanceMetrics");
+            _sourceMode.enableRichText = false; _modelMatrix.enableRichText = false; _performance.enableRichText = false;
             _reconnect = Required<Button>(root, "reconnectButton");
             _reconnect.clicked += Reconnect;
             _policy = Required<Label>(root, "activePolicy"); _telemetry = Required<Label>(root, "agentTelemetry");
@@ -69,6 +79,13 @@ namespace OmniTwin.Simulation.UI
             _patrol = Required<Button>(root, "patrolButton"); _cordon = Required<Button>(root, "cordonButton");
             _search = Required<Button>(root, "searchButton"); _hold = Required<Button>(root, "holdButton"); _generate = Required<Button>(root, "generateButton");
             _instruction = Required<TextField>(root, "missionInstruction");
+            _view1 = Required<Button>(root, "view1Button"); _view2 = Required<Button>(root, "view2Button"); _view3 = Required<Button>(root, "view3Button");
+            _cameraAgent = Required<DropdownField>(root, "cameraAgent"); _cameraController = UnityEngine.Object.FindAnyObjectByType<TacticalCameraController>();
+            if (_cameraController == null) throw new InvalidOperationException("Tactical camera controller is missing from the scene.");
+            _cameraAgent.choices = new List<string>();
+            foreach (var agent in executor.Agents) _cameraAgent.choices.Add(agent.AgentId.ToString(CultureInfo.InvariantCulture));
+            if (_cameraAgent.choices.Count > 0) _cameraAgent.SetValueWithoutNotify(_cameraAgent.choices[0]);
+            _view1.clicked += ViewIsometric; _view2.clicked += ViewMap; _view3.clicked += ViewChase;
             _recordVoice = Required<Button>(root, "recordVoiceButton"); _cancelVoice = Required<Button>(root, "cancelVoiceButton");
             _useTranscript = Required<Button>(root, "useTranscriptButton"); _previewToggle = Required<Button>(root, "previewToggleButton");
             _voiceStatus = Required<Label>(root, "voiceStatus"); _voiceDraft = Required<Label>(root, "voiceDraft"); _previewStatus = Required<Label>(root, "previewStatus");
@@ -101,6 +118,10 @@ namespace OmniTwin.Simulation.UI
         {
             var current = stream.TryGetCurrentView(out var view);
             var state = view.State;
+            var sourceMode = state.Message == null ? (PerceptionSourceMode?)null : state.Message.SourceMode;
+            var synthetic = sourceMode == PerceptionSourceMode.SyntheticTabletopReplay;
+            _sourceMode.text = synthetic ? "SOURCE: SYNTHETIC TABLETOP REPLAY (NON-LIVE)" : current ? "SOURCE: LIVE CAMERA" : "SOURCE: WAITING FOR BACKEND";
+            _screen.EnableInClassList("synthetic-source", synthetic);
             _screen.EnableInClassList("live", current);
             _connection.text = "STREAM / " + state.Phase.ToString().ToUpperInvariant();
             _badge.text = current ? "OBSERVATION CURRENT" : state.Phase == WorldStreamClientPhase.Connected ? "AWAITING CURRENT OBSERVATION" : "NO CURRENT OBSERVATION";
@@ -115,7 +136,8 @@ namespace OmniTwin.Simulation.UI
             _calibration.text = state.Message == null ? "--" : state.Message.World.CalibrationId.ToString("N").Substring(0, 8);
             _age.text = current && state.Message.World.SourceAgeMilliseconds.HasValue
                 ? (state.Message.World.SourceAgeMilliseconds.Value + view.AdditionalAgeMilliseconds).ToString(CultureInfo.InvariantCulture) + " ms" : "--";
-            _notice.text = current ? "Geometry is scoped to this calibration and tracking session. Proxy height is an authored display setting."
+            _notice.text = synthetic ? "Synthetic local CV replay. No camera, SAM response, or cloud inference is represented by this source."
+                : current ? "Geometry is scoped to this calibration and tracking session. Proxy height is an authored display setting."
                 : state.FailureCategory != null ? "Stream status: " + state.FailureCategory + ". Configure calibrated perception, then reconnect."
                 : "Waiting for a calibrated camera observation. An empty view does not mean the workspace is clear.";
             _policy.text = executor.ActivePolicyName;
@@ -136,6 +158,21 @@ namespace OmniTwin.Simulation.UI
             var control = executor.Control;
             _brain.text = "Brain / " + (control?.BrainStatus ?? "awaiting backend") + (control == null ? "" : " / attempt " + control.GenerationAttempts);
             _model.text = "Model / " + (control?.ModelIdUsed ?? "none") + (control?.UsedModelFallback == true ? " / 404 fallback" : "");
+            var readiness = visuals.Readiness;
+            _modelMatrix.text = readiness == null ? "Backend diagnostics unavailable\n" + visuals.ReadinessStatus :
+                "SAM 3.1 / " + (readiness.MetaApiKeyConfigured ? "credential configured" : "credential missing") + "\n" +
+                "MUSE SPARK OPEN / " + readiness.BasetenRequiredModelId + "\n  " + (readiness.BasetenApiKeyConfigured ? "credential configured" : "credential missing") +
+                (control?.ModelIdUsed == null ? "" : " · active " + control.ModelIdUsed) + "\n" +
+                "MUSE SPARK 1.3 / " + readiness.MuseSemanticModelId + "\n" +
+                "MUSE VOICE / " + readiness.MuseVoiceModelId + "\n" +
+                "MUSE IMAGE / " + readiness.MuseImageModelId + "\n" +
+                "ROSLYN + APPCONTAINER / worker " + (readiness.PolicyWorkerPresent ? "present" : "missing") + " · Windows isolation " + (readiness.WindowsAppContainerSupported ? "supported" : "unavailable");
+            var fps = 1f / Mathf.Max(_frameTimeEma, 0.0001f);
+            var evaluation = control == null ? "--" : control.EvaluationDurationMilliseconds.ToString("F1", CultureInfo.InvariantCulture);
+            var observedAge = current && state.Message.World.SourceAgeMilliseconds.HasValue
+                ? (state.Message.World.SourceAgeMilliseconds.Value + view.AdditionalAgeMilliseconds).ToString(CultureInfo.InvariantCulture) : "--";
+            _performance.text = "FPS " + fps.ToString("F0", CultureInfo.InvariantCulture) + "  /  FRAME " + (_frameTimeEma * 1000).ToString("F1", CultureInfo.InvariantCulture) +
+                " ms  /  SOURCE " + observedAge + " ms  /  SANDBOX " + evaluation + " ms";
             var diagnostics = new StringBuilder(control?.BrainDiagnostic ?? "");
             if (control != null) foreach (var diagnostic in control.CompilationDiagnostics) diagnostics.Append("\n").Append(diagnostic);
             _compiler.text = diagnostics.ToString();
@@ -167,7 +204,13 @@ namespace OmniTwin.Simulation.UI
                 (tag.Classification == null ? "" : "\n" + tag.Classification.Label + " · " + tag.Classification.Role + " · " + tag.Classification.HazardLevel) + (tag.FailureCategory == null ? "" : "\n" + tag.FailureCategory);
             _semanticTrack.SetEnabled(semantics != null && semantics.Objects.Count > 0);
             _loadSemantic.SetEnabled(tag?.Classification != null); _applySemantic.SetEnabled(tag != null && !visuals.IsEditing); _clearSemantic.SetEnabled(tag != null && !visuals.IsEditing);
-            _generateScenery.SetEnabled(!visuals.IsGenerating); _sceneryStatus.text = visuals.SceneryStatus;
+            _generateScenery.SetEnabled(true); _generateScenery.text = visuals.IsGenerating ? "REPLACE SURFACE JOB" : "GENERATE SURFACE (META API)"; _sceneryStatus.text = visuals.SceneryStatus;
+        }
+
+        private void Update()
+        {
+            var delta = Mathf.Max(Time.unscaledDeltaTime, 0.0001f);
+            _frameTimeEma += (delta - _frameTimeEma) * (1 - Mathf.Exp(-5 * delta));
         }
 
         private void VoiceStarted() => _instructionBeforeVoice = _instruction.value;
@@ -212,6 +255,20 @@ namespace OmniTwin.Simulation.UI
         private void Generate() => Mission(_selectedMission, _instruction.value, true);
 
         private void Reconnect() { stream.Reconnect(); Refresh(); }
+        private void ViewIsometric() => _cameraController.SetPreset(1, null);
+        private void ViewMap() => _cameraController.SetPreset(2, null);
+        private void ViewChase()
+        {
+            var selected = SelectedCameraAgent();
+            if (selected == null) { _visualFeedback = "Select a valid swarm unit for chase view"; _visualFeedbackUntil = Time.unscaledTime + 4; return; }
+            _cameraController.SetPreset(3, selected);
+        }
+        private SwarmAgentController SelectedCameraAgent()
+        {
+            if (!int.TryParse(_cameraAgent.value, NumberStyles.None, CultureInfo.InvariantCulture, out var id)) return null;
+            foreach (var agent in executor.Agents) if (agent.AgentId == id) return agent;
+            return null;
+        }
         private void Resize(GeometryChangedEvent change) => _screen.EnableInClassList("compact", change.newRect.width < 1100);
         private void OnDisable()
         {
@@ -223,6 +280,7 @@ namespace OmniTwin.Simulation.UI
             if (_useTranscript != null) _useTranscript.clicked -= UseTranscript; if (_previewToggle != null) _previewToggle.clicked -= TogglePreview;
             if (media != null) media.RecordingStarted -= VoiceStarted;
             if (_maskToggle != null) _maskToggle.clicked -= ToggleMasks; if (_lidarToggle != null) _lidarToggle.clicked -= ToggleLidar;
+            if (_view1 != null) _view1.clicked -= ViewIsometric; if (_view2 != null) _view2.clicked -= ViewMap; if (_view3 != null) _view3.clicked -= ViewChase;
             if (_loadSemantic != null) _loadSemantic.clicked -= LoadTag; if (_applySemantic != null) _applySemantic.clicked -= ApplyTag; if (_clearSemantic != null) _clearSemantic.clicked -= ClearTag;
             if (_generateScenery != null) _generateScenery.clicked -= GenerateScenery; if (_resetScenery != null) _resetScenery.clicked -= ResetScenery;
             _semanticTrack?.UnregisterValueChangedCallback(SelectSemanticTrack);
