@@ -21,14 +21,14 @@ Wdrożono percepcję P1, rzeczywisty rój, Brain z izolowanym wykonawcą, komend
 | 6 / LiDAR | Każda z 5 jednostek ma 48 wiązek, zasięg 6 m, skan 20 Hz, punkty trafień, widoczność w HUD, minimum i wiek w telemetrii | W Play rzeczywiste skany zwróciły trafienia dla trzech agentów naziemnych (3/6/3) i telemetrię dla wszystkich pięciu; oba drony nie trafiły w przeszkodę w swoim planarnym przekroju. `BlocksTravel` zamyka ruch przy przeterminowanym skanie i sprawdza obrys |
 | 6 / semantyka | Po dwóch stabilnych obserwacjach SAM asynchroniczny Muse Spark `muse-spark-1.3` klasyfikuje crop; pamięć ogranicza się do sesji i wspiera nadpisanie operatora | Lokalne Kestrel testy sprawdzają payload obrazu/JSON, próg potwierdzenia, priorytet ręcznego tagu i anulowanie po zmianie sesji; live Meta wymaga klucza |
 | 6 / sceneria | Jawny Muse Image `muse-image-1.0`; walidacja rastra, kontrast, bezpieczna podmiana materiału URP i reset | Testy kontrolowanego protokołu i CRC/rozmiaru PNG/JPEG; Unity kompiluje i wiąże controller z powierzchnią. Płatna generacja wymaga klucza operatora |
-| Weryfikacja | [Raport](verification.md): Release build 0 warning/error, **426/426 testów** oraz Unity 6000.6.3f1 Play Mode | Unity skompilowało scenę, wykonało 48-ray LiDAR i pięcioagentowy test ruchu/ścieżek; bieżący CI dla nowego commitu raportuje osobny wynik |
+| Weryfikacja | [Raport](verification.md): Release build 0 warning/error, **426/426 testów** oraz Unity 6000.6.3f1 Play Mode | Unity skompilowało scenę, wykonało 48-ray LiDAR i pięcioagentowy test ruchu/ścieżek; run #12 dla commitu Stage 6 zakończył się bez kroków runnera/logów, a wcześniejsza adnotacja CI wskazuje limit konta |
 
 ## Co nadal wymaga pracy
 
 - **Odbiór sprzętowy P0:** klucze i dostęp do modeli, własna kalibracja, prawdziwe SAM i Baseten oraz przejazd wokół przedmiotu obserwowanego kamerą. Semantyczny hazard jest tagiem symulacji, a nie oceną rzeczywistego niebezpieczeństwa. [Instrukcja](api-keys.md).
 - **Odbiór wizualny na żywym źródle:** sprawdzenie zsynchronizowanych masek PIP i wygenerowanej tekstury w Game view z backendem, kluczem Meta i fizyczną kamerą. Weryfikacja kompilacji i Play mode nie jest pomiarem wydajności długotrwałej.
 - **Wydanie:** standalone/IL2CPP, długi test, pomiar FPS/opóźnień, profilowanie i nagranie scenariusza. 60 FPS to cel, nie wynik benchmarku.
-- **GitHub Actions:** poprzednie przebiegi zablokowały płatności/limit konta przed uruchomieniem zadania. Dla bieżącego commitu trzeba odczytać nowy wynik osobno; lokalnie przechodzi 426 testów.
+- **GitHub Actions:** [run #12 dla commitu Stage 6](https://github.com/Mr444-dev/OmniTwin/actions/runs/41242900294) nie uruchomił kroków i nie ma archiwum logów; wcześniejsze adnotacje workflow wprost wskazują limit konta. Lokalnie przechodzi 426 testów.
 
 ## Uruchomienie i granice
 
