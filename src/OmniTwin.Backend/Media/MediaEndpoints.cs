@@ -32,7 +32,7 @@ public static class MediaEndpoints
         });
         app.MapPost("/api/voice/transcribe", (Func<HttpContext, VoiceTranscriptionService, Task<IResult>>)Transcribe);
     }
-    private static bool Allowed(HttpContext context) => context.Request.Headers["X-OmniTwin-Media"] == "1" && CalibrationEndpoints.SameOrigin(context.Request);
+    internal static bool Allowed(HttpContext context) => context.Request.Headers["X-OmniTwin-Media"] == "1" && CalibrationEndpoints.SameOrigin(context.Request);
     private static async Task<IResult> Transcribe(HttpContext context, VoiceTranscriptionService service)
     {
         if (!Allowed(context)) return Error("origin_denied", 403);
@@ -60,5 +60,5 @@ public static class MediaEndpoints
         catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested) { return Error("voice_body_timeout", 408); }
         finally { Array.Clear(buffer); }
     }
-    private static IResult Error(string category, int status) => Results.Json(new { error = category }, statusCode: status);
+    internal static IResult Error(string category, int status) => Results.Json(new { error = category }, statusCode: status);
 }

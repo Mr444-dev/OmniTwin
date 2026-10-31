@@ -67,7 +67,7 @@ W **Edit → Project Settings** sprawdź:
 
 W **File → Build Profiles** wybierz **Windows**, architekturę **Intel 64-bit / x86_64**. Nazwy sekcji mogą być grupowane inaczej zależnie od języka interfejsu. Pozostaw domyślny Render Graph z szablonu URP. Zapisz scenę w `Assets/_OmniTwin/Scenes/TacticalDesk.unity`; następnie sprawdź, czy konsola edytora nie zawiera błędów kompilacji, pakietów ani shaderów.
 
-Sam szablon nie zawiera komponentów OmniTwin ani robotów. Gotowe źródła odbiornika WebSocket i wizualizatora przeszkód są w `unity/client/Runtime`; po utworzeniu projektu zaimportuj je według [instrukcji klienta](unity-client.md). Roboty, kontrolery misji i uruchomienie sceny są dalszym etapem. Nie twórz ręcznie pustych skryptów ani zastępczych adapterów.
+Szablon Universal 3D nie zawiera komponentów OmniTwin. Użytkownik utworzył już projekt `unity/OmniTwin.Unity`; zawiera on scenę `TacticalDesk`, HUD, pięć agentów symulacji, referencyjny NavMesh i zapisane kontrolery misji. Źródła adapterów znajdują się w `unity/client/Runtime`, a [instrukcja klienta](unity-client.md) opisuje synchronizację bibliotek i skryptów. Nie twórz ręcznie pustych skryptów ani zastępczych adapterów.
 
 ## 4. Backend i .NET
 
@@ -83,7 +83,7 @@ dotnet run --project src/OmniTwin.Backend -c Release --no-build -- --OmniTwin:En
 
 Backend nasłuchuje domyślnie na `http://127.0.0.1:5108`. Sprawdź `http://127.0.0.1:5108/health/live` oraz `/api/status`. Przy wyłączonej percepcji readiness i ostatni stan świata zwracają 503; jest to oczekiwany brak danych z kamery. Do prawdziwej percepcji potrzebujesz własnej kalibracji i `META_API_KEY`, zgodnie z [instrukcją backendu](backend.md).
 
-Docelowe połączenie Unity: **`ws://127.0.0.1:5108/ws/twin`**, subprotokół **`omnitwin.v2`**. Jest to własny protokół WebSocket, bez wymogu instalowania SignalR. Backend udostępnia strumień, a źródła adaptera Unity są gotowe do importu; sprawdzenie w scenie wymaga utworzenia projektu i podpięcia komponentów. Nie wpisuj kluczy API do Unity, skryptów, scen ani Inspectorów. `BASETEN_API_KEY` jest odczytywany przez wdrożony Brain przy jawnej syntezie polityki. Istniejąca scena jest już podłączona; dalsze kroki: [klucze i uruchomienie](api-keys.md).
+Docelowe połączenie Unity: **`ws://127.0.0.1:5108/ws/twin`**, subprotokół **`omnitwin.v2`**. Jest to własny protokół WebSocket, bez wymogu instalowania SignalR. Zapisana scena jest podłączona i posiada pięć agentów; zaktualizuj jej import według [instrukcji klienta](unity-client.md). Nie wpisuj kluczy API do Unity, skryptów, scen ani Inspectorów. Backend odczytuje `META_API_KEY` i `BASETEN_API_KEY` z własnego środowiska. [Klucze i uruchomienie](api-keys.md).
 
 Backend i narzędzia pracują na .NET 10, a Unity zachowuje własny runtime Mono/IL2CPP i profil .NET Standard 2.1. Do Unity będą importowane wyłącznie odpowiednie biblioteki `netstandard2.1` z zależnościami; bibliotek `net10.0` nie kopiujemy do Assets. Biblioteka Transport ma zależności JSON, dlatego import pojedynczego DLL nie stanowi kompletnej integracji. Ich zgodność w Editorze i IL2CPP wymaga osobnego sprawdzenia. [Profile .NET w Unity](https://docs.unity3d.com/6000.6/Documentation/Manual/dotnet-profile-support.html).
 

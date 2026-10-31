@@ -24,27 +24,31 @@
     },
     {
       "path": "Assets/_OmniTwin/Plugins/OmniTwin.Contracts.dll",
-      "sha256": "72A7FC51C278B24C6FFB8F09F211C478728C913746C01702BB69F3C6A398EC82"
+      "sha256": "847F919B297092E603F45AA367102344153FC3324BC4E9CAFCDAB6678C34FD67"
     },
     {
       "path": "Assets/_OmniTwin/Plugins/OmniTwin.Perception.dll",
-      "sha256": "00403A27B38A736CCD3281DA08020EE9F32C16089645E1131DC1EFF11523DFB5"
+      "sha256": "10E222587B6EBEA80296E3BD6FBB02ABDF690A43609BD932247CC3AFC8F98871"
     },
     {
       "path": "Assets/_OmniTwin/Plugins/OmniTwin.Policies.dll",
-      "sha256": "DE591BB10121888BA4FEF26688089B425E5AAE80B7C7829C26DD60B7962B485D"
+      "sha256": "E300EF91FEA5CEEBA8DD7514BA427C26EF932127E523D88F5EB651B280D036C2"
     },
     {
       "path": "Assets/_OmniTwin/Plugins/OmniTwin.Transport.dll",
-      "sha256": "D5C59E8A353EA2A3121AEAE3855812EB333C075BE963BE61EF768E1E38DD9593"
+      "sha256": "EF43E1351CE670E0DB295645EEC8CE66956EF9765390B0F27A1A2AAE4BB5BDD4"
     },
     {
       "path": "Assets/_OmniTwin/Scripts/Agents/SwarmAgentController.cs",
-      "sha256": "B2A5F23FED25CA19DC1BAB9CF2521873473057E4493813BAF4F901520982D127"
+      "sha256": "00F1B06C561037796FB9D282C992BDCF2D6536DDEC554D48A3B8FC8B7190C19E"
     },
     {
       "path": "Assets/_OmniTwin/Scripts/Media/MediaConsoleController.cs",
-      "sha256": "641B3F629A4B426B95C0DFCA831FB3247624B70EA59D0077ACDB0A3F90E34249"
+      "sha256": "3D806BFFFC7E20024DD36416AA99DD328700968948A5D9B78D976512BFAF4220"
+    },
+    {
+      "path": "Assets/_OmniTwin/Scripts/Media/VisualServicesController.cs",
+      "sha256": "B825DA3A37C1CE85F18C919C56BC136A53F3B150B90D5B4D348B5A6D1AD75E52"
     },
     {
       "path": "Assets/_OmniTwin/Scripts/Network/TwinWebSocketClient.cs",
@@ -53,6 +57,10 @@
     {
       "path": "Assets/_OmniTwin/Scripts/Runtime/PolicyExecutor.cs",
       "sha256": "7EC71E878096A15E4FAB8746CDD8F3CF948033F6D549330908B8C6D95BC30433"
+    },
+    {
+      "path": "Assets/_OmniTwin/Scripts/Sensors/LidarSensor.cs",
+      "sha256": "BAA1202D7B69D751CCCF03C1E9BE72E3D1A347495225196D587FD8FD1210D086"
     },
     {
       "path": "Assets/_OmniTwin/Scripts/World/DynamicObstacleSpawner.cs",

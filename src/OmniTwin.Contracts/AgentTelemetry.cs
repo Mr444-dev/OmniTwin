@@ -31,7 +31,7 @@ public sealed record AgentTelemetry
 {
     /// <summary>Creates telemetry; undefined enum values and battery levels outside [0, 1] are rejected.</summary>
     public AgentTelemetry(int agentId, AgentRole role, Vector2D currentPosition,
-        Vector2D currentVelocity, float batteryLevel, AgentStatus status)
+        Vector2D currentVelocity, float batteryLevel, AgentStatus status, LidarTelemetry? lidar = null)
     {
         if (!Enum.IsDefined(typeof(AgentRole), role)) throw new ArgumentOutOfRangeException(nameof(role));
         if (!Enum.IsDefined(typeof(AgentStatus), status)) throw new ArgumentOutOfRangeException(nameof(status));
@@ -41,6 +41,7 @@ public sealed record AgentTelemetry
         CurrentVelocity = currentVelocity;
         BatteryLevel = ContractGuard.Range(batteryLevel, 0, 1, nameof(batteryLevel));
         Status = status;
+        Lidar = lidar;
     }
 
     /// <summary>Gets the stable agent ID.</summary>
@@ -55,4 +56,6 @@ public sealed record AgentTelemetry
     public float BatteryLevel { get; }
     /// <summary>Gets the operational state.</summary>
     public AgentStatus Status { get; }
+    /// <summary>Gets the actual local scan summary, or null when no sensor has sampled.</summary>
+    public LidarTelemetry? Lidar { get; }
 }

@@ -62,8 +62,8 @@ public static class PolicyWorkerProtocol
             }
             foreach (var item in agents.EnumerateArray())
             {
-                Keys(item, "agentId", "role", "currentPosition", "currentVelocity", "batteryLevel", "status");
-                measured.Add(new AgentTelemetry(Int(item, "agentId"), (AgentRole)Int(item, "role"), Vector(item.GetProperty("currentPosition")), Vector(item.GetProperty("currentVelocity")), Scalar(item, "batteryLevel"), (AgentStatus)Int(item, "status")));
+                Keys(item, "agentId", "role", "currentPosition", "currentVelocity", "batteryLevel", "status", "lidar");
+                measured.Add(new AgentTelemetry(Int(item, "agentId"), (AgentRole)Int(item, "role"), Vector(item.GetProperty("currentPosition")), Vector(item.GetProperty("currentVelocity")), Scalar(item, "batteryLevel"), (AgentStatus)Int(item, "status"), SwarmWireCodec.ReadLidar(item.GetProperty("lidar"))));
             }
             var seconds = Scalar(root, "seconds"); if (seconds < 0) throw new WorldStreamProtocolException("worker_time");
             return (new WorldStateSnapshot(Long(world, "timestampUnixMs"), found, measured, Text(world, "activePolicyName"), TextAllowEmpty(world, "lastVoiceCommand"), Long(world, "sequenceNumber"), Int(world, "schemaVersion")), seconds);

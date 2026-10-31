@@ -2559,6 +2559,7 @@ GameObject:
   - component: {fileID: 758096138}
   - component: {fileID: 758096139}
   - component: {fileID: 758096140}
+  - component: {fileID: 758096141}
   m_Layer: 0
   m_Name: AGV_GROUND_1
   m_TagString: Untagged
@@ -2623,6 +2624,25 @@ MonoBehaviour:
   maximumSpeed: 4
   batteryDrainPerMeter: 0.0005
   trajectory: {fileID: 1051392528}
+--- !u!114 &758096141
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 758096137}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7fdd7e343f14b784f93de47a6a4f001f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OmniTwin.Simulation.Sensors.LidarSensor
+  beamCount: 48
+  fieldOfView: 360
+  rangeMeters: 6
+  scansPerSecond: 20
+  collisionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!1 &766432999
 GameObject:
   m_ObjectHideFlags: 0
@@ -2745,6 +2765,7 @@ GameObject:
   m_Component:
   - component: {fileID: 780322245}
   - component: {fileID: 780322244}
+  - component: {fileID: 780322246}
   m_Layer: 0
   m_Name: DRONE_AERIAL_5
   m_TagString: Untagged
@@ -2787,6 +2808,25 @@ Transform:
   - {fileID: 161464805}
   m_Father: {fileID: 842386431}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &780322246
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 780322243}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7fdd7e343f14b784f93de47a6a4f001f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OmniTwin.Simulation.Sensors.LidarSensor
+  beamCount: 48
+  fieldOfView: 360
+  rangeMeters: 6
+  scansPerSecond: 20
+  collisionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!1 &842386430
 GameObject:
   m_ObjectHideFlags: 0
@@ -3738,6 +3778,7 @@ GameObject:
   - component: {fileID: 1027272133}
   - component: {fileID: 1027272134}
   - component: {fileID: 1027272135}
+  - component: {fileID: 1027272136}
   m_Layer: 0
   m_Name: AGV_GROUND_2
   m_TagString: Untagged
@@ -3802,6 +3843,25 @@ MonoBehaviour:
   maximumSpeed: 4
   batteryDrainPerMeter: 0.0005
   trajectory: {fileID: 1054788158}
+--- !u!114 &1027272136
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1027272132}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7fdd7e343f14b784f93de47a6a4f001f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OmniTwin.Simulation.Sensors.LidarSensor
+  beamCount: 48
+  fieldOfView: 360
+  rangeMeters: 6
+  scansPerSecond: 20
+  collisionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!1 &1048105825
 GameObject:
   m_ObjectHideFlags: 0
@@ -4261,6 +4321,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1094973947}
   - component: {fileID: 1094973948}
+  - component: {fileID: 1094973949}
   m_Layer: 0
   m_Name: DRONE_AERIAL_4
   m_TagString: Untagged
@@ -4303,6 +4364,25 @@ MonoBehaviour:
   maximumSpeed: 4
   batteryDrainPerMeter: 0.0005
   trajectory: {fileID: 242505135}
+--- !u!114 &1094973949
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1094973946}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7fdd7e343f14b784f93de47a6a4f001f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OmniTwin.Simulation.Sensors.LidarSensor
+  beamCount: 48
+  fieldOfView: 360
+  rangeMeters: 6
+  scansPerSecond: 20
+  collisionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!1 &1143599214
 GameObject:
   m_ObjectHideFlags: 0
@@ -4517,6 +4597,7 @@ MonoBehaviour:
   stream: {fileID: 1540867560}
   executor: {fileID: 37258841}
   media: {fileID: 1359088236}
+  visuals: {fileID: 1701720930}
 --- !u!114 &1201483405
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5997,6 +6078,7 @@ GameObject:
   - component: {fileID: 1619813375}
   - component: {fileID: 1619813376}
   - component: {fileID: 1619813377}
+  - component: {fileID: 1619813378}
   m_Layer: 0
   m_Name: AGV_GROUND_3
   m_TagString: Untagged
@@ -6061,6 +6143,71 @@ MonoBehaviour:
   maximumSpeed: 4
   batteryDrainPerMeter: 0.0005
   trajectory: {fileID: 916760810}
+--- !u!114 &1619813378
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1619813374}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7fdd7e343f14b784f93de47a6a4f001f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OmniTwin.Simulation.Sensors.LidarSensor
+  beamCount: 48
+  fieldOfView: 360
+  rangeMeters: 6
+  scansPerSecond: 20
+  collisionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+--- !u!1 &1701720929
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1701720931}
+  - component: {fileID: 1701720930}
+  m_Layer: 0
+  m_Name: Visual Services
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1701720930
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1701720929}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5017228cf25a3d845b7243d9650f9332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OmniTwin.Simulation.Media.VisualServicesController
+  backendOrigin: http://127.0.0.1:5108
+  workspaceSurface: {fileID: 445144815}
+--- !u!4 &1701720931
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1701720929}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1714217802
 GameObject:
   m_ObjectHideFlags: 0
@@ -8351,3 +8498,4 @@ SceneRoots:
   - {fileID: 842386431}
   - {fileID: 37258842}
   - {fileID: 1359088237}
+  - {fileID: 1701720931}

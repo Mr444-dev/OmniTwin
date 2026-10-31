@@ -50,27 +50,29 @@ public sealed class CalibratedTrackingWorker
 
     /// <summary>Tracks every camera frame locally while one bounded SAM request runs asynchronously.</summary>
     public async IAsyncEnumerable<WorldPerceptionUpdate> RunHybridAsync(IAsyncEnumerable<CapturedFrame> frames, ISam31Client client,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken = default,
+        Action<CapturedFrame, IReadOnlyList<MaskOverlaySample>>? onFrame = null, Action<VerifiedMaskBatch>? onVerified = null)
     {
         ArgumentNullException.ThrowIfNull(frames); ArgumentNullException.ThrowIfNull(client);
         using var motion = new LocalMotionEstimator(_profile);
         async IAsyncEnumerable<CapturedFrame> Observe([EnumeratorCancellation] CancellationToken token = default)
         {
             await foreach (var frame in frames.WithCancellation(token).ConfigureAwait(false))
-            { motion.Observe(frame); yield return frame; }
+            { motion.Observe(frame); onFrame?.Invoke(frame, motion.ReadMaskOverlays(frame.SequenceNumber)); yield return frame; }
         }
         var segmentation = new SegmentationWorker(client, TimeSpan.FromMilliseconds(Math.Min(PerceptionTiming.MaximumFrameAgeMilliseconds, _retentionMs - 1)), _time);
-        await foreach (var update in RunCoreAsync(segmentation.RunAsync(Observe(cancellationToken), _label, cancellationToken), motion, cancellationToken).ConfigureAwait(false))
+        await foreach (var update in RunCoreAsync(segmentation.RunAsync(Observe(cancellationToken), _label, cancellationToken), motion, cancellationToken, onVerified).ConfigureAwait(false))
             yield return update;
     }
 
     private async IAsyncEnumerable<WorldPerceptionUpdate> RunCoreAsync(IAsyncEnumerable<SegmentationUpdate> updates, LocalMotionEstimator? motion,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken = default, Action<VerifiedMaskBatch>? onVerified = null)
     {
         if (updates is null) throw new ArgumentNullException(nameof(updates));
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var stateGate = new object();
-        var tracker = new ObstacleTracker(Guid.NewGuid(), _profile.CalibrationId, _retentionMs);
+        var session = Guid.NewGuid();
+        var tracker = new ObstacleTracker(session, _profile.CalibrationId, _retentionMs);
         var projector = new MaskObstacleProjector(_profile);
         string? lastFailure = null;
         IReadOnlyList<ProjectionRejection> rejections = Array.Empty<ProjectionRejection>();
@@ -89,6 +91,7 @@ public sealed class CalibratedTrackingWorker
                     var projected = projector.Project(result, _label, _hazard);
                     var batch = new ObstacleObservationBatch(result.SequenceNumber, Milliseconds(result.CaptureTimestamp),
                         result.CapturedAt.ToUnixTimeMilliseconds(), projected.Observations);
+                    VerifiedMaskBatch? acceptedMasks = null;
                     lock (stateGate)
                     {
                         var status = tracker.Update(batch, Milliseconds(_time.GetTimestamp()));
@@ -102,12 +105,17 @@ public sealed class CalibratedTrackingWorker
                             TrackingUpdateStatus.IdentityExhausted => "tracking_identity_exhausted",
                             _ => throw new InvalidOperationException("Unknown tracking update status.")
                         };
-                        if (status == TrackingUpdateStatus.Accepted && motion is not null)
+                        if (status == TrackingUpdateStatus.Accepted)
                         {
-                            motion.Correct(result, tracker);
+                            var masks = new Dictionary<int, SamDetection>();
+                            foreach (var detection in result.Detections)
+                                if (tracker.TryGetVerifiedTrackId(result.SequenceNumber, detection.ObjectId, out var id, out _)) masks.Add(id, detection);
+                            acceptedMasks = new VerifiedMaskBatch(session, result, masks);
+                            motion?.Correct(result, tracker);
                             ApplyMotion();
                         }
                     }
+                    if (acceptedMasks is not null) onVerified?.Invoke(acceptedMasks);
                 }
             }
             catch (OperationCanceledException) when (stop.IsCancellationRequested) { return; }

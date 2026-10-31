@@ -86,7 +86,12 @@
 .swarm-panel .unity-scroll-view__content-viewport { overflow: hidden; }
 .observation-panel { height: 100%; min-height: 0; overflow: hidden; }
 .observation-panel .unity-scroll-view__content-container > * { flex-shrink: 0; }
-.camera-preview { height: 150px; margin-top: 10px; margin-bottom: 12px; }
+.camera-preview { height: 190px; margin-top: 10px; margin-bottom: 12px; position: relative; }
+.preview-image { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+.semantic-field { flex-direction: column; margin-top: 8px; margin-bottom: 8px; font-size: 12px; }
+.semantic-field .unity-base-field__label { margin-bottom: 4px; }
+.semantic-field .unity-base-field__input { background-color: rgb(13, 30, 40); color: rgb(221, 240, 239); min-height: 28px; }
+.mission-button:focus { border-color: rgb(132, 245, 217); }
 .preview-hidden { display: none; }
 .preview-toggle, .voice-record { flex-basis: auto; flex-shrink: 0; min-height: 38px; }
 .media-status { font-size: 11px; white-space: normal; color: rgb(160, 194, 206); margin-top: 7px; margin-bottom: 9px; }

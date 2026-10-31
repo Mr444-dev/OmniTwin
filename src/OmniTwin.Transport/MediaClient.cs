@@ -25,7 +25,7 @@ public sealed class MediaClient : IDisposable
     private readonly HttpClient _http;
     /// <summary>Creates a nonredirecting loopback client.</summary>
     public MediaClient() => _http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
-    private static Uri Endpoint(Uri origin, string path)
+    internal static Uri Endpoint(Uri origin, string path)
     {
         if (origin is null || origin.Scheme != "http" || !(origin.Host == "127.0.0.1" || origin.Host == "localhost") || origin.AbsolutePath != "/" || origin.UserInfo.Length != 0 || origin.Query.Length != 0 || origin.Fragment.Length != 0)
             throw new ArgumentException("Use a loopback HTTP origin.", nameof(origin));
@@ -107,21 +107,21 @@ public sealed class MediaClient : IDisposable
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested) { throw new MediaTransportException("camera_preview_timeout"); }
     }
-    private static HttpRequestMessage Request(HttpMethod method, Uri endpoint) { var request = new HttpRequestMessage(method, endpoint); request.Headers.Add("X-OmniTwin-Media", "1"); return request; }
-    private static bool Transient(HttpResponseMessage response) => (int)response.StatusCode is 408 or 429 or 500 or 502 or 504;
-    private static async Task Delay(HttpResponseMessage response, int attempt, CancellationToken token)
+    internal static HttpRequestMessage Request(HttpMethod method, Uri endpoint) { var request = new HttpRequestMessage(method, endpoint); request.Headers.Add("X-OmniTwin-Media", "1"); return request; }
+    internal static bool Transient(HttpResponseMessage response) => (int)response.StatusCode is 408 or 429 or 500 or 502 or 504;
+    internal static async Task Delay(HttpResponseMessage response, int attempt, CancellationToken token)
     {
         var duration = response.Headers.RetryAfter?.Delta ?? (response.Headers.RetryAfter?.Date is DateTimeOffset date ? date - DateTimeOffset.UtcNow : TimeSpan.FromMilliseconds(250 * (1 << (attempt - 1))));
         if (duration < TimeSpan.Zero) duration = TimeSpan.Zero;
         if (duration > TimeSpan.FromSeconds(3)) throw new MediaTransportException("media_retry_exceeds_budget"); await Task.Delay(duration, token).ConfigureAwait(false);
     }
-    private static async Task<byte[]> Bytes(HttpResponseMessage response, int maximum, CancellationToken token)
+    internal static async Task<byte[]> Bytes(HttpResponseMessage response, int maximum, CancellationToken token)
     {
         if (response.Content.Headers.ContentLength > maximum) throw new MediaTransportException("media_body_too_large");
         using var body = new MemoryStream(); using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false); var buffer = new byte[4096];
         while (true) { var count = await stream.ReadAsync(buffer, 0, buffer.Length, token).ConfigureAwait(false); if (count == 0) break; if (body.Length + count > maximum) throw new MediaTransportException("media_body_too_large"); await body.WriteAsync(buffer, 0, count, token).ConfigureAwait(false); } return body.ToArray();
     }
-    private static async Task<string> Failure(HttpResponseMessage response, CancellationToken token)
+    internal static async Task<string> Failure(HttpResponseMessage response, CancellationToken token)
     {
         try
         {

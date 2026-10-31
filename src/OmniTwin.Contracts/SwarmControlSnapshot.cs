@@ -16,7 +16,7 @@ public sealed class SwarmTelemetrySnapshot
         Agents = ContractGuard.CopyUnique(agents, agent => agent.AgentId, nameof(agents));
     }
     /// <summary>Gets the telemetry schema.</summary>
-    public int SchemaVersion => 1;
+    public int SchemaVersion => 2;
     /// <summary>Gets the client's run identity.</summary>
     public Guid SessionId { get; }
     /// <summary>Gets its monotonic publication sequence.</summary>

@@ -2,6 +2,7 @@ using System;
 using OmniTwin.Contracts;
 using UnityEngine;
 using UnityEngine.AI;
+using OmniTwin.Simulation.Sensors;
 
 namespace OmniTwin.Simulation.Agents
 {
@@ -16,6 +17,7 @@ namespace OmniTwin.Simulation.Agents
         [SerializeField] private float batteryDrainPerMeter = 0.0005f;
         [SerializeField] private LineRenderer trajectory;
         private NavMeshAgent _navigation;
+        private LidarSensor _lidar;
         private AgentTargetDirective _directive;
         private AgentStatus _status = AgentStatus.Holding;
         private Vector3 _previous, _velocity;
@@ -29,6 +31,8 @@ namespace OmniTwin.Simulation.Agents
         public AgentRole Role => role;
         /// <summary>Gets its current operational state.</summary>
         public AgentStatus Status => _status;
+        /// <summary>Gets the independently sampled local sensor.</summary>
+        public LidarSensor Lidar => _lidar;
         /// <summary>Gets the current planar transform position without allocating telemetry.</summary>
         public Vector2D PlanarPosition => new Vector2D(transform.position.x, transform.position.z);
 
@@ -41,7 +45,7 @@ namespace OmniTwin.Simulation.Agents
             if (agentId < 0 || !Enum.IsDefined(typeof(AgentRole), role) || maximumSpeed <= 0 || maximumSpeed > 4 ||
                 flightAltitude < 1 || float.IsNaN(flightAltitude) || float.IsInfinity(flightAltitude))
                 throw new InvalidOperationException("Invalid authored swarm agent configuration.");
-            _previous = transform.position; _navigation = GetComponent<NavMeshAgent>();
+            _previous = transform.position; _navigation = GetComponent<NavMeshAgent>(); _lidar = GetComponent<LidarSensor>();
             if (role == AgentRole.GroundVehicle && (_navigation == null || !_navigation.isOnNavMesh))
                 throw new InvalidOperationException("Ground agent must start on the baked navigation surface.");
             Hold();
@@ -76,7 +80,7 @@ namespace OmniTwin.Simulation.Agents
 
         /// <summary>Samples actual transform/navigation state; battery represents the configured simulation energy model.</summary>
         public AgentTelemetry ReadTelemetry() => new AgentTelemetry(agentId, role, new Vector2D(transform.position.x, transform.position.z),
-            new Vector2D(_velocity.x, _velocity.z), _battery, _status);
+            new Vector2D(_velocity.x, _velocity.z), _battery, _status, _lidar != null ? _lidar.ReadTelemetry() : null);
 
         private void FixedUpdate()
         {
@@ -109,6 +113,7 @@ namespace OmniTwin.Simulation.Agents
 
         private bool Blocked(Vector3 position, Vector3 advance)
         {
+            if (_lidar == null || !_lidar.isActiveAndEnabled || _lidar.BlocksTravel(advance)) return true;
             advance.y = 0; var distance = advance.magnitude;
             if (distance < 0.0001f) return false;
             var count = Physics.SphereCastNonAlloc(new Vector3(position.x, 0.4f, position.z), 0.34f, advance / distance,

@@ -103,7 +103,8 @@ public sealed class LocalMotionEstimator : IDisposable
                 var box = detection.Box;
                 var roi = Clip(new Rect2d(box.Left * _scale - 3, box.Top * _scale - 3,
                     (box.Right - box.Left + 1) * _scale + 6, (box.Bottom - box.Top + 1) * _scale + 6), source.Size());
-                var region = new Region(id, roi, (contact.Left + contact.Right) / 2, contact.V, radius);
+                var region = new Region(id, roi, (contact.Left + contact.Right) / 2, contact.V, radius)
+                { Mask = detection, SamSequence = result.SequenceNumber, SamUnix = result.CapturedAt.ToUnixTimeMilliseconds() };
                 _regions.Add(region);
                 if (roi.Width < 6 || roi.Height < 6) { region.Lost = true; continue; }
                 if (_latest.SequenceNumber == result.SequenceNumber) continue;
@@ -156,6 +157,22 @@ public sealed class LocalMotionEstimator : IDisposable
         Cv2.Resize(color, gray, new Size((int)Math.Round(frame.Width * _scale), (int)Math.Round(frame.Height * _scale)), interpolation: InterpolationFlags.Area);
         return gray;
     }
+    /// <summary>Returns masks only for the exact current frame, omitting lost/unmeasured alignment and expired SAM anchors.</summary>
+    public IReadOnlyList<MaskOverlaySample> ReadMaskOverlays(long sequenceNumber)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            var result = new List<MaskOverlaySample>();
+            if (_latest is null || _latest.SequenceNumber != sequenceNumber) return result.AsReadOnly();
+            foreach (var region in _regions)
+                if (!region.Lost && region.Mask is not null && (region.Measured || sequenceNumber == region.SamSequence) &&
+                    _latest.CapturedAt.ToUnixTimeMilliseconds() - region.SamUnix < PerceptionTiming.MaximumFrameAgeMilliseconds)
+                    result.Add(new MaskOverlaySample(region.Id, region.Mask, region.ShiftX / _scale, region.ShiftY / _scale,
+                        region.SamSequence, region.SamUnix, sequenceNumber, region.Quality));
+            return result.AsReadOnly();
+        }
+    }
     private static Rect Clip(Rect2d rectangle, Size size)
     {
         var x = Math.Clamp((int)Math.Floor(rectangle.X), 0, size.Width);
@@ -177,5 +194,7 @@ public sealed class LocalMotionEstimator : IDisposable
         internal double BaseU, BaseV, ShiftX, ShiftY;
         internal float Quality = 1;
         internal bool Lost, Measured;
+        internal SamDetection? Mask;
+        internal long SamSequence, SamUnix;
     }
 }

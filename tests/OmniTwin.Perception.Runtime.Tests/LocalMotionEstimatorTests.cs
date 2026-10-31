@@ -48,6 +48,11 @@ public sealed class LocalMotionEstimatorTests
         Assert.InRange(estimate.Position.X - observation.Position.X, 0.27f, 0.33f);
         Assert.InRange(estimate.Position.Z - observation.Position.Z, 0.17f, 0.23f);
         Assert.InRange(estimate.Quality, 0.5f, 1);
+        Assert.Empty(motion.ReadMaskOverlays(first.SequenceNumber));
+        var mask = Assert.Single(motion.ReadMaskOverlays(second.SequenceNumber));
+        Assert.Equal(ObservationSource.LocalMotionEstimate, mask.ObservationSource);
+        Assert.Equal(result.SequenceNumber, mask.SamSequenceNumber); Assert.Equal(second.SequenceNumber, mask.ImageSequenceNumber);
+        Assert.InRange(mask.ShiftU, 5.4, 6.6); Assert.InRange(mask.ShiftV, 3.4, 4.6);
     }
 
     [Fact]
@@ -59,11 +64,12 @@ public sealed class LocalMotionEstimatorTests
         tracker.Update(new ObstacleObservationBatch(1, 0, 100000, observations), 0);
         using var motion = new LocalMotionEstimator(profile);
         motion.Observe(frame); motion.Correct(result, tracker); motion.Observe(Frame(2, visible: false));
-        Assert.True(motion.IsTrackingLost); Assert.Empty(motion.ReadEstimates());
+        Assert.True(motion.IsTrackingLost); Assert.Empty(motion.ReadEstimates()); Assert.Empty(motion.ReadMaskOverlays(2));
         var restored = Frame(3); motion.Observe(restored);
         tracker.Update(new ObstacleObservationBatch(3, 200, 100200, observations), 200);
         motion.Correct(Result(restored), tracker);
         Assert.False(motion.IsTrackingLost);
+        Assert.Equal(ObservationSource.SamVerified, Assert.Single(motion.ReadMaskOverlays(3)).ObservationSource);
     }
 
     [Theory]

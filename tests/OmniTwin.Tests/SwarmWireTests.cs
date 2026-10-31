@@ -10,13 +10,15 @@ namespace OmniTwin.Tests;
 public sealed class SwarmWireTests
 {
     private static SwarmTelemetrySnapshot Telemetry() => new(Guid.NewGuid(), 1, 100000, new[] {
-        new AgentTelemetry(1, AgentRole.GroundVehicle, new Vector2D(1.25f, -2.5f), default, 0.9f, AgentStatus.Holding) });
+        new AgentTelemetry(1, AgentRole.GroundVehicle, new Vector2D(1.25f, -2.5f), default, 0.9f, AgentStatus.Holding,
+            new LidarTelemetry(48, 2, 6, 0.8f, 8)) });
 
     [Fact]
     public void TelemetryAndControlRoundTripPreserveNonzeroCoordinatesAndProvenance()
     {
         var input = Telemetry(); var copy = SwarmWireCodec.DecodeTelemetry(SwarmWireCodec.EncodeTelemetry(input));
         Assert.Equal(input.SessionId, copy.SessionId); Assert.Equal(input.Agents, copy.Agents);
+        Assert.Equal(input.Agents[0].Lidar, copy.Agents[0].Lidar);
         var control = new SwarmControlSnapshot(input.SessionId, 1, 100000, false, null, null, null, WorkspaceBounds.TacticalDesk,
             "EmergencyHoldPolicy", "auth_missing_or_invalid_401", "fallback", "baseten_key_missing", null, false, 0,
             Array.Empty<string>(), input.Agents.Select(agent => new AgentTargetDirective(agent.AgentId, agent.CurrentPosition, 0, "hold")).ToArray());
@@ -30,9 +32,10 @@ public sealed class SwarmWireTests
     public void RejectsMissingUnknownDuplicateVersionEnumAndNonfiniteInput()
     {
         var json = Encoding.UTF8.GetString(SwarmWireCodec.EncodeTelemetry(Telemetry()));
-        foreach (var invalid in new[] { "{}", json.Replace("\"schemaVersion\":1", "\"schemaVersion\":2"),
-            json.Replace("\"schemaVersion\":1", "\"schemaVersion\":1,\"extra\":0"), json.Replace("\"schemaVersion\":1", "\"schemaVersion\":1,\"schemaVersion\":1"),
-            json.Replace("\"role\":0", "\"role\":99"), json.Replace("\"x\":1.25", "\"x\":1e999") })
+        foreach (var invalid in new[] { "{}", json.Replace("\"schemaVersion\":2", "\"schemaVersion\":1"),
+            json.Replace("\"schemaVersion\":2", "\"schemaVersion\":2,\"extra\":0"), json.Replace("\"schemaVersion\":2", "\"schemaVersion\":2,\"schemaVersion\":2"),
+            json.Replace("\"role\":0", "\"role\":99"), json.Replace("\"x\":1.25", "\"x\":1e999"),
+            json.Replace("\"hitCount\":2", "\"hitCount\":49") })
             Assert.Throws<WorldStreamProtocolException>(() => SwarmWireCodec.DecodeTelemetry(Encoding.UTF8.GetBytes(invalid)));
         Assert.Throws<WorldStreamProtocolException>(() => SwarmWireCodec.DecodeTelemetry(new byte[SwarmWireCodec.MaximumBytes + 1]));
     }

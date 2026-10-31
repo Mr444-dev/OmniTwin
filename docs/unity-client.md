@@ -4,13 +4,21 @@ The portable connection client and Unity adapters are implemented and imported i
 
 ## Import
 
-First create `unity/OmniTwin.Unity` using the [Unity setup guide](unity-setup.md). Close that project's Editor during import. From the repository root, with the pinned .NET SDK installed:
+The existing `unity/OmniTwin.Unity` project uses Unity's ownership-checked importer. With the pinned .NET SDK installed, from the repository root:
 
 ```powershell
 ./tools/InstallUnityClient.ps1 -ProjectPath ./unity/OmniTwin.Unity
 ```
 
-If `dotnet` is not on PATH, pass `-DotNetPath` with the absolute SDK executable. The installer performs locked restores, builds `netstandard2.1`, and resolves runtime DLL paths through MSBuild. It imports Contracts, Perception core, Policies, Transport and JSON dependencies, plus five canonical scripts (network, obstacle spawner, agent controller, executor, media console). The graph resolves **nine DLLs and five scripts**. Perception core supplies only portable audio/geometry code; no backend, Roslyn, native OpenCV or `net10.0` binary enters Unity. Existing metadata and local-edit protection are preserved.
+The default mode requires the target Editor to be closed. To update the currently open project without closing it, pass `-LiveEditor` and the full Unity CLI executable path:
+
+```powershell
+./tools/InstallUnityClient.ps1 -ProjectPath ./unity/OmniTwin.Unity -LiveEditor -UnityCliPath 'C:\Users\<user>\AppData\Local\Unity\bin\unity.exe'
+```
+
+The live mode verifies the exact open project, source and prior ownership hashes, then groups the copy under `AssetDatabase.StartAssetEditing`. It keeps existing `.meta` files, rolls changed files back on a write error, and waits for Unity to import and compile before Play mode.
+
+If `dotnet` is not on PATH, pass `-DotNetPath` with the absolute SDK executable. The installer performs locked restores, builds `netstandard2.1`, and resolves runtime DLL paths through MSBuild. It imports Contracts, Perception core, Policies, Transport and JSON dependencies, plus seven canonical scripts (network, obstacle spawner, agent controller, executor, media console, LiDAR sensor, visual-services controller). The graph resolves **nine DLLs and seven scripts**. No backend, Roslyn, native OpenCV runtime or `net10.0` binary enters Unity. Existing metadata and local-edit protection are preserved.
 
 The ownership record `OmniTwinClient.import.json` stores relative paths and SHA-256 hashes. Repeat imports preserve `.meta` files, reject locally edited/unowned destination files, and reject duplicate DLL names elsewhere in Assets. Removal of an old imported file requires manual review; the installer does not delete assets. Write failures are reported as failures, not successful imports. Reopen the target Editor, allow Unity to generate/import `.meta` files, and commit these files with the imported assets. The installer passed filesystem tests and was then used for the actual OmniTwin Editor import. Package-provided assembly conflicts and platform compatibility still require Editor verification.
 
@@ -34,6 +42,9 @@ Each generated root has a capsule `NavMeshObstacle`: carving enabled, stationary
 `TwinWebSocketClient.OnEnable` starts the loop through `Task.Run`; the loop uses cancellable asynchronous connection/receive calls. It does not call Unity APIs. `Update` only reads state and emits a sanitized warning for a terminal fault; the spawner performs all GameObject, material, interpolation, and navigation-component changes on the main thread. Disable cancels without synchronously joining the worker. The continuation observes completion and disposes its cancellation source. Every enable gets a distinct client/worker, preventing an old run from writing into the new component's state.
 
 A run permits three connection attempts by default, including reconnects after successful connections. Each connection has a five-second handshake timeout; each complete message has a ten-second deadline including silence and a fragmentation/size bound. Retry delays start at 250 ms and double, capped at one minute, with a maximum of ten attempts configurable. Recognized permanent handshakes and protocol/schema violations terminate immediately. Recognized transient connection failures, receive failures, and closed streams use the remaining attempt budget. No message carries over into a disconnected or new connection's state. Every connection gets a fresh order guard so a restarted backend can start a new stream.
+
+
+`LidarSensor` scans 48 beams at up to 20 Hz from each agent's physics transform, observes authored static colliders, carved obstacles and other agents, reports sample age/hit count/minimum range, and keeps scanning when beam rendering is hidden. The local swept-body guard fails closed after 250 ms without a scan and checks upcoming motion against nearby colliders; it is a simulation sensor, not a physical robot safety certificate. See [visual systems](visual-systems.md).
 
 The .NET 10 connector collects HTTP handshake status and `Retry-After`. The portable .NET Standard connector uses those details only if its runtime exposes an `HttpWebResponse`; it also recognizes selected underlying socket failures. An unclassified handshake failure terminates immediately rather than retrying an unknown authentication/protocol failure. Retry advice over one minute is terminal. This platform difference is explicit: automatic retries for every possible Unity/Mono handshake are not claimed. [Microsoft response-detail API](https://learn.microsoft.com/en-us/dotnet/api/system.net.websockets.clientwebsocketoptions.collecthttpresponsedetails?view=net-10.0).
 

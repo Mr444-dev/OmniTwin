@@ -5,10 +5,17 @@
       "omnitwin.contracts": {
         "type": "Project"
       },
-      "omnitwin.transport": {
+      "omnitwin.perception": {
         "type": "Project",
         "dependencies": {
           "OmniTwin.Contracts": "[1.0.0, )"
+        }
+      },
+      "omnitwin.transport": {
+        "type": "Project",
+        "dependencies": {
+          "OmniTwin.Contracts": "[1.0.0, )",
+          "OmniTwin.Perception": "[1.0.0, )"
         }
       }
     }

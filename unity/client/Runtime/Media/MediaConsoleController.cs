@@ -19,10 +19,11 @@ namespace OmniTwin.Simulation.Media
         [SerializeField] private string backendOrigin = "http://127.0.0.1:5108";
         private readonly object _gate = new object();
         private MediaClient _client; private CancellationTokenSource _stop, _voiceStop; private Task _previewTask, _voiceTask; private Uri _origin;
-        private CameraPreview _pending, _shown; private long _received; private int _previewEnabled;
+        private VisualServicesClient _visualClient;
+        private AnnotatedCameraPreview _pending, _shown; private long _received; private int _previewEnabled, _masksEnabled = 1;
         private string _previewStatus = "Camera preview off", _voiceStatus = "Ready to record · 5 s maximum";
         private VoiceTranscription _transcript;
-        private Texture2D _texture; private UIDocument _hud;
+        private Texture2D _texture, _maskTexture; private UIDocument _hud;
         private AudioClip _recording; private string _device; private float _recordedAt; private bool _spaceRecording;
         /// <summary>Raised on the Unity thread after an operator successfully starts capture.</summary>
         public event Action RecordingStarted;
@@ -30,7 +31,16 @@ namespace OmniTwin.Simulation.Media
         /// <summary>Gets whether camera download is explicitly enabled.</summary>
         public bool PreviewEnabled => Volatile.Read(ref _previewEnabled) != 0;
         /// <summary>Gets a texture only while its actual source capture remains fresh.</summary>
-        public Texture2D PreviewTexture => _shown != null && PreviewEnabled && DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _shown.CapturedAtUnixMs < MediaProtocolLimits.PreviewFreshnessMilliseconds ? _texture : null;
+        public Texture2D PreviewTexture => _shown != null && PreviewEnabled && DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _shown.Image.CapturedAtUnixMs < MediaProtocolLimits.PreviewFreshnessMilliseconds ? _texture : null;
+        /// <summary>Gets an aligned transparent mask layer only while the paired camera capture is current.</summary>
+        public Texture2D MaskTexture => MasksEnabled && PreviewTexture != null ? _maskTexture : null;
+        /// <summary>Gets whether operator mask rendering is enabled.</summary>
+        public bool MasksEnabled => Volatile.Read(ref _masksEnabled) != 0;
+        /// <summary>Toggles mask rendering independently of the camera and navigation.</summary>
+        public void SetMasksEnabled(bool value) => Volatile.Write(ref _masksEnabled, value ? 1 : 0);
+        /// <summary>Gets visible mask provenance; a dashed contour always denotes a translated earlier SAM mask.</summary>
+        public string MaskStatus => !MasksEnabled ? "Mask layer off" : PreviewTexture == null ? "Masks unavailable · no current image" :
+            _shown.Masks.Count + " masks · solid: same-frame SAM · dashed: local estimate / SAM age";
         /// <summary>Gets bounded preview status; an image never establishes SAM validity.</summary>
         public string PreviewStatus { get { lock (_gate) return _previewStatus; } }
         /// <summary>Gets whether the microphone is currently owned by this controller.</summary>
@@ -46,8 +56,8 @@ namespace OmniTwin.Simulation.Media
         {
             if (!Uri.TryCreate(backendOrigin, UriKind.Absolute, out _origin) || _origin.Scheme != "http" || !(_origin.Host == "127.0.0.1" || _origin.Host == "localhost") || _origin.AbsolutePath != "/" || _origin.Query.Length != 0 || _origin.Fragment.Length != 0 || _origin.UserInfo.Length != 0)
                 throw new InvalidOperationException("Assign the local backend HTTP origin.");
-            _hud = UnityEngine.Object.FindAnyObjectByType<UIDocument>(); _client = new MediaClient(); _stop = new CancellationTokenSource();
-            var client = _client; var stop = _stop; _previewTask = Task.Run(() => PreviewLoop(client, stop.Token));
+            _hud = UnityEngine.Object.FindAnyObjectByType<UIDocument>(); _client = new MediaClient(); _visualClient = new VisualServicesClient(); _stop = new CancellationTokenSource();
+            var client = _visualClient; var stop = _stop; _previewTask = Task.Run(() => PreviewLoop(client, stop.Token));
         }
         /// <summary>Enables/disables preview without opening another device or changing perception trust.</summary>
         public void SetPreviewEnabled(bool value)
@@ -55,9 +65,9 @@ namespace OmniTwin.Simulation.Media
             Volatile.Write(ref _previewEnabled, value ? 1 : 0);
             if (!value) { lock (_gate) { _pending = null; _previewStatus = "Camera preview off"; } _shown = null; }
         }
-        private async Task PreviewLoop(MediaClient client, CancellationToken token)
+        private async Task PreviewLoop(VisualServicesClient client, CancellationToken token)
         {
-            Guid session = Guid.Empty; long sequence = -1;
+            Guid session = Guid.Empty; long sequence = -1, revision = -1;
             while (true)
             {
                 token.ThrowIfCancellationRequested(); var delay = 200;
@@ -65,15 +75,17 @@ namespace OmniTwin.Simulation.Media
                 {
                     try
                     {
-                        var frame = await client.ReadPreviewAsync(_origin, token).ConfigureAwait(false);
+                        var paired = await client.ReadPreviewAsync(_origin, token).ConfigureAwait(false); var frame = paired.Image;
                         token.ThrowIfCancellationRequested();
-                        if (PreviewEnabled && (frame.SessionId != session || frame.SequenceNumber > sequence))
+                        if (PreviewEnabled && (frame.SessionId != session || frame.SequenceNumber > sequence || (frame.SequenceNumber == sequence && paired.OverlayRevision > revision)))
                         {
-                            session = frame.SessionId; sequence = frame.SequenceNumber;
-                            lock (_gate) { token.ThrowIfCancellationRequested(); _pending = frame; _received = Stopwatch.GetTimestamp(); _previewStatus = "Camera · " + frame.Width + " × " + frame.Height + " · capture " + frame.SequenceNumber; }
+                            var newCapture = frame.SessionId != session || frame.SequenceNumber != sequence;
+                            session = frame.SessionId; sequence = frame.SequenceNumber; revision = paired.OverlayRevision;
+                            lock (_gate) { token.ThrowIfCancellationRequested(); _pending = paired; if (newCapture) _received = Stopwatch.GetTimestamp(); _previewStatus = "Camera · " + frame.Width + " × " + frame.Height + " · capture " + frame.SequenceNumber; }
                         }
                     }
                     catch (MediaTransportException error) { lock (_gate) { _pending = null; _previewStatus = error.Category; } delay = 1000; }
+                    catch (Exception error) when (error is WorldStreamProtocolException || error is InvalidDataException) { lock (_gate) { _pending = null; _previewStatus = "invalid_camera_mask_pair"; } delay = 1000; }
                 }
                 await Task.Delay(delay, token).ConfigureAwait(false);
             }
@@ -113,8 +125,8 @@ namespace OmniTwin.Simulation.Media
                 catch (Exception error) when (error is ArgumentException || error is InvalidOperationException || error is UnityException)
                 { CancelRecording(); SetVoice("microphone_device_failed · type the mission instead"); }
             }
-            CameraPreview pending; long received; lock (_gate) { pending = _pending; received = _received; }
-            if (!PreviewEnabled || pending == null || DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - pending.CapturedAtUnixMs >= MediaProtocolLimits.PreviewFreshnessMilliseconds ||
+            AnnotatedCameraPreview pending; long received; lock (_gate) { pending = _pending; received = _received; }
+            if (!PreviewEnabled || pending == null || DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - pending.Image.CapturedAtUnixMs >= MediaProtocolLimits.PreviewFreshnessMilliseconds ||
                 (Stopwatch.GetTimestamp() - received) * 1000.0 / Stopwatch.Frequency >= MediaProtocolLimits.PreviewFreshnessMilliseconds)
             {
                 _shown = null;
@@ -123,7 +135,9 @@ namespace OmniTwin.Simulation.Media
             else if (!ReferenceEquals(_shown, pending))
             {
                 if (_texture == null) { _texture = new Texture2D(2, 2, TextureFormat.RGB24, false); _texture.name = "OmniTwin live camera preview"; }
-                if (ImageConversion.LoadImage(_texture, pending.CopyJpeg(), true) && _texture.width == pending.Width && _texture.height == pending.Height) _shown = pending;
+                if (_maskTexture == null) { _maskTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false); _maskTexture.name = "OmniTwin synchronized SAM mask layer"; }
+                if (ImageConversion.LoadImage(_texture, pending.Image.CopyJpeg(), true) && _texture.width == pending.Image.Width && _texture.height == pending.Image.Height &&
+                    ImageConversion.LoadImage(_maskTexture, pending.CopyMaskLayer(), true) && _maskTexture.width == pending.Image.Width && _maskTexture.height == pending.Image.Height) _shown = pending;
                 else { _shown = null; lock (_gate) { _pending = null; _previewStatus = "camera_preview_decode_failed"; } }
             }
             if (_previewTask != null && _previewTask.IsFaulted) { _shown = null; lock (_gate) _previewStatus = "camera_preview_worker_failed"; }
@@ -182,10 +196,11 @@ namespace OmniTwin.Simulation.Media
         {
             CancelRecording(); _voiceStop?.Cancel(); _stop?.Cancel(); SetPreviewEnabled(false);
             if (_texture != null) Destroy(_texture); _texture = null;
-            var stop = _stop; var voiceStop = _voiceStop; var client = _client;
+            if (_maskTexture != null) Destroy(_maskTexture); _maskTexture = null;
+            var stop = _stop; var voiceStop = _voiceStop; var client = _client; var visualClient = _visualClient;
             var tasks = _voiceTask == null ? new[] { _previewTask ?? Task.CompletedTask } : new[] { _previewTask ?? Task.CompletedTask, _voiceTask };
-            _ = Task.WhenAll(tasks).ContinueWith(finished => { var failure = finished.Exception; client?.Dispose(); voiceStop?.Dispose(); stop?.Dispose(); }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
-            _stop = null; _voiceStop = null; _client = null;
+            _ = Task.WhenAll(tasks).ContinueWith(finished => { var failure = finished.Exception; client?.Dispose(); visualClient?.Dispose(); voiceStop?.Dispose(); stop?.Dispose(); }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            _stop = null; _voiceStop = null; _client = null; _visualClient = null;
         }
     }
 }

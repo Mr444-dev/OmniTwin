@@ -13,6 +13,7 @@ using OmniTwin.Backend.Swarm;
 using OmniTwin.Transport;
 using OmniTwin.Backend.Media;
 using OmniTwin.Perception.Audio;
+using OmniTwin.Perception.Models;
 
 namespace OmniTwin.Backend;
 
@@ -34,6 +35,12 @@ public static class BackendApplication
         builder.Services.TryAddSingleton<CameraPreviewStore>();
         builder.Services.TryAddSingleton<IMuseVoiceClient, MuseVoiceClient>();
         builder.Services.TryAddSingleton<VoiceTranscriptionService>();
+        builder.Services.TryAddSingleton<IObjectSemanticClient, MuseSparkSemanticClient>();
+        builder.Services.TryAddSingleton<IMuseImageClient, MuseImageClient>();
+        builder.Services.TryAddSingleton<ObjectSemanticService>();
+        builder.Services.AddHostedService(services => services.GetRequiredService<ObjectSemanticService>());
+        builder.Services.TryAddSingleton<SceneryService>();
+        builder.Services.AddHostedService(services => services.GetRequiredService<SceneryService>());
         builder.Services.TryAddSingleton<IWorldPerceptionSource, CameraPerceptionSource>();
         builder.Services.AddHostedService<PerceptionBackgroundService>();
         builder.Services.AddHostedService<BrainMissionService>();
@@ -79,6 +86,7 @@ public static class BackendApplication
         CalibrationEndpoints.Map(app);
         SwarmEndpoints.Map(app);
         MediaEndpoints.Map(app);
+        VisualEndpoints.Map(app);
         return app;
     }
 }

@@ -203,7 +203,7 @@ public sealed class BrainTests
         await using var server = await Provider.StartAsync((attempt, _) => (200, Reply(attempt == 1 ? broken : Good)));
         using var client = new MuseSparkOpenClient(endpoint: server.Endpoint, apiKey: "owned-test-credential"); var paths = Paths(); var progress = new List<BrainProgress>();
         var policy = await new SelfHealingLoop(client, new RoslynPolicyCompiler(), paths.Worker, paths.Scratch).RunAsync(World(), Mission(), progress.Add, Token);
-        using var owned = policy as IDisposable; Assert.NotNull(policy); Assert.InRange(server.Models.Count, 2, 3);
+        using var owned = policy as IDisposable; Assert.True(policy is not null, string.Join(" | ", progress.Select(item => item.ToString()))); Assert.InRange(server.Models.Count, 2, 3);
         Assert.Equal(server.Models.Count, progress[^1].Attempts);
         Assert.Contains("CS1002", server.Bodies[1], StringComparison.Ordinal); Assert.Contains(progress, item => item.Phase == "repairing"); Assert.Equal("verified", progress[^1].Phase);
         using var request = JsonDocument.Parse(server.Bodies[1]);

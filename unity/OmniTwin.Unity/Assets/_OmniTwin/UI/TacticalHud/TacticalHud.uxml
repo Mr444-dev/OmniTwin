@@ -16,7 +16,12 @@
                 <ui:Label text="WORLD OBSERVATION" class="section-title" />
                 <ui:Button name="previewToggleButton" text="SHOW CAMERA PREVIEW" class="mission-button preview-toggle" />
                 <ui:Label name="previewStatus" text="Camera preview off" class="media-status" />
-                <ui:Image name="cameraPreview" class="camera-preview preview-hidden" />
+                <ui:Button name="maskToggleButton" text="HIDE SAM MASKS" class="mission-button preview-toggle" />
+                <ui:Label name="maskStatus" text="Masks unavailable · no current image" class="media-status" />
+                <ui:VisualElement name="previewFrame" class="camera-preview preview-hidden" picking-mode="Ignore">
+                    <ui:Image name="cameraPreview" class="preview-image" picking-mode="Ignore" />
+                    <ui:Image name="maskPreview" class="preview-image" picking-mode="Ignore" />
+                </ui:VisualElement>
                 <ui:Label name="trackCount" text="--" class="big-value" />
                 <ui:Label text="CURRENT OBSTACLE TRACKS" class="value-caption" />
                 <ui:VisualElement class="metric">
@@ -38,6 +43,23 @@
                 <ui:VisualElement class="divider" />
                 <ui:Label name="sourceNotice" text="Waiting for a calibrated camera observation." class="notice" />
                 <ui:Button name="reconnectButton" text="RECONNECT STREAM" class="action" />
+                <ui:VisualElement class="divider" />
+                <ui:Label text="OBJECT SEMANTICS" class="section-title" />
+                <ui:Label name="semanticStatus" text="No active perception session" class="media-status" />
+                <ui:DropdownField name="semanticTrack" label="TRACK ID" class="semantic-field" />
+                <ui:Label name="semanticSelected" text="Select a confirmed object" class="media-status" />
+                <ui:Button name="loadSemanticButton" text="LOAD CURRENT TAG" class="mission-button" />
+                <ui:TextField name="semanticLabel" label="LABEL" max-length="96" class="semantic-field" />
+                <ui:DropdownField name="semanticRole" label="SIMULATION ROLE" class="semantic-field" />
+                <ui:DropdownField name="semanticHazard" label="HAZARD TAG" class="semantic-field" />
+                <ui:Button name="applySemanticButton" text="APPLY OPERATOR TAG" class="mission-button" />
+                <ui:Button name="clearSemanticButton" text="USE REMEMBERED MODEL TAG" class="mission-button" />
+                <ui:VisualElement class="divider" />
+                <ui:Label text="MUSE IMAGE SURFACE" class="section-title" />
+                <ui:TextField name="sceneryPrompt" label="SURFACE DESCRIPTION" value="Dark industrial warehouse floor" max-length="1000" class="semantic-field" />
+                <ui:Button name="generateSceneryButton" text="GENERATE SURFACE (META API)" class="mission-button" />
+                <ui:Button name="resetSceneryButton" text="RESTORE DEFAULT SURFACE" class="mission-button" />
+                <ui:Label name="sceneryStatus" text="Default tactical surface" class="media-status" />
             </ui:ScrollView>
             <ui:VisualElement class="world-caption" picking-mode="Ignore">
                 <ui:Label text="REFERENCE WORKSPACE" class="world-title" />
@@ -47,6 +69,7 @@
                 <ui:Label text="SWARM CONTROL" class="section-title" />
                 <ui:Label name="activePolicy" text="EmergencyHoldPolicy" class="policy-name" />
                 <ui:Label name="agentTelemetry" text="Awaiting measured agent telemetry" class="telemetry-text" />
+                <ui:Button name="lidarToggleButton" text="SHOW LIDAR BEAMS" class="mission-button" />
                 <ui:Label name="controlReason" text="Waiting for trustworthy source" class="notice" />
                 <ui:VisualElement class="divider" />
                 <ui:VisualElement class="mission-row"><ui:Button name="patrolButton" text="PATROL" class="mission-button" /><ui:Button name="cordonButton" text="CORDON" class="mission-button" /></ui:VisualElement>

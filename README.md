@@ -10,7 +10,7 @@ The screenshot shows the actual scene, five measured simulation agents and `Emer
 
 The [project audit](docs/project-audit.md) separates implemented modules from outstanding hardware/product acceptance. The [API key guide](docs/api-keys.md) covers masked local setup of both `META_API_KEY` and `BASETEN_API_KEY`. Model synthesis starts only after an explicit HUD command; normal baseline missions do not invoke Baseten.
 
-The operator HUD also supports short microphone commands through **Muse Voice Transcribe** and an opt-in camera PIP from the existing capture pipeline. Transcripts remain editable drafts; manual text is preserved while transcription runs. No microphone opens at startup. Preview images expire independently and do not establish navigation trust. [Voice/preview setup, limits and verification](docs/operator-media.md).
+The operator HUD also supports short microphone commands through **Muse Voice Transcribe**, an opt-in camera PIP with frame-paired SAM masks, local-motion dashed contours, and a mask toggle. It exposes LiDAR beam/hit visualization and minimum-range telemetry, manual semantic-tag overrides, and explicit Muse Image surface generation with a reset to the authored URP material. Model calls require the operator's Meta key; they run asynchronously and are not part of normal mission control. These surfaces do not establish physical safety. [Visual services, limits and verification](docs/visual-systems.md).
 
 ## Build and verify
 
@@ -39,14 +39,15 @@ See [verification results](docs/verification.md) for the checks actually run and
 | `src/OmniTwin.Perception.Runtime` | OpenCV capture, SAM client, strict calibration loading, mask projection, and independent tracking publication |
 | `src/OmniTwin.Perception/Audio` | Bounded PCM16 WAV, stereo mixdown and filtered resampling for voice commands |
 | `src/OmniTwin.Perception.Runtime/Audio` | Real Muse Voice multipart adapter, strict transcript parsing, deadlines and safe failures |
-| `src/OmniTwin.Backend/Media` | Capture preview cache, same-origin media endpoints and bounded transcription deduplication |
+| `src/OmniTwin.Perception.Runtime/Models` | Muse Spark object classification and Muse Image raster generation through bounded Meta API adapters |
+| `src/OmniTwin.Backend/Media` | Frame-paired PIP mask rendering, session-scoped semantic memory, safe overrides and bounded scenery generation |
 | `src/OmniTwin.Transport` | Closed-schema codec, order guard, bounded receiver, reconnecting single-producer client, atomic latest-state handoff, and source/track freshness checks |
 | `src/OmniTwin.Backend` | Loopback host, source supervision, health/status/latest endpoints, and bounded per-client WebSocket publication |
 | `src/OmniTwin.Policies` | Perimeter patrol, hazard quarantine, grid search, emergency hold, swept-footprint checks and bounded A* waypoints |
 | `src/OmniTwin.Brain` | Baseten 404-only model alias fallback, semantic compiler, three-attempt self-repair, AppContainer/Job supervision |
 | `src/OmniTwin.PolicyWorker` | Trusted IPC worker; generated assembly loading occurs only after an AppContainer token check |
 | `src/OmniTwin.Perception.Cli` | Capture, local JPEG snapshots, inference/tracking tools, and a validated `stream-probe` client |
-| `unity/client/Runtime` | Desktop network, navigation, fail-safe controls, opt-in camera texture and operator-initiated microphone capture |
+| `unity/client/Runtime` | Desktop network, NavMesh swarm, multi-beam LiDAR sensor/visualization, synchronized PIP masks, voice, semantic overrides, and guarded scenery texture swap |
 | `tools/InstallUnityClient.ps1` | Imports portable DLLs and Unity scripts into an existing project while protecting local edits and `.meta` files |
 | `tests/OmniTwin.Tests` | Geometry, numerical boundaries, concurrency, collection ownership, constructor validation, and JSON round trips |
 | `tests/OmniTwin.NetStandard.Tests` | Runs the shared tests against the .NET Standard assemblies |
@@ -54,7 +55,7 @@ See [verification results](docs/verification.md) for the checks actually run and
 | `tests/OmniTwin.Backend.Tests` | Broker backpressure, source failure, client limits, shutdown, close handshakes, origin policy, and real HTTP/WebSocket transport |
 | `tests/OmniTwin.Brain.Tests` | Model protocol/repair fixtures, semantic capability rejection, actual OS isolation, timeout/memory/nonfinite-output checks |
 
-Snapshots own collections and reject null entries, duplicate IDs, nonfinite coordinates, invalid enums and ranges. WorldState/mission/control schemas remain version 1; obstacle tracking and its WebSocket envelope use version 2 for provenance. Transport also enforces producer-session ordering, size limits and required JSON fields; DTO constructors alone are not a wire protocol validator.
+Snapshots own collections and reject null entries, duplicate IDs, nonfinite coordinates, invalid enums and ranges. World/agent-telemetry schema is version 2 for the optional LiDAR summary; mission/control remain version 1, and obstacle tracking retains its separate version 2 provenance envelope. Transport also enforces producer-session ordering, size limits and required JSON fields; DTO constructors alone are not a wire protocol validator.
 
 `Vector2D.DistanceTo` returns `double` to avoid overflow when finite float components are far apart. Vector components have validated initialization accessors so `System.Text.Json` can reconstruct nonzero readonly values. Snapshot records contain owned read-only collections; record equality does not provide structural collection equality.
 

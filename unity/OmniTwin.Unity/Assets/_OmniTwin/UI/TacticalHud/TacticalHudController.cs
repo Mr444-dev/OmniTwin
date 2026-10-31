@@ -5,6 +5,7 @@ using OmniTwin.Transport;
 using UnityEngine;
 using UnityEngine.UIElements;
 using System.Text;
+using System.Collections.Generic;
 using OmniTwin.Contracts;
 using OmniTwin.Simulation.Runtime;
 using OmniTwin.Simulation.Media;
@@ -18,6 +19,7 @@ namespace OmniTwin.Simulation.UI
         [SerializeField] private TwinWebSocketClient stream = null;
         [SerializeField] private PolicyExecutor executor = null;
         [SerializeField] private MediaConsoleController media = null;
+        [SerializeField] private VisualServicesController visuals = null;
         private VisualElement _screen;
         private Label _badge, _connection, _tracks, _hazards, _age, _publication, _calibration, _notice;
         private Button _reconnect;
@@ -33,11 +35,21 @@ namespace OmniTwin.Simulation.UI
         private Image _previewImage;
         private VoiceTranscription _lastTranscript;
         private string _instructionBeforeVoice;
+        private Button _maskToggle, _lidarToggle, _loadSemantic, _applySemantic, _clearSemantic, _generateScenery, _resetScenery;
+        private Label _maskStatus, _semanticStatus, _semanticSelected, _sceneryStatus;
+        private Image _maskImage;
+        private VisualElement _previewFrame;
+        private DropdownField _semanticTrack, _semanticRole, _semanticHazard;
+        private TextField _semanticLabel, _sceneryPrompt;
+        private SemanticSceneState _lastSemantics;
+        private bool _lidarVisible;
+        private string _visualFeedback;
+        private float _visualFeedbackUntil;
 
         private void OnEnable()
         {
             var root = GetComponent<UIDocument>().rootVisualElement;
-            if (stream == null || executor == null || media == null || root == null)
+            if (stream == null || executor == null || media == null || visuals == null || root == null)
                 throw new InvalidOperationException("Tactical HUD needs its stream and an initialized UIDocument.");
             _screen = Required<VisualElement>(root, "screen");
             _badge = Required<Label>(root, "statusBadge");
@@ -61,6 +73,20 @@ namespace OmniTwin.Simulation.UI
             _useTranscript = Required<Button>(root, "useTranscriptButton"); _previewToggle = Required<Button>(root, "previewToggleButton");
             _voiceStatus = Required<Label>(root, "voiceStatus"); _voiceDraft = Required<Label>(root, "voiceDraft"); _previewStatus = Required<Label>(root, "previewStatus");
             _previewImage = Required<Image>(root, "cameraPreview");
+            _previewFrame = Required<VisualElement>(root, "previewFrame"); _maskImage = Required<Image>(root, "maskPreview"); _maskImage.scaleMode = ScaleMode.ScaleToFit;
+            _maskToggle = Required<Button>(root, "maskToggleButton"); _maskStatus = Required<Label>(root, "maskStatus");
+            _lidarToggle = Required<Button>(root, "lidarToggleButton"); _maskToggle.clicked += ToggleMasks; _lidarToggle.clicked += ToggleLidar;
+            _semanticStatus = Required<Label>(root, "semanticStatus"); _semanticSelected = Required<Label>(root, "semanticSelected"); _sceneryStatus = Required<Label>(root, "sceneryStatus");
+            _semanticTrack = Required<DropdownField>(root, "semanticTrack"); _semanticRole = Required<DropdownField>(root, "semanticRole"); _semanticHazard = Required<DropdownField>(root, "semanticHazard");
+            _semanticTrack.RegisterValueChangedCallback(SelectSemanticTrack);
+            _semanticRole.choices = new List<string> { "obstacle", "hazard", "rescue_target", "unknown" }; _semanticRole.value = "unknown";
+            _semanticHazard.choices = new List<string> { "none", "caution", "high", "unknown" }; _semanticHazard.value = "unknown";
+            _semanticLabel = Required<TextField>(root, "semanticLabel"); _sceneryPrompt = Required<TextField>(root, "sceneryPrompt");
+            _loadSemantic = Required<Button>(root, "loadSemanticButton"); _applySemantic = Required<Button>(root, "applySemanticButton"); _clearSemantic = Required<Button>(root, "clearSemanticButton");
+            _generateScenery = Required<Button>(root, "generateSceneryButton"); _resetScenery = Required<Button>(root, "resetSceneryButton");
+            _loadSemantic.clicked += LoadTag; _applySemantic.clicked += ApplyTag; _clearSemantic.clicked += ClearTag; _generateScenery.clicked += GenerateScenery; _resetScenery.clicked += ResetScenery;
+            foreach (var label in new[] { _maskStatus, _semanticStatus, _semanticSelected, _sceneryStatus }) label.enableRichText = false;
+            _lastSemantics = null;
             _previewImage.scaleMode = ScaleMode.ScaleToFit;
             _voiceStatus.enableRichText = false; _voiceDraft.enableRichText = false; _previewStatus.enableRichText = false;
             _recordVoice.clicked += RecordVoice; _cancelVoice.clicked += CancelVoice; _useTranscript.clicked += UseTranscript; _previewToggle.clicked += TogglePreview;
@@ -101,6 +127,9 @@ namespace OmniTwin.Simulation.UI
                     .Append(telemetry.Status).Append("\n  (").Append(telemetry.CurrentPosition.X.ToString("F1", CultureInfo.InvariantCulture)).Append(", ")
                     .Append(telemetry.CurrentPosition.Z.ToString("F1", CultureInfo.InvariantCulture)).Append(")  ")
                     .Append((telemetry.BatteryLevel * 100).ToString("F0", CultureInfo.InvariantCulture)).Append("%\n");
+                var lidar = telemetry.Lidar;
+                measured.Append("  LiDAR ").Append(lidar == null ? "unavailable" : lidar.AgeMilliseconds > 250 ? "stale" :
+                    (lidar.MinimumDistanceMeters.HasValue ? lidar.MinimumDistanceMeters.Value.ToString("F2", CultureInfo.InvariantCulture) + " m" : "clear to " + lidar.RangeMeters.ToString("F1", CultureInfo.InvariantCulture) + " m") + " / " + lidar.HitCount + " hits").Append("\n");
             }
             _telemetry.text = measured.ToString();
             _reason.text = Time.unscaledTime < _feedbackUntil ? _feedback : executor.FailureCategory ?? "Validated controls and current observations";
@@ -121,7 +150,24 @@ namespace OmniTwin.Simulation.UI
             }
             _previewToggle.text = media.PreviewEnabled ? "HIDE CAMERA PREVIEW" : "SHOW CAMERA PREVIEW";
             _previewStatus.text = media.PreviewStatus; _previewImage.image = media.PreviewTexture;
-            _previewImage.EnableInClassList("preview-hidden", media.PreviewTexture == null);
+            _maskImage.image = media.MaskTexture; _previewFrame.EnableInClassList("preview-hidden", media.PreviewTexture == null);
+            _maskToggle.text = media.MasksEnabled ? "HIDE SAM MASKS" : "SHOW SAM MASKS"; _maskStatus.text = media.MaskStatus;
+            _lidarToggle.text = _lidarVisible ? "HIDE LIDAR BEAMS" : "SHOW LIDAR BEAMS";
+            _semanticStatus.text = Time.unscaledTime < _visualFeedbackUntil ? _visualFeedback : visuals.SemanticStatus;
+            var semantics = visuals.Semantics;
+            if (semantics != null && !ReferenceEquals(semantics, _lastSemantics))
+            {
+                var selected = _semanticTrack.value; var sameSession = _lastSemantics?.SessionId == semantics.SessionId;
+                _lastSemantics = semantics; var choices = new List<string>(); foreach (var item in semantics.Objects) choices.Add(item.TrackId.ToString(CultureInfo.InvariantCulture));
+                _semanticTrack.choices = choices; var next = sameSession && choices.Contains(selected) ? selected : choices.Count > 0 ? choices[0] : "";
+                _semanticTrack.SetValueWithoutNotify(next); if (!sameSession || selected != next) LoadTag();
+            }
+            var tag = SelectedTag();
+            _semanticSelected.text = tag == null ? "Select a confirmed object" : "#" + tag.TrackId + " / " + tag.Status + (tag.OperatorOverride ? " / operator" : " / model") +
+                (tag.Classification == null ? "" : "\n" + tag.Classification.Label + " · " + tag.Classification.Role + " · " + tag.Classification.HazardLevel) + (tag.FailureCategory == null ? "" : "\n" + tag.FailureCategory);
+            _semanticTrack.SetEnabled(semantics != null && semantics.Objects.Count > 0);
+            _loadSemantic.SetEnabled(tag?.Classification != null); _applySemantic.SetEnabled(tag != null && !visuals.IsEditing); _clearSemantic.SetEnabled(tag != null && !visuals.IsEditing);
+            _generateScenery.SetEnabled(!visuals.IsGenerating); _sceneryStatus.text = visuals.SceneryStatus;
         }
 
         private void VoiceStarted() => _instructionBeforeVoice = _instruction.value;
@@ -129,6 +175,28 @@ namespace OmniTwin.Simulation.UI
         private void CancelVoice() => media.CancelVoice();
         private void UseTranscript() { var value = media.Transcript; if (value != null && value.Transcript.Length > 0) _instruction.value = value.Transcript; }
         private void TogglePreview() => media.SetPreviewEnabled(!media.PreviewEnabled);
+        private void ToggleMasks() => media.SetMasksEnabled(!media.MasksEnabled);
+        private void ToggleLidar() { _lidarVisible = !_lidarVisible; foreach (var agent in executor.Agents) if (agent.Lidar != null) agent.Lidar.SetVisualizationEnabled(_lidarVisible); }
+        private SemanticObjectState SelectedTag()
+        {
+            var state = visuals.Semantics; if (state == null || !int.TryParse(_semanticTrack.value, NumberStyles.None, CultureInfo.InvariantCulture, out var id)) return null;
+            foreach (var item in state.Objects) if (item.TrackId == id) return item; return null;
+        }
+        private void SelectSemanticTrack(ChangeEvent<string> change) => LoadTag();
+        private void LoadTag() { var tag = SelectedTag()?.Classification; _semanticLabel.value = tag?.Label ?? ""; _semanticRole.value = tag?.Role ?? "unknown"; _semanticHazard.value = tag?.HazardLevel ?? "unknown"; }
+        private void ApplyTag()
+        {
+            var tag = SelectedTag(); if (tag == null) return;
+            try { visuals.ApplyOverride(tag.TrackId, new ObjectSemantics(_semanticLabel.value, _semanticRole.value, _semanticHazard.value, 1)); }
+            catch (ArgumentException) { _visualFeedback = "Enter a label and valid simulation tags"; _visualFeedbackUntil = Time.unscaledTime + 4; }
+        }
+        private void ClearTag() { var tag = SelectedTag(); if (tag != null) visuals.ApplyOverride(tag.TrackId, null); }
+        private void GenerateScenery()
+        {
+            try { visuals.GenerateSurface(_sceneryPrompt.value); }
+            catch (ArgumentException) { _visualFeedback = "Enter a single-line surface description (1–1000 characters)"; _visualFeedbackUntil = Time.unscaledTime + 4; }
+        }
+        private void ResetScenery() => visuals.RestoreDefault();
 
         private void Mission(SwarmMissionKind kind, string instruction, bool brain = false)
         {
@@ -154,6 +222,10 @@ namespace OmniTwin.Simulation.UI
             if (_recordVoice != null) _recordVoice.clicked -= RecordVoice; if (_cancelVoice != null) _cancelVoice.clicked -= CancelVoice;
             if (_useTranscript != null) _useTranscript.clicked -= UseTranscript; if (_previewToggle != null) _previewToggle.clicked -= TogglePreview;
             if (media != null) media.RecordingStarted -= VoiceStarted;
+            if (_maskToggle != null) _maskToggle.clicked -= ToggleMasks; if (_lidarToggle != null) _lidarToggle.clicked -= ToggleLidar;
+            if (_loadSemantic != null) _loadSemantic.clicked -= LoadTag; if (_applySemantic != null) _applySemantic.clicked -= ApplyTag; if (_clearSemantic != null) _clearSemantic.clicked -= ClearTag;
+            if (_generateScenery != null) _generateScenery.clicked -= GenerateScenery; if (_resetScenery != null) _resetScenery.clicked -= ResetScenery;
+            _semanticTrack?.UnregisterValueChangedCallback(SelectSemanticTrack);
             _screen?.UnregisterCallback<GeometryChangedEvent>(Resize);
         }
         private static T Required<T>(VisualElement root, string name) where T : VisualElement =>

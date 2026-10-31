@@ -164,6 +164,12 @@
       "omnitwin.contracts": {
         "type": "Project"
       },
+      "omnitwin.perception": {
+        "type": "Project",
+        "dependencies": {
+          "OmniTwin.Contracts": "[1.0.0, )"
+        }
+      },
       "omnitwin.policies": {
         "type": "Project",
         "dependencies": {
@@ -173,7 +179,8 @@
       "omnitwin.transport": {
         "type": "Project",
         "dependencies": {
-          "OmniTwin.Contracts": "[1.0.0, )"
+          "OmniTwin.Contracts": "[1.0.0, )",
+          "OmniTwin.Perception": "[1.0.0, )"
         }
       },
       "Microsoft.CodeAnalysis.CSharp": {

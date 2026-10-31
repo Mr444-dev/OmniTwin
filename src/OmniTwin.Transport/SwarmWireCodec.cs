@@ -37,14 +37,15 @@ public static class SwarmWireCodec
     /// <summary>Decodes unique, finite measured agent state before it can affect planning.</summary>
     public static SwarmTelemetrySnapshot DecodeTelemetry(ReadOnlyMemory<byte> bytes) => Decode(bytes, root =>
     {
-        Keys(root, "schemaVersion", "sessionId", "sequenceNumber", "timestampUnixMs", "agents"); Version(root);
+        Keys(root, "schemaVersion", "sessionId", "sequenceNumber", "timestampUnixMs", "agents");
+        if (Int(root, "schemaVersion") != 2) throw new WorldStreamProtocolException("unsupported_telemetry_schema");
         var agents = new List<AgentTelemetry>();
         foreach (var agent in Array(root, "agents", 128))
         {
-            Keys(agent, "agentId", "role", "currentPosition", "currentVelocity", "batteryLevel", "status");
+            Keys(agent, "agentId", "role", "currentPosition", "currentVelocity", "batteryLevel", "status", "lidar");
             agents.Add(new AgentTelemetry(Int(agent, "agentId"), (AgentRole)Int(agent, "role"),
                 Vector(agent.GetProperty("currentPosition")), Vector(agent.GetProperty("currentVelocity")),
-                Scalar(agent, "batteryLevel"), (AgentStatus)Int(agent, "status")));
+                Scalar(agent, "batteryLevel"), (AgentStatus)Int(agent, "status"), ReadLidar(agent.GetProperty("lidar"))));
         }
         return new SwarmTelemetrySnapshot(Id(root, "sessionId"), Long(root, "sequenceNumber"), Long(root, "timestampUnixMs"), agents);
     });
@@ -99,6 +100,13 @@ public static class SwarmWireCodec
         return item.EnumerateArray();
     }
     private static Vector2D Vector(JsonElement value) { Keys(value, "x", "z"); return new Vector2D(Scalar(value, "x"), Scalar(value, "z")); }
+    internal static LidarTelemetry? ReadLidar(JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.Null) return null;
+        Keys(value, "rayCount", "hitCount", "rangeMeters", "minimumDistanceMeters", "ageMilliseconds");
+        return new LidarTelemetry(Int(value, "rayCount"), Int(value, "hitCount"), Scalar(value, "rangeMeters"),
+            value.GetProperty("minimumDistanceMeters").ValueKind == JsonValueKind.Null ? (float?)null : Scalar(value, "minimumDistanceMeters"), Int(value, "ageMilliseconds"));
+    }
     private static Guid? NullableId(JsonElement root, string key) => root.GetProperty(key).ValueKind == JsonValueKind.Null ? (Guid?)null : Id(root, key);
     private static void Version(JsonElement root) { if (Int(root, "schemaVersion") != 1) throw new WorldStreamProtocolException("unsupported_swarm_schema"); }
 }

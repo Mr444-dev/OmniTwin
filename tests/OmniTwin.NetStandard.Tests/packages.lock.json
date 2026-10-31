@@ -157,7 +157,8 @@
       "omnitwin.transport": {
         "type": "Project",
         "dependencies": {
-          "OmniTwin.Contracts": "[1.0.0, )"
+          "OmniTwin.Contracts": "[1.0.0, )",
+          "OmniTwin.Perception": "[1.0.0, )"
         }
       }
     }

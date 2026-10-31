@@ -8,6 +8,7 @@ using OmniTwin.Contracts;
 using OmniTwin.Simulation.Agents;
 using OmniTwin.Simulation.Runtime;
 using OmniTwin.Simulation.Media;
+using OmniTwin.Simulation.Sensors;
 using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -170,6 +171,7 @@ namespace OmniTwin.Simulation.Editor
             Assign(document.gameObject.AddComponent<TacticalHudController>(), "stream", connection);
             AddSwarmToScene();
             AddMediaToScene();
+            AddVisualSystemsToScene();
 
             PlayerSettings.companyName = "OmniTwin";
             PlayerSettings.productName = "OmniTwin";
@@ -199,6 +201,22 @@ namespace OmniTwin.Simulation.Editor
             Assign(hud[0], "media", controller);
             EditorSceneManager.MarkSceneDirty(scene);
             if (!string.IsNullOrEmpty(scene.path) && !EditorSceneManager.SaveScene(scene)) throw new IOException("Media scene wiring could not be saved.");
+        }
+
+        /// <summary>Adds physical sensors and optional visual services without replacing existing authored assets.</summary>
+        [MenuItem("OmniTwin/Add Mask Lidar And Scenery Systems")]
+        public static void AddVisualSystemsToScene()
+        {
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (EditorApplication.isPlaying || scene.name != "TacticalDesk" || scene.path != ScenePath) throw new InvalidOperationException("Open the saved TacticalDesk in Edit mode.");
+            var hud = UnityEngine.Object.FindObjectsByType<TacticalHudController>(); var services = UnityEngine.Object.FindObjectsByType<VisualServicesController>();
+            if (hud.Length != 1 || services.Length > 1) throw new InvalidOperationException("One tactical HUD and at most one visual service are required.");
+            var floor = GameObject.Find("Reference Workspace 20 x 12.5 m");
+            if (floor == null || floor.GetComponent<Renderer>() == null) throw new InvalidOperationException("Reference workspace renderer is missing.");
+            var service = services.Length == 0 ? Root("Visual Services").AddComponent<VisualServicesController>() : services[0];
+            Assign(service, "workspaceSurface", floor.GetComponent<Renderer>()); Assign(hud[0], "visuals", service);
+            foreach (var agent in UnityEngine.Object.FindObjectsByType<SwarmAgentController>()) if (agent.GetComponent<LidarSensor>() == null) Undo.AddComponent<LidarSensor>(agent.gameObject);
+            EditorSceneManager.MarkSceneDirty(scene); if (!EditorSceneManager.SaveScene(scene)) throw new IOException("Visual systems scene save failed.");
         }
 
         /// <summary>Adds three real NavMesh vehicles and two aerial simulation entities to the existing authored scene.</summary>
@@ -258,6 +276,7 @@ namespace OmniTwin.Simulation.Editor
                 pathLine.shadowCastingMode = ShadowCastingMode.Off; pathLine.receiveShadows = false;
                 controllers[index] = entity.AddComponent<SwarmAgentController>();
                 controllers[index].Configure(id, aerial ? AgentRole.AerialDrone : AgentRole.GroundVehicle, altitude, pathLine);
+                entity.AddComponent<LidarSensor>();
             }
             var executor = Root("Swarm Control").AddComponent<PolicyExecutor>(); executor.Configure(connection[0], controllers);
             Assign(hud[0], "executor", executor);

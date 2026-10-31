@@ -45,7 +45,7 @@ public sealed class WorldContractsTests
         Assert.NotNull(result);
         Assert.Equal(snapshot.TimestampUnixMs, result.TimestampUnixMs);
         Assert.Equal(42, result.SequenceNumber);
-        Assert.Equal(1, result.SchemaVersion);
+        Assert.Equal(2, result.SchemaVersion);
         Assert.Equal(snapshot.Obstacles[0], result.Obstacles[0]);
         Assert.Equal(snapshot.Agents[0], result.Agents[0]);
         Assert.Equal("Quarantine", result.ActivePolicyName);
@@ -59,6 +59,32 @@ public sealed class WorldContractsTests
         Assert.Equal(mission, JsonSerializer.Deserialize<SwarmMissionCommand>(JsonSerializer.Serialize(mission)));
         var directive = new AgentTargetDirective(1, new Vector2D(4, 5), 0.5f, "Guarding");
         Assert.Equal(directive, JsonSerializer.Deserialize<AgentTargetDirective>(JsonSerializer.Serialize(directive)));
+    }
+
+    [Fact]
+    public void LidarTelemetryEnforcesRayAndDistanceInvariants()
+    {
+        var clear = new LidarTelemetry(48, 0, 6, null, 0);
+        var hit = new LidarTelemetry(48, 3, 6, 0.35f, 12);
+        Assert.Null(clear.MinimumDistanceMeters);
+        Assert.Equal(0, clear.HitCount);
+        Assert.Equal(0.35f, hit.MinimumDistanceMeters);
+        Assert.Throws<ArgumentOutOfRangeException>(() => new LidarTelemetry(7, 0, 6, null, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new LidarTelemetry(48, 49, 6, 0.2f, 0));
+        Assert.Throws<ArgumentException>(() => new LidarTelemetry(48, 0, 6, 0.2f, 0));
+        Assert.Throws<ArgumentException>(() => new LidarTelemetry(48, 1, 6, null, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new LidarTelemetry(48, 1, 6, float.NaN, 0));
+    }
+
+    [Fact]
+    public void JsonRoundTripPreservesLidarMeasurementOnAgent()
+    {
+        var lidar = new LidarTelemetry(48, 2, 6, 0.8f, 15);
+        var agent = new AgentTelemetry(4, AgentRole.AerialDrone, new Vector2D(1, 2), default, 0.8f, AgentStatus.Navigating, lidar);
+        var snapshot = new WorldStateSnapshot(123, Array.Empty<SegmentedObstacle>(), new[] { agent }, "Hold", "");
+        var restored = JsonSerializer.Deserialize<WorldStateSnapshot>(JsonSerializer.Serialize(snapshot));
+        Assert.NotNull(restored);
+        Assert.Equal(lidar, restored.Agents[0].Lidar);
     }
 
     [Theory]
@@ -107,11 +133,11 @@ public sealed class WorldContractsTests
     [Fact]
     public void RejectsInvalidSnapshotMetadataAndUnboundedText()
     {
-        WorldStateSnapshot Create(long timestamp = 0, long sequence = 0, int version = 1, string name = "Hold", string command = "") =>
+        WorldStateSnapshot Create(long timestamp = 0, long sequence = 0, int version = 2, string name = "Hold", string command = "") =>
             new(timestamp, Array.Empty<SegmentedObstacle>(), Array.Empty<AgentTelemetry>(), name, command, sequence, version);
         Assert.Throws<ArgumentOutOfRangeException>(() => Create(timestamp: -1));
         Assert.Throws<ArgumentOutOfRangeException>(() => Create(sequence: -1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => Create(version: 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Create(version: 1));
         Assert.Throws<ArgumentException>(() => Create(name: " "));
         Assert.Throws<ArgumentException>(() => Create(name: new string('x', 129)));
         Assert.Throws<ArgumentException>(() => Create(command: new string('x', 4097)));

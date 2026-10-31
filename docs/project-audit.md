@@ -1,6 +1,6 @@
 # Stan odbioru OmniTwin — 31 października 2026
 
-Wdrożono percepcję P1, rzeczywisty rój, Brain z izolowanym wykonawcą oraz kolejny etap: komendy głosowe i podgląd kamery w HUD. **Nie oznacza to ukończenia całej pierwotnej specyfikacji produktu.** Dowody poniżej oddzielają sprawdzony kod od odbioru na fizycznym stole i płatnych usługach.
+Wdrożono percepcję P1, rzeczywisty rój, Brain z izolowanym wykonawcą, komendy głosowe, PIP i etap 6 wizualnych systemów. **Nie oznacza to ukończenia całej pierwotnej specyfikacji produktu.** Dowody poniżej oddzielają sprawdzony kod od odbioru na fizycznym stole i płatnych usługach.
 
 | Etap / wcześniejszy bloker | Wdrożenie | Dowód i pozostały odbiór |
 | --- | --- | --- |
@@ -16,20 +16,22 @@ Wdrożono percepcję P1, rzeczywisty rój, Brain z izolowanym wykonawcą oraz ko
 | 4 / P0 izolacja | AppContainer bez capabilities, Job Object, brak kluczy, ograniczone IPC, 100 ms compute, limity pamięci/CPU/procesów/lifetime | Prawdziwe testy OS: token, odmowa pliku, blokada loopback, pętla, presja pamięci, wyjątek konstruktora i NaN/Infinity |
 | 4 / fallback | Nieudana synteza/wykonanie → wybrana polityka wbudowana; utrata percepcji → Hold | Test koordynatora z rzeczywistym izolowanym procesem i timeoutem |
 | 5 / głos | Jawne nagrywanie do 5 s, PCM16/16 kHz, rzeczywisty adapter Muse Voice, retry/deduplikacja i edytowalny tekst | Testy kodeka i całej ścieżki HTTP; Spacja w polu instrukcji nie włącza mikrofonu. Fizyczny mikrofon i live API wymagają odbioru |
-| 5 / PIP | Podgląd z istniejącego źródła OpenCV, do 320 px/5 Hz, wygasanie 750 ms, bez dodatkowej kamery | Natywne JPEG i testy świeżości; HUD prawidłowo pokazuje brak obrazu przy wyłączonej percepcji. Rzeczywisty obraz stołu wymaga odbioru |
-| Weryfikacja | 411 testów .NET w pięciu zestawach; Unity Mono/Play/NavMesh/Hold i HUD mediów | Zestaw lokalny przechodzi; [szczegóły](verification.md). Hostowane CI podlega ograniczeniom konta |
+| 5 / PIP | Podgląd z istniejącego źródła OpenCV, do 320 px/5 Hz, wygasanie 750 ms, bez dodatkowej kamery | Natywne JPEG i testy świeżości; brak źródła jest jawny. PIP nie potwierdza wolnego stołu |
+| 6 / maski PIP | Atomowa para obrazu i przezroczystej maski z identyczną klatką, sesją, czasem i rozmiarem | Test integracyjny backend/klient odrzuca złe wymiary i pochodzenie; optical-flow mask jest przerywana i nie odnawia wieku SAM. Unity kompiluje przełącznik nakładki; rzeczywisty kadr wymaga aktywnego backendu/kamery |
+| 6 / LiDAR | Każda z 5 jednostek ma 48 wiązek, zasięg 6 m, skan 20 Hz, punkty trafień, widoczność w HUD, minimum i wiek w telemetrii | W Play rzeczywiste skany zwróciły trafienia dla trzech agentów naziemnych (3/6/3) i telemetrię dla wszystkich pięciu; oba drony nie trafiły w przeszkodę w swoim planarnym przekroju. `BlocksTravel` zamyka ruch przy przeterminowanym skanie i sprawdza obrys |
+| 6 / semantyka | Po dwóch stabilnych obserwacjach SAM asynchroniczny Muse Spark `muse-spark-1.3` klasyfikuje crop; pamięć ogranicza się do sesji i wspiera nadpisanie operatora | Lokalne Kestrel testy sprawdzają payload obrazu/JSON, próg potwierdzenia, priorytet ręcznego tagu i anulowanie po zmianie sesji; live Meta wymaga klucza |
+| 6 / sceneria | Jawny Muse Image `muse-image-1.0`; walidacja rastra, kontrast, bezpieczna podmiana materiału URP i reset | Testy kontrolowanego protokołu i CRC/rozmiaru PNG/JPEG; Unity kompiluje i wiąże controller z powierzchnią. Płatna generacja wymaga klucza operatora |
+| Weryfikacja | [Raport](verification.md): Release build 0 warning/error, **426/426 testów** oraz Unity 6000.6.3f1 Play Mode | Unity skompilowało scenę, wykonało 48-ray LiDAR i pięcioagentowy test ruchu/ścieżek; bieżący CI dla nowego commitu raportuje osobny wynik |
 
 ## Co nadal wymaga pracy
 
-- **Odbiór sprzętowy P0:** klucze i dostęp do modeli, własna kalibracja, prawdziwe SAM i Baseten oraz przejazd wokół przedmiotu obserwowanego kamerą. [Instrukcja](api-keys.md).
-- **Odbiór głosu i PIP:** sprawdzenie uprawnień/urządzenia mikrofonu, polskiej transkrypcji na koncie Meta i podglądu fizycznego stołu. Kod i ścieżka lokalna są wdrożone; [obsługa operatora](operator-media.md). Nakładka masek SAM zsynchronizowana z obrazem nie jest jeszcze wdrożona.
-- **Semantyka i scenerie:** klasyfikacja multimodalna, pamięć nowych obiektów i Muse Image/scenerie pozostają do wdrożenia. Hazard jest oznaczeniem operatora.
-- **LiDAR:** agent ma lokalną kontrolę kolizji; pełny sensor i wizualizacja LiDAR pozostają do wdrożenia.
+- **Odbiór sprzętowy P0:** klucze i dostęp do modeli, własna kalibracja, prawdziwe SAM i Baseten oraz przejazd wokół przedmiotu obserwowanego kamerą. Semantyczny hazard jest tagiem symulacji, a nie oceną rzeczywistego niebezpieczeństwa. [Instrukcja](api-keys.md).
+- **Odbiór wizualny na żywym źródle:** sprawdzenie zsynchronizowanych masek PIP i wygenerowanej tekstury w Game view z backendem, kluczem Meta i fizyczną kamerą. Weryfikacja kompilacji i Play mode nie jest pomiarem wydajności długotrwałej.
 - **Wydanie:** standalone/IL2CPP, długi test, pomiar FPS/opóźnień, profilowanie i nagranie scenariusza. 60 FPS to cel, nie wynik benchmarku.
-- **GitHub Actions:** [przebieg etapu 5](https://github.com/Mr444-dev/OmniTwin/actions/runs/41205766849) ponownie zablokowały płatności/limit konta przed uruchomieniem zadania. Lokalnie przechodzi 411 testów; hostowane testy nie wystartowały. Rozliczenia wymagają działania właściciela konta.
+- **GitHub Actions:** poprzednie przebiegi zablokowały płatności/limit konta przed uruchomieniem zadania. Dla bieżącego commitu trzeba odczytać nowy wynik osobno; lokalnie przechodzi 426 testów.
 
 ## Uruchomienie i granice
 
-Otwórz istniejącą scenę Unity **6000.6.3f1 / URP**, ustaw oba klucze w terminalu backendu i własny profil stołu według [instrukcji](api-keys.md). W Play dostępne są Patrol/Cordon/Grid/Hold, nagrywanie, przełącznik podglądu oraz jawny przycisk syntezy API. Sprawdź treść transkrypcji przed syntezą; głos sam nie wydaje rozkazu. Bez wiarygodnej percepcji jednostki pozostają w Hold. Klucze nie trafiają do Unity.
+Otwórz istniejącą scenę Unity **6000.6.3f1 / URP**, ustaw wymagane klucze w terminalu backendu i własny profil stołu według [instrukcji](api-keys.md). W Play HUD udostępnia Patrol/Cordon/Grid/Hold, mikrofon, PIP/maski, LiDAR, ręczny tag semantyczny, generator scenerii i jawny przycisk syntezy API. Sprawdź treść transkrypcji przed syntezą; głos sam nie wydaje rozkazu. Bez wiarygodnej percepcji jednostki pozostają w Hold. Klucze nie trafiają do Unity. Szczegóły [systemów wizualnych](visual-systems.md).
 
 [Brain i izolacja](brain.md), [tracking](tracking.md), [protokół backendu](backend.md), [weryfikacja](verification.md). Nie podajemy procentu ukończenia: cały pierwotny zakres jest większy niż te trzy moduły.

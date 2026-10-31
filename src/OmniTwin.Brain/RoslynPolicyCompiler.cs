@@ -56,7 +56,7 @@ public sealed class RoslynPolicyCompiler
     };
     private static readonly HashSet<string> ContractTypes = new(StringComparer.Ordinal)
     { nameof(Vector2D), nameof(SegmentedObstacle), nameof(AgentTelemetry), nameof(AgentTargetDirective), nameof(WorldStateSnapshot),
-        nameof(AgentRole), nameof(AgentStatus), nameof(ISwarmPolicy), nameof(WorkspaceBounds) };
+        nameof(AgentRole), nameof(AgentStatus), nameof(ISwarmPolicy), nameof(WorkspaceBounds), nameof(LidarTelemetry) };
 
     /// <summary>Resolves only required runtime metadata and the shared contracts assembly.</summary>
     public RoslynPolicyCompiler()

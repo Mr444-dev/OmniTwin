@@ -14,8 +14,10 @@ public sealed class CameraPerceptionSource : IWorldPerceptionSource
 {
     private readonly BackendOptions _options;
     private readonly CameraPreviewStore _preview;
+    private readonly ObjectSemanticService _semantics;
     /// <summary>Creates a source controlled by explicit backend settings.</summary>
-    public CameraPerceptionSource(BackendOptions options, CameraPreviewStore preview) { _options = options ?? throw new ArgumentNullException(nameof(options)); _preview = preview; }
+    public CameraPerceptionSource(BackendOptions options, CameraPreviewStore preview, ObjectSemanticService semantics)
+    { _options = options ?? throw new ArgumentNullException(nameof(options)); _preview = preview; _semantics = semantics; }
     /// <inheritdoc />
     public bool IsEnabled => _options.EnablePerception;
     /// <inheritdoc />
@@ -27,15 +29,13 @@ public sealed class CameraPerceptionSource : IWorldPerceptionSource
         var camera = new CameraCaptureWorker(_options.CameraDevice, profile.ImageWidth, profile.ImageHeight);
         var frames = CalibratedFrameSource.ValidateAsync(camera.ReadFramesAsync(cancellationToken), profile, cancellationToken);
         var tracking = new CalibratedTrackingWorker(profile, _options.Concept, _options.Hazard, _options.RetentionMilliseconds);
-        async IAsyncEnumerable<CapturedFrame> Preview([EnumeratorCancellation] CancellationToken token = default)
-        {
-            await foreach (var frame in frames.WithCancellation(token).ConfigureAwait(false)) { _preview.Publish(frame, profile.CalibrationId); yield return frame; }
-        }
         try
         {
-            await foreach (var update in tracking.RunHybridAsync(Preview(cancellationToken), client, cancellationToken).ConfigureAwait(false))
-                yield return new PerceptionPublication(update.Snapshot, update.LastFailureCategory, update.ProjectionRejections.Count);
+            await foreach (var update in tracking.RunHybridAsync(frames, client, cancellationToken,
+                (frame, masks) => _preview.Publish(frame, profile.CalibrationId, masks, _semantics.SessionId, id => _semantics.IsHazard(id, _options.Hazard)),
+                batch => { _semantics.Observe(batch); _preview.Correct(batch, id => _semantics.IsHazard(id, _options.Hazard)); }).ConfigureAwait(false))
+                yield return new PerceptionPublication(_semantics.Decorate(update.Snapshot), update.LastFailureCategory, update.ProjectionRejections.Count);
         }
-        finally { _preview.Clear(); }
+        finally { _preview.Clear(); _semantics.EndSession(); }
     }
 }

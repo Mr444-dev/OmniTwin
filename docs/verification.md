@@ -2,7 +2,17 @@
 
 Verified on 2026-10-31 on Windows x64 using .NET SDK 10.0.403 with domain targets `net10.0` and `netstandard2.1`; the test hosts run on .NET 10.
 
-## Current voice and camera preview acceptance
+## Stage 6 visual systems acceptance (current)
+
+Release build completed with **zero warnings and zero errors**. The complete `.NET` suite passed **426/426 tests**, zero failures/skips, across the shared `net10.0` and `netstandard2.1` targets and the backend, Brain and perception runtime. The Unity importer fixture also passed after the live-import update: all sixteen planned files (nine portable DLLs and seven scripts), repeat import, `.meta` preservation, local-edit rejection and duplicate-assembly rejection.
+
+The user-created Unity **6000.6.3f1 / URP** project accepted those sixteen files through its live `AssetDatabase`. The active `TacticalDesk` scene compiled with `compiling=false` and `compilationFailed=false`; its saved scene has five swarm agents, five `LidarSensor` components, one visual services controller and the HUD wired to the shared surface. In Play, the editor advanced beyond frame **1600** with the local backend absent. A real 48-ray scan ran on each of the five agents; the three ground sensors saw 3, 6 and 3 colliders, while neither aerial scan hit within its current planar scan. Every agent reported LiDAR telemetry. The local safety path selected `EmergencyHoldPolicy` and all five agents stayed `Holding` while no fresh world state was available.
+
+The bounded Unity navigation verification ran for 262 advancing frames and 60 policy ticks. All five agents moved around its explicitly labeled temporary navigation fixture (displacements **2.170, 7.997, 11.645, 10.407 and 7.154 m**); each rendered at least two path vertices, and the temporary fixture was removed afterward. The final Unity console had **zero errors and zero warnings**. This verifies local Unity movement and fail-safe behavior; it does not claim live camera input or hardware accuracy.
+
+New .NET tests exercise the frame-paired mask image/metadata path, hazard styling inputs, SAM-vs-local provenance/freshness, bounded PNG/JPEG parsing, actual Muse Spark image payload and closed classification schema, semantic confirmation/session cancellation/manual override, Muse Image response validation and safe material texture limits. They use local protocol fixtures and synthetic images; no paid Meta endpoint was called. With the backend and camera absent, the real Unity view can only verify unavailable-source and EmergencyHold behavior. Live PIP masks, live semantic model classification and generated scenery still need credentials and a camera/backend session.
+
+## Stage 5 voice and camera preview acceptance (previous milestone)
 
 The Etap 5 Release build completed with **zero warnings and zero errors** and all **411 tests passed**, zero failed/skipped: 135 .NET 10 shared, 135 .NET Standard shared, 68 native perception, 45 backend and 28 Brain tests. The run finished in 21.958 seconds on this workstation. Locked restore passed; this phase added no dependency versions. This duration is a test-run observation, not an application performance measurement.
 

@@ -7,7 +7,7 @@ namespace OmniTwin.Contracts;
 public sealed record WorldStateSnapshot
 {
     /// <summary>The only schema version supported by this assembly.</summary>
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     /// <summary>Creates a snapshot; collection IDs must be unique and timestamps nonnegative.</summary>
     public WorldStateSnapshot(long timestampUnixMs, IReadOnlyList<SegmentedObstacle> obstacles,

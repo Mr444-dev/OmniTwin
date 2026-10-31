@@ -39,11 +39,23 @@
       },
       "omnitwin.contracts": {
         "type": "Project"
+      },
+      "omnitwin.perception": {
+        "type": "Project",
+        "dependencies": {
+          "OmniTwin.Contracts": "[1.0.0, )"
+        }
       }
     },
     "net10.0": {
       "omnitwin.contracts": {
         "type": "Project"
+      },
+      "omnitwin.perception": {
+        "type": "Project",
+        "dependencies": {
+          "OmniTwin.Contracts": "[1.0.0, )"
+        }
       }
     }
   }
