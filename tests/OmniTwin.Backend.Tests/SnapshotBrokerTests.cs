@@ -76,7 +76,7 @@ public sealed class SnapshotBrokerTests
     public void ReadinessUsesSourceAgeAndCacheAgeAndFailureDiagnostics()
     {
         var clock = new Clock();
-        var options = new BackendOptions(maximumPublicationAgeMilliseconds: 10_000);
+        var options = new BackendOptions(maximumPublicationAgeMilliseconds: 10_000, retentionMilliseconds: 3000);
         var broker = new SnapshotBroker(options, clock);
         var state = new BackendRuntimeState(broker, options);
         state.Set("running");

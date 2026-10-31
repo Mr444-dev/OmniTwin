@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using OmniTwin.Backend.Services;
 using OmniTwin.Backend.Streaming;
 using OmniTwin.Backend.Calibration;
+using OmniTwin.Backend.Swarm;
 using OmniTwin.Transport;
 
 namespace OmniTwin.Backend;
@@ -27,8 +28,10 @@ public static class BackendApplication
         builder.Services.TryAddSingleton(TimeProvider.System);
         builder.Services.TryAddSingleton<SnapshotBroker>();
         builder.Services.TryAddSingleton<BackendRuntimeState>();
+        builder.Services.TryAddSingleton<SwarmCoordinator>();
         builder.Services.TryAddSingleton<IWorldPerceptionSource, CameraPerceptionSource>();
         builder.Services.AddHostedService<PerceptionBackgroundService>();
+        builder.Services.AddHostedService<BrainMissionService>();
         var app = builder.Build();
         var broker = app.Services.GetRequiredService<SnapshotBroker>();
         app.Lifetime.ApplicationStopping.Register(() => broker.Complete(false));
@@ -45,7 +48,7 @@ public static class BackendApplication
         app.MapGet("/", () => Results.Json(new
         {
             service = "OmniTwin.Backend", subProtocol = WorldStreamCodec.SubProtocol,
-            endpoints = new[] { "/health/live", "/health/ready", "/api/status", "/api/world/latest", "/ws/twin", "/calibration", "/api/calibration/validate" }
+            endpoints = new[] { "/health/live", "/health/ready", "/api/status", "/api/world/latest", "/ws/twin", "/calibration", "/api/calibration/validate", "/api/swarm/telemetry", "/api/swarm/mission", "/api/swarm/status" }
         }));
         app.MapGet("/health/live", () => Results.Json(new { status = "live" }));
         app.MapGet("/api/status", (BackendRuntimeState state) => Results.Json(state.Read()));
@@ -69,6 +72,7 @@ public static class BackendApplication
         });
         app.Map("/ws/twin", TwinStreamEndpoint.HandleAsync);
         CalibrationEndpoints.Map(app);
+        SwarmEndpoints.Map(app);
         return app;
     }
 }

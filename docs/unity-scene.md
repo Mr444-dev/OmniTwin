@@ -2,7 +2,7 @@
 
 Projekt jest już utworzony, zaimportowany i podłączony: **`unity/OmniTwin.Unity`**, edytor **6000.6.3f1**, URP **17.6.0**. Otwórz scenę **`Assets/_OmniTwin/Scenes/TacticalDesk.unity`**. Nie musisz ponownie uruchamiać importera ani ręcznie podpinać komponentów.
 
-Scena zawiera podłogę referencyjną 20 × 12,5 m, siatkę X/Z, zapisany NavMesh, kamerę taktyczną, oświetlenie URP, odbiornik WebSocket, wizualizator przeszkód oraz HUD w UI Toolkit. Wymiary siatki są konfiguracją referencyjną; muszą odpowiadać wybranym współrzędnym Twojej rzeczywistej kalibracji.
+Scena zawiera podłogę 20 × 12,5 m, siatkę X/Z, zapisany NavMesh, 3 roboty naziemne i 2 drony, ścieżki LineRenderer, kamerę, URP, odbiornik świata, lokalny klient telemetrii/sterowania oraz HUD UI Toolkit. Wymiary podłogi muszą odpowiadać kalibracji. Roboty są rzeczywistymi obiektami symulacji, a nie danymi udającymi pomiar kamery.
 
 1. Z głównego folderu repozytorium uruchom backend:
 
@@ -14,7 +14,9 @@ Scena zawiera podłogę referencyjną 20 × 12,5 m, siatkę X/Z, zapisany NavMes
 3. Kamerę obracasz przeciąganiem prawym przyciskiem myszy. Kółko zmienia odległość; **Home** przywraca widok początkowy.
 4. Aby otrzymać prawdziwe przeszkody, skonfiguruj `META_API_KEY`, kamerę i cztery zmierzone punkty kalibracji zgodnie z [instrukcją backendu](backend.md). Zatrzymaj wcześniej uruchomiony backend i uruchom go z percepcją włączoną. Klucz zostaje w środowisku procesu backendu.
 
-W tej sesji żądania do Meta nie były wykonywane: klucz i kalibracja nie są jeszcze skonfigurowane. W scenie nie ma zastępczych detekcji, fikcyjnych agentów ani udawanej telemetrii. Kolejny etap obejmuje kalibrację obrazu oraz rzeczywiste źródło obserwacji; sterowanie agentami i moduł Brain pozostają dalszymi modułami.
+HUD udostępnia Patrol/Cordon/Grid/Hold, tekst misji i **SYNTHESIZE POLICY (API)**. Cztery pierwsze przyciski wybierają kod wbudowany; synteza wymaga BASETEN_API_KEY tylko w backendzie. Hold anuluje także generowanie. Stan źródła, pięć pomiarów agentów, model/fallback i diagnostyka Roslyn są widoczne w HUD. Bez świeżej percepcji lub kontroli wszystkie jednostki zatrzymują się. [Konfiguracja obu kluczy](api-keys.md).
+
+Żądania do Meta/Baseten na koncie użytkownika nadal wymagają odbioru. Scena nie otrzymuje zastępczych detekcji. Kontrolowany test nawigacyjny uruchamiał prawdziwe kontrolery wokół jawnie oznaczonej tymczasowej przeszkody, poza strumieniem SAM. [Dowody i ograniczenia](verification.md).
 
 Sprawdzone w Editorze: kompilacja, rosnący licznik klatek w Play mode, odczyt kontraktów/JSON na Mono, odrzucenie błędnego komunikatu, kliknięcie przycisku reconnect z przejściem do `Connected`, brak aktualności przy wyłączonej percepcji, reakcja kamery na kółko oraz zapisany NavMesh. Nie wykonano jeszcze pomiaru FPS, testu IL2CPP, builda standalone ani testu kamery/API.
 

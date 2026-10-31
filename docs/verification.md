@@ -1,6 +1,24 @@
-# Foundation, perception, tracking, and transport verification
+# OmniTwin verification
 
-Verified on 2026-10-30 on Windows x64 using .NET SDK 10.0.403 with domain targets `net10.0` and `netstandard2.1`; the test hosts run on .NET 10.
+Verified on 2026-10-31 on Windows x64 using .NET SDK 10.0.403 with domain targets `net10.0` and `netstandard2.1`; the test hosts run on .NET 10.
+
+## Current perception, swarm and Brain acceptance
+
+Locked restore and Release build completed with **zero warnings and zero errors**. All **366 tests passed**, zero failed/skipped: 121 .NET 10 shared, 121 .NET Standard shared, 55 native perception, 41 backend, and 28 Brain tests. Both shared hosts assert the loaded Policies target as well as the original libraries. The final run finished in 21.131 seconds on this workstation; this is a test-run observation, not an application benchmark. Additional tests cover safe LINQ/array enumeration, source complexity and malformed environment-key rejection without an HTTP request. `dotnet publish` also passed and deployed the trusted worker plus dependencies in `PolicyWorker/`.
+
+New tests cover 6/12-second SAM configuration, five-second response acceptance, remaining useful-frame cancellation, 20-second verified retention, local/SAM age separation, OpenCV ROI translation and lost texture, delayed-mask correction, four deterministic policies, strict swarm/IPC schemas, real Kestrel telemetry/mission clients and idempotency. A real isolated-worker timeout selects PerimeterPatrol, then source failure selects EmergencyHold.
+
+Brain tests use owned loopback HTTP provider fixtures for dated-ID 404 → alias, no alias substitution on auth/permission/rate failures, transient retry limits, closed model-output JSON, compiler feedback and three-candidate exhaustion. They also execute actual compiled C# in an **actual Windows AppContainer/Job Object**: token check, denied outside canary, blocked connection to a host-verified loopback listener, no inherited API keys, positive computation, infinite-loop kill, constructor exception, memory pressure, and NaN/Infinity rejection. Static capability tests cover full qualification, reflection/GetType, dynamic, typeof, GC, threading and file access. These are not live Baseten or Meta calls.
+
+The real Unity scene contains **three ground and two aerial agents**. The final automatic navigation-only check advanced **1307 frames / 78 policy ticks** in an eight-second run. Displacements were **2.371, 7.997, 11.816, 10.407 and 7.154 m**, and maximum path vertex counts were **3, 2, 2, 2, 2**. Actual controllers/NavMesh moved around a temporary explicitly labeled authored obstacle, outside the SAM stream. The earlier 494-frame check also passed. The real disabled-perception backend received five measured rows and replied with five zero-speed directives; all five held with zero planar velocity. The saved NavMesh has 16 triangulation vertices. No physical observation is inferred from this fixture.
+
+Native HUD clicks exercised Cordon and synthesis through the actual local HTTP path. With perception disabled, Brain safely reported `fallback / perception_not_current / attempt 0`, making no provider request. The scroll panel was checked in a small Game view, and its bottom remained at the footer boundary. After fixing input arbitration, a real wheel event over the HUD left camera position unchanged at `(8.2052, 25.5563, -16.3318)`; a wheel event over the world still changed zoom. Final sampled console ground truth had zero errors and no compilation failure. Expected source-silence warnings and existing Unity AI tooling entitlement/signature warnings are separate from application errors.
+
+The importer was reverified against real build outputs and filesystem fixtures: **eight DLLs/four scripts**, repeat-import metadata preservation, local-edit rejection without ownership-record mutation, and duplicate-assembly rejection. Current libraries are reimported with only this project's Editor closed. [Swarm/Brain limits](brain.md), [current audit](project-audit.md).
+
+The final import ownership hashes matched all twelve files, and the installed Transport DLL matched the verified Release output. After the last import, Unity sampled frame 2 and then 9647 with five Holding agents, zero planar velocities, `perception_not_enabled` and protocol `omnitwin.v2`. The backend received telemetry sequence 1183 for all five agents with five zero-speed directives. Final console ground truth: `compilationFailed=false`, `compiling=false`, `consoleErrors=0`; eight warnings included existing AI tooling and expected source silence. [Current Game-view capture](images/tactical-swarm.png) shows actual disabled-source state. No replacement detections were injected.
+
+The sections below retain earlier calibration/transport checks as historical evidence; their 291-test count and earlier seven-DLL scene describe that preceding milestone.
 
 ## Commands
 
@@ -83,4 +101,4 @@ The source was pushed to the private [Mr444-dev/OmniTwin repository](https://git
 
 ## Limits
 
-The geometry/mask/trajectory fixtures and injected host sources are test inputs, not claimed live detections. Model HTTP tests use fixture handlers; backend transport tests use real localhost TCP/WebSocket connections and the real server/receiver. Native JPEG tests use synthetic images. No physical camera session, live Meta request, calibration UI, microphone input, IL2CPP run, generated-code execution, or real-time performance benchmark was performed. No model credentials were used. The portable libraries were exercised on the .NET 10 test host and in the Unity Editor's Mono runtime; this does not establish other platform compatibility. Agent navigation still requires independent target/collision checks and validation against real observations.
+Geometry/mask/trajectory images and injected test sources are test inputs, not claimed live detections. HTTP provider fixtures and real local server/receiver checks do not establish hosted model access. No physical camera/live provider session, microphone, standalone/IL2CPP run or sustained performance benchmark has been performed. Calibration browser checks, isolated generated-code execution and controlled Unity navigation have been exercised as described above. No model credentials were used. Real tabletop accuracy, live obstacle navigation and complete end-to-end model demonstration remain open acceptance criteria.

@@ -32,7 +32,7 @@ Applies to every file in this repository. Build a verifiable digital twin; never
 - Configure carving thresholds and stationary behavior explicitly. Carving and path replanning are not guaranteed to complete in the next physics step.
 
 ## Models and external I/O
-- Preserve the requested Baseten model identifier exactly: `meta-models/muse-spark-open-1026`. Verify provider acceptance before enabling inference; never silently substitute another model.
+- Start Baseten requests with `meta-models/muse-spark-open-1026`. The user explicitly authorizes a single fallback after HTTP 404 to `meta-models/muse-spark-open`; report the used ID and fallback in telemetry/HUD. Never substitute for authentication, permission, or other permanent failures.
 - Load credentials from `META_API_KEY` and `BASETEN_API_KEY`; never commit or log secrets. Do not assume a `.env` file is loaded automatically.
 - Check current official documentation before implementing provider request/response adapters. Do not invent endpoints, mask formats, provider features, or latency guarantees.
 - Every external call needs cancellation, a bounded timeout, response-size limits, strict schema and semantic validation, and bounded exponential backoff for transient failures. Honor `Retry-After`; do not retry invalid input or authentication failures. Document duplicate-request/cost implications.

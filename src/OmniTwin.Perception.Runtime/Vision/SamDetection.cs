@@ -59,6 +59,7 @@ public sealed class SamSegmentationResult
         ResponseId = responseId; SequenceNumber = frame.SequenceNumber; CapturedAt = frame.CapturedAt;
         Width = frame.Width; Height = frame.Height; DurationMs = durationMs; Detections = detections;
         CaptureTimestamp = frame.CaptureTimestamp;
+        SourceFrame = frame;
     }
     /// <summary>Gets the provider response ID.</summary>
     public string ResponseId { get; }
@@ -75,4 +76,5 @@ public sealed class SamSegmentationResult
     /// <summary>Gets an owned, read-only detection list.</summary>
     public IReadOnlyList<SamDetection> Detections { get; }
     internal long CaptureTimestamp { get; }
+    internal CapturedFrame SourceFrame { get; }
 }

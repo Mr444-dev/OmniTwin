@@ -1,5 +1,6 @@
 using System;
 using Microsoft.Extensions.Configuration;
+using OmniTwin.Contracts;
 
 namespace OmniTwin.Backend;
 
@@ -9,7 +10,7 @@ public sealed class BackendOptions
     /// <summary>Creates host settings. Port zero asks the OS for an ephemeral loopback port.</summary>
     public BackendOptions(int port = 5108, bool enablePerception = false, int cameraDevice = 0,
         string? calibrationPath = null, string concept = "cup", bool hazard = false, int maximumClients = 16,
-        int sendTimeoutMilliseconds = 2000, int maximumPublicationAgeMilliseconds = 2000, int retentionMilliseconds = 3000)
+        int sendTimeoutMilliseconds = 2000, int maximumPublicationAgeMilliseconds = 2000, int retentionMilliseconds = PerceptionTiming.VerifiedRetentionMilliseconds)
     {
         if (port < 0 || port > 65535) throw new ArgumentOutOfRangeException(nameof(port));
         if (cameraDevice < 0) throw new ArgumentOutOfRangeException(nameof(cameraDevice));
@@ -52,6 +53,6 @@ public sealed class BackendOptions
         return new BackendOptions(section.GetValue("Port", 5108), section.GetValue("EnablePerception", false),
             section.GetValue("CameraDevice", 0), section["CalibrationPath"], section["Concept"] ?? "cup",
             section.GetValue("Hazard", false), section.GetValue("MaximumClients", 16), section.GetValue("SendTimeoutMilliseconds", 2000),
-            section.GetValue("MaximumPublicationAgeMilliseconds", 2000), section.GetValue("RetentionMilliseconds", 3000));
+            section.GetValue("MaximumPublicationAgeMilliseconds", 2000), section.GetValue("RetentionMilliseconds", PerceptionTiming.VerifiedRetentionMilliseconds));
     }
 }

@@ -27,6 +27,8 @@ public sealed class CalibratedWorkspace
 
     /// <summary>Gets the immutable mapper for this workspace.</summary>
     public IHomographyMapper Mapper { get; }
+    /// <summary>Gets a read-only view of the owned perimeter-ordered world corners.</summary>
+    public IReadOnlyList<Vector2D> WorldCorners => Array.AsReadOnly(_world);
 
     /// <summary>Tests whether a finite pixel center lies inside or on the calibrated camera polygon.</summary>
     public bool ContainsPixel(double u, double v)

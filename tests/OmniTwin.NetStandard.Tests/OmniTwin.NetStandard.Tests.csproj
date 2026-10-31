@@ -14,6 +14,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="../Fixtures/sam-one-bit.json" Link="Fixtures/sam-one-bit.json" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="../../src/OmniTwin.Policies/OmniTwin.Policies.csproj"
+      SetTargetFramework="TargetFramework=netstandard2.1" SkipGetTargetFrameworkProperties="true" />
     <ProjectReference Include="../../src/OmniTwin.Contracts/OmniTwin.Contracts.csproj"
       SetTargetFramework="TargetFramework=netstandard2.1" SkipGetTargetFrameworkProperties="true" />
     <ProjectReference Include="../../src/OmniTwin.Perception/OmniTwin.Perception.csproj"

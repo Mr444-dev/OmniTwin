@@ -7,6 +7,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using OmniTwin.Contracts;
 
 namespace OmniTwin.Perception.Vision;
 
@@ -23,9 +24,9 @@ public sealed class SamClientOptions
     /// <summary>Gets or initializes the maximum number of HTTP attempts, from one through five.</summary>
     public int MaximumAttempts { get; init; } = 3;
     /// <summary>Gets or initializes the timeout for headers and body of one request.</summary>
-    public TimeSpan AttemptTimeout { get; init; } = TimeSpan.FromSeconds(20);
+    public TimeSpan AttemptTimeout { get; init; } = TimeSpan.FromMilliseconds(PerceptionTiming.SamAttemptMilliseconds);
     /// <summary>Gets or initializes the total operation deadline including backoff.</summary>
-    public TimeSpan TotalTimeout { get; init; } = TimeSpan.FromSeconds(60);
+    public TimeSpan TotalTimeout { get; init; } = TimeSpan.FromMilliseconds(PerceptionTiming.SamOperationMilliseconds);
     /// <summary>Gets or initializes the initial exponential retry delay.</summary>
     public TimeSpan InitialRetryDelay { get; init; } = TimeSpan.FromMilliseconds(250);
     /// <summary>Gets or initializes the maximum accepted JSON body size.</summary>
@@ -56,6 +57,15 @@ public sealed class SamApiException : Exception
     public int Attempts { get; }
     /// <summary>Gets the HTTP status if available.</summary>
     public HttpStatusCode? StatusCode { get; }
+    /// <summary>Gets a safe operator category independent of provider response bodies.</summary>
+    public string OperatorCategory => StatusCode switch
+    {
+        HttpStatusCode.Unauthorized => "auth_missing_or_invalid_401",
+        HttpStatusCode.Forbidden => "permission_denied_403",
+        HttpStatusCode.TooManyRequests => "rate_limited_429",
+        HttpStatusCode.RequestTimeout or HttpStatusCode.GatewayTimeout => "upstream_timeout",
+        _ => Category is "attempt_timeout" or "total_timeout" or "retry_exceeds_deadline" ? "upstream_timeout" : Category
+    };
 }
 
 /// <summary>Non-streaming still-image SAM adapter with validation, bounded retry, deadlines, and no overlapping calls.</summary>
@@ -88,7 +98,7 @@ public sealed class Sam31Client : ISam31Client, IDisposable
     public static Sam31Client FromEnvironment(SamClientOptions? options = null)
     {
         var key = Environment.GetEnvironmentVariable("META_API_KEY");
-        if (string.IsNullOrWhiteSpace(key)) throw new InvalidOperationException("Set META_API_KEY in the process environment.");
+        if (string.IsNullOrWhiteSpace(key)) throw new SamApiException("auth_missing_or_invalid_401", 0, HttpStatusCode.Unauthorized);
         var http = new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, AutomaticDecompression = DecompressionMethods.GZip })
         { Timeout = Timeout.InfiniteTimeSpan };
         try { return new Sam31Client(http, key, options, true); }

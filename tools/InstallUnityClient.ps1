@@ -30,26 +30,41 @@ if (-not $packages.dependencies.'com.unity.render-pipelines.universal') { throw 
 if (Test-Path -LiteralPath (Join-Path $projectDirectory 'Temp/UnityLockfile')) { throw 'Close this project in Unity before importing.' }
 
 $dotnetExecutable = (Get-Command $DotNetPath -CommandType Application -ErrorAction Stop).Source
-$transportProject = Join-Path $repoDirectory 'src/OmniTwin.Transport/OmniTwin.Transport.csproj'
+$projects = @('OmniTwin.Transport', 'OmniTwin.Policies')
+$libraries = [Collections.Generic.List[string]]::new()
 Push-Location $repoDirectory
 try {
-    & $dotnetExecutable restore $transportProject --locked-mode --nologo -v quiet
-    if ($LASTEXITCODE -ne 0) { throw 'Locked transport restore failed.' }
-    & $dotnetExecutable build $transportProject -c Release -f netstandard2.1 --no-restore --nologo -v quiet
-    if ($LASTEXITCODE -ne 0) { throw 'Portable transport build failed.' }
-    $metadataText = & $dotnetExecutable msbuild $transportProject -target:ResolveReferences `
-        -property:TargetFramework=netstandard2.1 -property:Configuration=Release -property:CopyLocalLockFileAssemblies=true `
-        -getItem:ReferenceCopyLocalPaths -getProperty:TargetPath -nologo
-    if ($LASTEXITCODE -ne 0) { throw 'Could not resolve portable runtime dependencies.' }
-    $metadata = ($metadataText -join "`n") | ConvertFrom-Json
+    foreach ($projectName in $projects) {
+        $portableProject = Join-Path $repoDirectory ('src/' + $projectName + '/' + $projectName + '.csproj')
+        & $dotnetExecutable restore $portableProject --locked-mode --nologo -v quiet
+        if ($LASTEXITCODE -ne 0) { throw "Locked portable restore failed: $projectName" }
+        & $dotnetExecutable build $portableProject -c Release -f netstandard2.1 --no-restore --nologo -v quiet
+        if ($LASTEXITCODE -ne 0) { throw "Portable build failed: $projectName" }
+        $metadataText = & $dotnetExecutable msbuild $portableProject -target:ResolveReferences `
+            -property:TargetFramework=netstandard2.1 -property:Configuration=Release -property:CopyLocalLockFileAssemblies=true `
+            -getItem:ReferenceCopyLocalPaths -getProperty:TargetPath -nologo
+        if ($LASTEXITCODE -ne 0) { throw "Could not resolve portable dependencies: $projectName" }
+        $metadata = ($metadataText -join "`n") | ConvertFrom-Json
+        $libraries.Add($metadata.Properties.TargetPath)
+        foreach ($reference in $metadata.Items.ReferenceCopyLocalPaths) {
+            if ($reference.Identity -like '*.dll' -and -not $libraries.Contains($reference.Identity)) { $libraries.Add($reference.Identity) }
+        }
+    }
 }
 finally { Pop-Location }
 
 $plan = [Collections.Generic.List[object]]::new()
-$libraries = @($metadata.Properties.TargetPath) + @($metadata.Items.ReferenceCopyLocalPaths | ForEach-Object { $_.Identity } | Where-Object { $_ -like '*.dll' })
-foreach ($library in $libraries) {
+foreach ($library in ($libraries | Sort-Object -Unique)) {
     if (-not (Test-Path -LiteralPath $library -PathType Leaf)) { throw "Resolved library is missing: $library" }
-    $plan.Add([pscustomobject]@{ source = $library; path = 'Assets/_OmniTwin/Plugins/' + [IO.Path]::GetFileName($library) })
+    $destination = 'Assets/_OmniTwin/Plugins/' + [IO.Path]::GetFileName($library)
+    $previous = @($plan | Where-Object path -eq $destination)
+    if ($previous.Count -gt 0) {
+        if ((Get-FileHash -LiteralPath $previous[0].source -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $library -Algorithm SHA256).Hash) {
+            throw "Conflicting portable dependency: $destination"
+        }
+        continue
+    }
+    $plan.Add([pscustomobject]@{ source = $library; path = $destination })
 }
 $sourceDirectory = Join-Path $repoDirectory 'unity/client/Runtime'
 foreach ($script in (Get-ChildItem -LiteralPath $sourceDirectory -Filter '*.cs' -File -Recurse)) {

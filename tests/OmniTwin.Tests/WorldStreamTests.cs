@@ -47,10 +47,10 @@ public sealed class WorldStreamTests
         var json = Encoding.UTF8.GetString(WorldStreamCodec.Encode(Message()));
         var invalid = new[]
         {
-            json.Replace("\"protocolVersion\":1", "\"protocolVersion\":2"),
-            json.Replace("\"protocolVersion\":1", "\"protocolVersion\":1,\"extra\":0"),
-            json.Replace("\"protocolVersion\":1", "\"protocolVersion\":1,\"protocolVersion\":1"),
-            json.Replace("\"protocolVersion\":1,", ""),
+            json.Replace("\"protocolVersion\":2", "\"protocolVersion\":3"),
+            json.Replace("\"protocolVersion\":2", "\"protocolVersion\":2,\"extra\":0"),
+            json.Replace("\"protocolVersion\":2", "\"protocolVersion\":2,\"protocolVersion\":2"),
+            json.Replace("\"protocolVersion\":2,", ""),
             json.Replace("\"radiusMeters\":0.5", "\"radiusMeters\":0"),
             json.Replace("\"x\":1", "\"x\":1,\"x\":2"),
             json.Replace("\"confidence\":0.9", "\"confidence\":1e9999"),

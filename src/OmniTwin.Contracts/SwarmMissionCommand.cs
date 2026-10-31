@@ -11,8 +11,8 @@ public enum SwarmMissionKind
     PatrolPerimeter,
     /// <summary>Establish a safety perimeter around a hazard.</summary>
     HazardQuarantine,
-    /// <summary>Search using an expanding spiral.</summary>
-    SearchAndRescueSpiral
+    /// <summary>Search free cells using a partitioned serpentine grid.</summary>
+    GridSearchAndRescue
 }
 
 /// <summary>A typed mission request independent of any provider response format.</summary>

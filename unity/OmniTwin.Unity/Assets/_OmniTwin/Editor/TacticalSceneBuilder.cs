@@ -4,6 +4,9 @@ using OmniTwin.Simulation.CameraControl;
 using OmniTwin.Simulation.Network;
 using OmniTwin.Simulation.UI;
 using OmniTwin.Simulation.World;
+using OmniTwin.Contracts;
+using OmniTwin.Simulation.Agents;
+using OmniTwin.Simulation.Runtime;
 using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -12,6 +15,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.TextCore.Text;
 using UnityEngine.UIElements;
+using UnityEngine.AI;
 
 namespace OmniTwin.Simulation.Editor
 {
@@ -163,6 +167,7 @@ namespace OmniTwin.Simulation.Editor
             document.visualTreeAsset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(RootPath + "/UI/TacticalHud/TacticalHud.uxml");
             if (document.visualTreeAsset == null) throw new InvalidOperationException("Tactical HUD layout is missing.");
             Assign(document.gameObject.AddComponent<TacticalHudController>(), "stream", connection);
+            AddSwarmToScene();
 
             PlayerSettings.companyName = "OmniTwin";
             PlayerSettings.productName = "OmniTwin";
@@ -176,7 +181,72 @@ namespace OmniTwin.Simulation.Editor
             EditorBuildSettings.scenes = scenes.ToArray();
             AssetDatabase.SaveAssets();
             Selection.activeGameObject = connection.gameObject;
-            Debug.Log("OmniTwin TacticalDesk created. No camera observations or agents were fabricated.");
+            Debug.Log("OmniTwin TacticalDesk created with authored simulation agents; movement requires current perception.");
+        }
+
+        /// <summary>Adds three real NavMesh vehicles and two aerial simulation entities to the existing authored scene.</summary>
+        [MenuItem("OmniTwin/Add Swarm To Tactical Desk")]
+        public static void AddSwarmToScene()
+        {
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (EditorApplication.isPlaying || scene.name != "TacticalDesk" ||
+                (!string.IsNullOrEmpty(scene.path) && scene.path != ScenePath)) throw new InvalidOperationException("Open TacticalDesk in Edit mode.");
+            var connection = UnityEngine.Object.FindObjectsByType<TwinWebSocketClient>();
+            var hud = UnityEngine.Object.FindObjectsByType<TacticalHudController>();
+            if (connection.Length != 1 || hud.Length != 1) throw new InvalidOperationException("One stream and HUD are required.");
+            var existing = UnityEngine.Object.FindObjectsByType<PolicyExecutor>();
+            if (existing.Length > 0)
+            {
+                if (existing.Length != 1 || existing[0].Agents.Count != 5) throw new InvalidOperationException("Existing swarm configuration requires review.");
+                Assign(hud[0], "executor", existing[0]);
+                EditorSceneManager.SaveScene(scene, ScenePath); return;
+            }
+            if (UnityEngine.AI.NavMesh.CalculateTriangulation().vertices.Length == 0) throw new InvalidOperationException("The reference NavMesh must be loaded first.");
+            var unlit = Shader.Find("Universal Render Pipeline/Unlit");
+            if (unlit == null) throw new InvalidOperationException("URP Unlit is required.");
+            Material MaterialFor(string name, Color color)
+            {
+                var path = RootPath + "/Materials/" + name + ".mat";
+                var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (material != null) return material;
+                material = new Material(unlit) { name = name }; material.SetColor("_BaseColor", color); SaveNew(material, path); return material;
+            }
+            var groundMaterial = MaterialFor("SwarmGround", new Color(0.08f, 0.83f, 0.93f));
+            var aerialMaterial = MaterialFor("SwarmAerial", new Color(1, 0.65f, 0.18f));
+            var root = Root("Swarm Agents");
+            var controllers = new SwarmAgentController[5];
+            for (var index = 0; index < controllers.Length; index++)
+            {
+                var aerial = index >= 3; var id = index + 1;
+                var entity = new GameObject((aerial ? "DRONE_AERIAL_" : "AGV_GROUND_") + id);
+                entity.transform.SetParent(root.transform);
+                var altitude = index == 4 ? 2.8f : 2.2f;
+                entity.transform.position = aerial ? new Vector3(index == 3 ? -6 : -3, altitude, 1) : new Vector3(-7 + index * 2, 0, -3);
+                var body = GameObject.CreatePrimitive(aerial ? PrimitiveType.Sphere : PrimitiveType.Cube);
+                body.name = "Simulation body"; body.transform.SetParent(entity.transform, false);
+                body.transform.localPosition = aerial ? Vector3.zero : new Vector3(0, 0.3f, 0);
+                body.transform.localScale = aerial ? new Vector3(0.55f, 0.22f, 0.55f) : new Vector3(0.6f, 0.45f, 0.8f);
+                body.GetComponent<Renderer>().sharedMaterial = aerial ? aerialMaterial : groundMaterial;
+                if (!aerial)
+                {
+                    var navigation = entity.AddComponent<NavMeshAgent>();
+                    navigation.radius = 0.35f; navigation.height = 0.7f; navigation.speed = 1.5f; navigation.acceleration = 8;
+                    navigation.angularSpeed = 180; navigation.stoppingDistance = 0.12f; navigation.autoBraking = true;
+                    navigation.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
+                    navigation.avoidancePriority = 20 + index * 10;
+                }
+                var pathObject = new GameObject("Planned trajectory"); pathObject.transform.SetParent(entity.transform, false);
+                var pathLine = pathObject.AddComponent<LineRenderer>(); pathLine.sharedMaterial = aerial ? aerialMaterial : groundMaterial;
+                pathLine.useWorldSpace = true; pathLine.startWidth = 0.045f; pathLine.endWidth = 0.025f; pathLine.positionCount = 0;
+                pathLine.shadowCastingMode = ShadowCastingMode.Off; pathLine.receiveShadows = false;
+                controllers[index] = entity.AddComponent<SwarmAgentController>();
+                controllers[index].Configure(id, aerial ? AgentRole.AerialDrone : AgentRole.GroundVehicle, altitude, pathLine);
+            }
+            var executor = Root("Swarm Control").AddComponent<PolicyExecutor>(); executor.Configure(connection[0], controllers);
+            Assign(hud[0], "executor", executor);
+            if (!EditorSceneManager.SaveScene(scene, ScenePath)) throw new IOException("Swarm scene save failed.");
+            AssetDatabase.SaveAssets();
+            Debug.Log("OmniTwin: three NavMesh vehicles and two aerial agents authored. Source loss enforces EmergencyHold.");
         }
 
         private static void SaveNew(UnityEngine.Object asset, string path)

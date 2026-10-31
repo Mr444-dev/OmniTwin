@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using OmniTwin.Contracts;
 
 namespace OmniTwin.Perception.Vision;
 
@@ -33,7 +34,7 @@ public sealed class SegmentationWorker
     public SegmentationWorker(ISam31Client client, TimeSpan? maximumFrameAge = null, TimeProvider? timeProvider = null)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
-        _maximumAge = maximumFrameAge ?? TimeSpan.FromSeconds(5);
+        _maximumAge = maximumFrameAge ?? TimeSpan.FromMilliseconds(PerceptionTiming.MaximumFrameAgeMilliseconds);
         if (_maximumAge <= TimeSpan.Zero || _maximumAge > TimeSpan.FromMinutes(5))
             throw new ArgumentOutOfRangeException(nameof(maximumFrameAge));
         _time = timeProvider ?? TimeProvider.System;
@@ -70,12 +71,18 @@ public sealed class SegmentationWorker
                 {
                     try
                     {
-                        var result = await _client.SegmentAsync(frame, nounPhrase, cancellationToken).ConfigureAwait(false);
+                        using var useful = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        var remaining = _maximumAge - (_time.GetUtcNow() - frame.CapturedAt);
+                        if (remaining <= TimeSpan.Zero) throw new OperationCanceledException();
+                        useful.CancelAfter(remaining);
+                        var result = await _client.SegmentAsync(frame, nounPhrase, useful.Token).ConfigureAwait(false);
                         update = IsFresh(frame) ? new SegmentationUpdate(frame.SequenceNumber, result, null)
                             : new SegmentationUpdate(frame.SequenceNumber, null, "stale_result");
                     }
                     catch (SamApiException error)
-                    { update = new SegmentationUpdate(frame.SequenceNumber, null, error.Category); }
+                    { update = new SegmentationUpdate(frame.SequenceNumber, null, error.OperatorCategory); }
+                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                    { update = new SegmentationUpdate(frame.SequenceNumber, null, "upstream_timeout"); }
                 }
                 yield return update;
             }

@@ -2,13 +2,13 @@
 
 OmniTwin maps camera pixels onto a calibrated simulation plane and defines immutable world, agent, mission, and policy contracts. Its perception tools decode SAM 3.1 masks into estimated world footprints and session-stable tracks. A local ASP.NET Core host publishes validated tracking snapshots over a bounded WebSocket stream.
 
-The camera/SAM adapter, calibration, footprint estimation, tracking, local host, and portable stream client are implemented. The Unity 6.6 project includes a tactical scene, an observed-footprint visualizer, a baked reference-floor NavMesh, orbit/zoom controls, and a UI Toolkit status HUD. Play-mode progression, the real local backend connection, HUD reconnect interaction, and portable JSON operation inside Unity have been checked. Live camera/Meta API operation, observed-obstacle navigation, agent behavior, Baseten planning, and generated-policy execution remain unverified or subsequent work.
+The Windows desktop implementation includes hybrid OpenCV/SAM tracking, four deterministic policies, three NavMesh ground vehicles, two aerial agents, measured simulation telemetry, path rendering, and a UI Toolkit command HUD. Brain synthesizes C# through Baseten, verifies semantic symbols with Roslyn, and runs generated policies exclusively in a capability-free Windows AppContainer with a resource-limited Job Object. Unity receives validated directives, never generated executable code. Physical camera/model access and a complete live tabletop demonstration still require verification with the user's hardware and credentials.
 
-![TacticalDesk awaiting a current camera observation](docs/images/tactical-desk.png)
+![Five simulated agents in EmergencyHold while calibrated perception is disabled](docs/images/tactical-swarm.png)
 
-The screenshot shows the actual scene with perception disabled. Empty counters indicate unavailable observations; no detections or agents are fabricated. [Open and run the integrated scene](docs/unity-scene.md).
+The screenshot shows the actual scene, five measured simulation agents and `EmergencyHoldPolicy` with perception disabled. Unavailable obstacle counters are not a claim that the workspace is clear. [Open and run the integrated scene](docs/unity-scene.md).
 
-The [project audit](docs/project-audit.md) maps the original specification to implemented, partial, and missing features, with concrete follow-up criteria. The [API key and first-run guide](docs/api-keys.md) covers the masked local key prompt, this workstation's SDK, calibration, and one real SAM request. `BASETEN_API_KEY` is reserved for the planned Brain adapter; setting it does not enable planning in the current backend.
+The [project audit](docs/project-audit.md) separates implemented modules from outstanding hardware/product acceptance. The [API key guide](docs/api-keys.md) covers masked local setup of both `META_API_KEY` and `BASETEN_API_KEY`. Model synthesis starts only after an explicit HUD command; normal baseline missions do not invoke Baseten.
 
 ## Build and verify
 
@@ -22,7 +22,7 @@ dotnet build OmniTwin.sln -c Release --no-restore
 dotnet test --solution OmniTwin.sln -c Release --no-build --no-restore
 ```
 
-The solution builds Contracts, Perception, and Transport for `net10.0` and `netstandard2.1`. Two .NET 10 test hosts execute shared core/transport tests against those targets and verify the loaded framework attributes. Further suites test native JPEG/perception adapters and a real Kestrel HTTP/WebSocket host on ephemeral loopback ports. No model credentials or physical camera are used in the tests. NuGet versions are centralized in `Directory.Packages.props`; committed lock files capture transitive dependencies. The Windows GitHub Actions workflow runs locked restore, build, tests, and CLI checks. [Version policy and sources](docs/dependencies.md).
+Contracts, Perception, Transport, and Policies build for `net10.0` and `netstandard2.1`. Two .NET 10 hosts test both library targets. Further suites exercise native OpenCV, real Kestrel HTTP/WebSockets, Baseten protocol handling, Roslyn, actual AppContainer permissions, and hard termination of generated loops. Windows with a .NET 10 runtime in `Program Files/dotnet` is required for isolated execution tests. No provider credentials or physical camera are used. NuGet pins and lock files are committed. [Version policy](docs/dependencies.md), [executed checks and limits](docs/verification.md).
 
 See [verification results](docs/verification.md) for the checks actually run and their limits.
 
@@ -37,6 +37,9 @@ See [verification results](docs/verification.md) for the checks actually run and
 | `src/OmniTwin.Perception.Runtime` | OpenCV capture, SAM client, strict calibration loading, mask projection, and independent tracking publication |
 | `src/OmniTwin.Transport` | Closed-schema codec, order guard, bounded receiver, reconnecting single-producer client, atomic latest-state handoff, and source/track freshness checks |
 | `src/OmniTwin.Backend` | Loopback host, source supervision, health/status/latest endpoints, and bounded per-client WebSocket publication |
+| `src/OmniTwin.Policies` | Perimeter patrol, hazard quarantine, grid search, emergency hold, swept-footprint checks and bounded A* waypoints |
+| `src/OmniTwin.Brain` | Baseten 404-only model alias fallback, semantic compiler, three-attempt self-repair, AppContainer/Job supervision |
+| `src/OmniTwin.PolicyWorker` | Trusted IPC worker; generated assembly loading occurs only after an AppContainer token check |
 | `src/OmniTwin.Perception.Cli` | Capture, local JPEG snapshots, inference/tracking tools, and a validated `stream-probe` client |
 | `unity/client/Runtime` | Desktop Unity worker adapter and main-thread observed-footprint visualizer with navigation obstacles |
 | `tools/InstallUnityClient.ps1` | Imports portable DLLs and Unity scripts into an existing project while protecting local edits and `.meta` files |
@@ -44,8 +47,9 @@ See [verification results](docs/verification.md) for the checks actually run and
 | `tests/OmniTwin.NetStandard.Tests` | Runs the shared tests against the .NET Standard assemblies |
 | `tests/OmniTwin.Perception.Runtime.Tests` | HTTP failure handling, wire parsing, native image processing, stale-result rejection, and queue coalescing |
 | `tests/OmniTwin.Backend.Tests` | Broker backpressure, source failure, client limits, shutdown, close handshakes, origin policy, and real HTTP/WebSocket transport |
+| `tests/OmniTwin.Brain.Tests` | Model protocol/repair fixtures, semantic capability rejection, actual OS isolation, timeout/memory/nonfinite-output checks |
 
-Snapshots copy incoming collections and reject null elements and duplicate IDs. Scalar validation rejects nonfinite coordinates, invalid enum values, negative IDs, and invalid ranges. Snapshot sequence numbers and schema version 1 are represented explicitly. Transport additionally enforces producer-session ordering, size limits, required JSON fields, and schema validation; DTO constructors alone are not a wire protocol validator.
+Snapshots own collections and reject null entries, duplicate IDs, nonfinite coordinates, invalid enums and ranges. WorldState/mission/control schemas remain version 1; obstacle tracking and its WebSocket envelope use version 2 for provenance. Transport also enforces producer-session ordering, size limits and required JSON fields; DTO constructors alone are not a wire protocol validator.
 
 `Vector2D.DistanceTo` returns `double` to avoid overflow when finite float components are far apart. Vector components have validated initialization accessors so `System.Text.Json` can reconstruct nonzero readonly values. Snapshot records contain owned read-only collections; record equality does not provide structural collection equality.
 
@@ -72,7 +76,7 @@ dotnet run --project src/OmniTwin.Perception.Cli -c Release -- watch 0 30 "cup"
 
 These two commands send images to Meta and can consume API credits. They require account access to `sam-3.1`. Use a single noun phrase per request. SAM response IDs identify objects within that response; independent image calls do not establish persistent obstacle identities. The tools output pixel geometry, not fused world obstacles.
 
-The adapter requests non-streaming `one_bit` masks with confidence and validates the completed response envelope, grammar, IDs, dimensions, confidence agreement, allocation budgets, and canonical decoded mask. Pending capture/segmentation queues each retain one frame; an active request runs serially. Results older than five seconds are reported as `stale_result` with no detections published. Failures produce sanitized categories; camera capture continues through API failures. [Detailed behavior and limits](docs/perception.md).
+The adapter requests non-streaming `one_bit` masks with confidence and validates the envelope, grammar, IDs, dimensions, confidence, allocation budgets and canonical mask. Queues retain one pending frame; inference is serial. SAM defaults to 6 seconds per attempt and 12 seconds per operation; a frame's remaining 12-second useful lifetime can cancel it earlier. [Detailed behavior](docs/perception.md).
 
 ## Track calibrated world obstacles
 
@@ -94,7 +98,7 @@ dotnet run --project src/OmniTwin.Perception.Cli -c Release -- watch-world 0 30 
 
 Add `--hazard` to designate this session's observed concept as hazardous. This flag is an operator setting, not inferred chemical classification. The tool checks camera resolution before submitting a frame.
 
-`watch-world` estimates a circular footprint from the lower mask band, checks its clearance against the workspace, and assigns local IDs using world-space motion and radius gates. Publication runs independently of inference, with a nominal 30 Hz timer and three-second retention. Each JSON snapshot contains session/calibration identity, publication/source sequences, source age/currentness, and track age/confidence. A future consumer can distinguish a fresh empty observation from a stream whose observations have expired. Geometry stays at its last observed position between detections. [Tracking semantics and limits](docs/tracking.md).
+`watch-world` projects the lower mask band, checks footprint clearance, and associates stable local IDs. Between SAM replies, sparse forward/backward optical flow updates measured local displacement. Publications distinguish `SamVerified` from `LocalMotionEstimate` and keep geometry age separate from SAM age. Verified retention is 20 seconds; local geometry and the camera heartbeat expire after 1 second. API/tracking failures invalidate movement. Publication targets 30 Hz; this is not a measured throughput guarantee. [Tracking semantics](docs/tracking.md).
 
 ## Start the local backend
 
@@ -120,7 +124,7 @@ In another terminal, receive three validated publications:
 dotnet run --project src/OmniTwin.Perception.Cli -c Release -- stream-probe ws://127.0.0.1:5108/ws/twin 3
 ```
 
-`/ws/twin` requires subprotocol `omnitwin.v1`. Each client has one pending snapshot slot and its own send deadline. A slow client cannot make the producer wait for network I/O. Source failure clears the latest cache and closes existing streams. [Backend configuration and wire protocol](docs/backend.md).
+`/ws/twin` requires subprotocol `omnitwin.v2` (breaking provenance update). Each client has one pending snapshot slot and its own send deadline. Source failure clears cached publications. Separate `/api/swarm/telemetry`, `/api/swarm/mission`, and `/api/swarm/status` endpoints carry actual agent measurements, commands and correlated directives. [Backend protocol](docs/backend.md), [swarm and Brain](docs/brain.md).
 
 ## Calibrate a plane
 
@@ -176,6 +180,6 @@ src/OmniTwin.Transport/bin/Release/netstandard2.1/OmniTwin.Transport.dll
 
 Use externally compiled libraries rather than copying the C# 14 source into Unity's script compiler. Contracts and Perception have no third-party runtime packages. The .NET Standard Transport target references `System.Text.Json` 10.0.14 and its transitive packages; the .NET 10 target uses framework JSON support. Unity keeps its own supported scripting runtime; the .NET 10 backend runs separately over WebSockets. Editor import and JSON validation were exercised on Unity's Mono runtime. IL2CPP stripping/AOT, standalone builds, camera-driven navigation, and sustained performance remain unverified. The decoder does not use Unity `JsonUtility`.
 
-`ISwarmPolicy` is only a contract in this module. The [constitution](AGENTS.md) requires isolated execution of generated policies and validated directives at the Unity boundary. There is no dynamic-code loader or claimed sandbox in this release.
+Generated policies run only in the Windows worker, without inherited API keys or network capabilities, under memory/process/CPU/wall limits. Syntax/semantic verification is defense in depth, not the isolation boundary. A failed policy selects the requested built-in mission; untrusted perception or stale control selects `EmergencyHoldPolicy`. The HUD displays the actual model ID, 404 fallback, bounded diagnostics and a concise public decision summary. [Execution boundary and limits](docs/brain.md).
 
 The adapted one_bit codec and its conformance fixtures are distributed under the [SAM License](third-party/meta-sam/LICENSE); see [provenance and attribution](third-party/meta-sam/NOTICE.md).

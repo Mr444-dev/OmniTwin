@@ -16,7 +16,7 @@ public sealed class ObstacleTrackerTests
     private static readonly Guid Session = Guid.Parse("86d579ea-f677-4615-bd51-8d656a5f1748");
     private static readonly Guid Calibration = Guid.Parse("445c047b-81fa-43e9-a110-c792694a7fe3");
     private static ObstacleTracker Tracker(int capacity = 128, double distance = 1.5) =>
-        new(Session, Calibration, maximumAssociationDistanceMeters: distance, capacity: capacity);
+        new(Session, Calibration, retentionMilliseconds: 3000, maximumAssociationDistanceMeters: distance, capacity: capacity);
     private static ObstacleObservation Observation(int sourceId, float x, float z = 0, float radius = 0.2f,
         string label = "cup", bool hazard = false, float confidence = 0.9f) => new(sourceId, label, new Vector2D(x, z), radius, confidence, hazard);
     private static ObstacleObservationBatch Batch(long sequence, long capture, params ObstacleObservation[] observations) =>
@@ -206,7 +206,7 @@ public sealed class ObstacleTrackerTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new TrackedObstacleState(obstacle, 0, -1, 0.1f, true));
         Assert.Throws<ArgumentException>(() => new ObstacleTrackingSnapshot(Guid.Empty, Calibration, 0, null, null, false, 0, Array.Empty<TrackedObstacleState>()));
         Assert.Throws<ArgumentException>(() => new ObstacleTrackingSnapshot(Session, Calibration, 0, 1, 0, true, 0, new[] { state, state }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ObstacleTrackingSnapshot(Session, Calibration, 0, null, null, false, 0, Array.Empty<TrackedObstacleState>(), 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ObstacleTrackingSnapshot(Session, Calibration, 0, null, null, false, 0, Array.Empty<TrackedObstacleState>(), 3));
         Assert.Throws<ArgumentException>(() => new ObstacleTrackingSnapshot(Session, Calibration, 0, 1, null, true, 0, Array.Empty<TrackedObstacleState>()));
         Assert.Throws<ArgumentException>(() => new ObstacleTrackingSnapshot(Session, Calibration, 0, null, null, true, 0, Array.Empty<TrackedObstacleState>()));
     }

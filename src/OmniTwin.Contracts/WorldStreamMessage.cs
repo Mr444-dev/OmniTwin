@@ -8,10 +8,10 @@ public sealed record WorldStreamMessage
     /// <summary>Creates a bounded, internally consistent transport publication.</summary>
     public WorldStreamMessage(Guid streamId, long sequenceNumber, long sentAtUnixMs,
         long retentionMilliseconds, ObstacleTrackingSnapshot world, string? failureCategory,
-        int rejectedDetectionCount, int protocolVersion = 1)
+        int rejectedDetectionCount, int protocolVersion = 2)
     {
         if (streamId == Guid.Empty) throw new ArgumentException("Stream ID cannot be empty.", nameof(streamId));
-        if (protocolVersion != 1) throw new ArgumentOutOfRangeException(nameof(protocolVersion));
+        if (protocolVersion != 2) throw new ArgumentOutOfRangeException(nameof(protocolVersion));
         if (retentionMilliseconds < 1 || retentionMilliseconds > 60_000) throw new ArgumentOutOfRangeException(nameof(retentionMilliseconds));
         if (rejectedDetectionCount < 0 || rejectedDetectionCount > 128) throw new ArgumentOutOfRangeException(nameof(rejectedDetectionCount));
         if (failureCategory is not null) ContractGuard.Text(failureCategory, 128, nameof(failureCategory));

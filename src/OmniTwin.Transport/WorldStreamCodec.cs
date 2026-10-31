@@ -14,11 +14,11 @@ public sealed class WorldStreamProtocolException : FormatException
     public string Category { get; }
 }
 
-/// <summary>Encodes camel-case version-one messages and validates every field before constructing shared DTOs.</summary>
+/// <summary>Encodes camel-case version-two messages and validates every field before constructing shared DTOs.</summary>
 public static class WorldStreamCodec
 {
     /// <summary>The required WebSocket subprotocol.</summary>
-    public const string SubProtocol = "omnitwin.v1";
+    public const string SubProtocol = "omnitwin.v2";
     /// <summary>The maximum UTF-8 size of one complete WebSocket message.</summary>
     public const int MaximumMessageBytes = 262_144;
     private static readonly JsonSerializerOptions Options = new JsonSerializerOptions
@@ -43,7 +43,7 @@ public static class WorldStreamCodec
             var root = document.RootElement;
             Keys(root, "protocolVersion", "messageType", "streamId", "sequenceNumber", "sentAtUnixMs", "retentionMilliseconds",
                 "world", "failureCategory", "rejectedDetectionCount");
-            if (Int(root, "protocolVersion") != 1 || Text(root, "messageType") != "world.perception")
+            if (Int(root, "protocolVersion") != 2 || Text(root, "messageType") != "world.perception")
                 throw new WorldStreamProtocolException("unsupported_protocol");
             return new WorldStreamMessage(Id(root, "streamId"), Long(root, "sequenceNumber"), Long(root, "sentAtUnixMs"),
                 Long(root, "retentionMilliseconds"), World(root.GetProperty("world")), NullableText(root, "failureCategory"),
@@ -65,7 +65,8 @@ public static class WorldStreamCodec
         var tracks = new List<TrackedObstacleState>(collection.GetArrayLength());
         foreach (var track in collection.EnumerateArray())
         {
-            Keys(track, "obstacle", "lastObservedUnixMs", "ageMilliseconds", "trackingConfidence", "seenInLatestObservation");
+            Keys(track, "obstacle", "lastObservedUnixMs", "ageMilliseconds", "trackingConfidence", "seenInLatestObservation",
+                "observationSource", "geometryAgeMilliseconds", "geometryObservedUnixMs");
             var obstacle = track.GetProperty("obstacle");
             Keys(obstacle, "id", "label", "worldPosition", "radiusMeters", "confidence", "isHazardZone");
             var position = obstacle.GetProperty("worldPosition");
@@ -74,14 +75,15 @@ public static class WorldStreamCodec
                 new Vector2D(Scalar(position, "x"), Scalar(position, "z")), Scalar(obstacle, "radiusMeters"),
                 Scalar(obstacle, "confidence"), Boolean(obstacle, "isHazardZone"));
             tracks.Add(new TrackedObstacleState(value, Long(track, "lastObservedUnixMs"), Long(track, "ageMilliseconds"),
-                Scalar(track, "trackingConfidence"), Boolean(track, "seenInLatestObservation")));
+                Scalar(track, "trackingConfidence"), Boolean(track, "seenInLatestObservation"), (ObservationSource)Int(track, "observationSource"),
+                Long(track, "geometryAgeMilliseconds"), Long(track, "geometryObservedUnixMs")));
         }
         return new ObstacleTrackingSnapshot(Id(root, "sessionId"), Id(root, "calibrationId"), Long(root, "sequenceNumber"),
             NullableLong(root, "sourceSequenceNumber"), NullableLong(root, "sourceAgeMilliseconds"), Boolean(root, "isObservationCurrent"),
             Long(root, "timestampUnixMs"), tracks, Int(root, "schemaVersion"));
     }
 
-    private static void Keys(JsonElement value, params string[] expected)
+    internal static void Keys(JsonElement value, params string[] expected)
     {
         if (value.ValueKind != JsonValueKind.Object) throw new WorldStreamProtocolException("expected_object");
         var names = new HashSet<string>(StringComparer.Ordinal);
@@ -90,40 +92,40 @@ public static class WorldStreamCodec
                 throw new WorldStreamProtocolException("unknown_or_duplicate_field");
         if (names.Count != expected.Length) throw new WorldStreamProtocolException("missing_field");
     }
-    private static string Text(JsonElement value, string key)
+    internal static string Text(JsonElement value, string key)
     {
         var item = value.GetProperty(key);
         if (item.ValueKind != JsonValueKind.String) throw new WorldStreamProtocolException("expected_string");
         return item.GetString()!;
     }
-    private static string? NullableText(JsonElement value, string key) => value.GetProperty(key).ValueKind == JsonValueKind.Null ? null : Text(value, key);
-    private static Guid Id(JsonElement value, string key)
+    internal static string? NullableText(JsonElement value, string key) => value.GetProperty(key).ValueKind == JsonValueKind.Null ? null : Text(value, key);
+    internal static Guid Id(JsonElement value, string key)
     {
         if (!Guid.TryParseExact(Text(value, key), "D", out var id) || id == Guid.Empty) throw new WorldStreamProtocolException("invalid_id");
         return id;
     }
-    private static long Long(JsonElement value, string key)
+    internal static long Long(JsonElement value, string key)
     {
         var item = value.GetProperty(key);
         if (item.ValueKind != JsonValueKind.Number || !item.TryGetInt64(out var number) || number < 0)
             throw new WorldStreamProtocolException("invalid_integer");
         return number;
     }
-    private static long? NullableLong(JsonElement value, string key) => value.GetProperty(key).ValueKind == JsonValueKind.Null ? null : Long(value, key);
-    private static int Int(JsonElement value, string key)
+    internal static long? NullableLong(JsonElement value, string key) => value.GetProperty(key).ValueKind == JsonValueKind.Null ? null : Long(value, key);
+    internal static int Int(JsonElement value, string key)
     {
         var number = Long(value, key);
         if (number > int.MaxValue) throw new WorldStreamProtocolException("integer_range");
         return (int)number;
     }
-    private static bool Boolean(JsonElement value, string key)
+    internal static bool Boolean(JsonElement value, string key)
     {
         var item = value.GetProperty(key);
         if (item.ValueKind != JsonValueKind.True && item.ValueKind != JsonValueKind.False)
             throw new WorldStreamProtocolException("expected_boolean");
         return item.GetBoolean();
     }
-    private static float Scalar(JsonElement value, string key)
+    internal static float Scalar(JsonElement value, string key)
     {
         var item = value.GetProperty(key);
         if (item.ValueKind != JsonValueKind.Number || !item.TryGetSingle(out var number) || float.IsNaN(number) || float.IsInfinity(number))

@@ -169,7 +169,7 @@ public sealed class WorldProjectionTests
             consumed.SetResult();
             await Task.Delay(Timeout.Infinite, token);
         }
-        var worker = new CalibratedTrackingWorker(Profile(), "cup", timeProvider: clock);
+        var worker = new CalibratedTrackingWorker(Profile(), "cup", retentionMilliseconds: 3000, timeProvider: clock);
         using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         await using var reader = worker.RunAsync(Source(stop.Token), stop.Token).GetAsyncEnumerator(TestContext.Current.CancellationToken);
         var first = reader.MoveNextAsync().AsTask();

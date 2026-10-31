@@ -1,6 +1,6 @@
 # Klucze API i pierwsze uruchomienie
 
-Obecna aplikacja korzysta z **META_API_KEY dla SAM 3.1**. Adapter Baseten, głos i pozostałe modele nie są jeszcze zaimplementowane. Ustawienie `BASETEN_API_KEY` nie uruchomi planowania ani robotów. Aktualna lista funkcji jest w [audycie projektu](project-audit.md).
+Backend korzysta z **META_API_KEY dla SAM 3.1** oraz **BASETEN_API_KEY dla syntezy polityk Brain**. Zwykłe polityki nie wymagają Baseten; przycisk **SYNTHESIZE POLICY (API)** jawnie uruchamia płatną inferencję. Głos i pozostałe modele pozostają poza tą wersją. [Stan projektu](project-audit.md).
 
 Klucz wpisujesz lokalnie w terminalu. Nie przesyłaj jego wartości do czatu, Unity, kalibratora ani GitHuba. Nasz backend czyta zmienne środowiskowe; plik `.env.example` jest wzorem i nie jest automatycznie ładowany. Prywatne repozytorium również nie jest miejscem na sekrety.
 
@@ -89,7 +89,7 @@ dotnet run --project src/OmniTwin.Backend -c Release -- --OmniTwin:EnablePercept
 
 CLI `true` jawnie włącza kamerę i żądania SAM. W innej karcie przeglądarki otwórz [status backendu](http://127.0.0.1:5108/api/status). `disabled` oznacza wyłączoną percepcję, `starting` jej start, `running` pracę źródła, `degraded` błąd operacji/odrzucone detekcje, a `faulted` zakończenie źródła z błędem. Sprawdzaj również `isObservationCurrent`; sam status połączenia nie potwierdza aktualności geometrii.
 
-Otwórz `unity/OmniTwin.Unity` w Unity **6000.6.3f1**, następnie scenę `Assets/_OmniTwin/Scenes/TacticalDesk.unity`, Play i przycisk ponownego połączenia w HUD. [Instrukcja sceny](unity-scene.md). Na obecnym etapie zobaczysz obserwowane przeszkody i stan strumienia. Sterowanie robotami i komendy głosowe wymagają dalszej implementacji.
+Otwórz `unity/OmniTwin.Unity` w Unity **6000.6.3f1**, następnie scenę `Assets/_OmniTwin/Scenes/TacticalDesk.unity`, Play i przycisk ponownego połączenia w HUD. [Instrukcja sceny](unity-scene.md). Scena ma 3 roboty naziemne i 2 drony, telemetrię i przyciski Patrol/Cordon/Grid/Hold. Bez świeżego źródła jednostki zatrzymują się. Głos nie jest jeszcze wdrożony.
 
 Po pracy zatrzymaj backend, a następnie usuń klucz z terminala:
 
@@ -99,8 +99,17 @@ Po pracy zatrzymaj backend, a następnie usuń klucz z terminala:
 
 Usunięcie zmiennej nie odbiera klucza już uruchomionemu procesowi. Unieważnienie klucza na koncie Meta jest osobną operacją wykonywaną w panelu dostawcy.
 
-## Baseten — konfiguracja przyszłego modułu
+## 6. Baseten — uruchomienie Brain
 
-Baseten opisuje tworzenie klucza w [Settings → API keys](https://docs.baseten.co/organization/api-keys). Klucz tego dostawcy będzie należał do `BASETEN_API_KEY`. Skrypt obsługuje `-Provider Baseten`, ale obecny backend nie odczytuje tej zmiennej i nie wysyła żądań planowania.
+Utwórz klucz w [Baseten Settings → API keys](https://docs.baseten.co/organization/api-keys), a następnie w tym samym terminalu, z którego uruchamiasz backend:
 
-Specyfikacja wymaga dokładnie `meta-models/muse-spark-open-1026`. [Publiczna instrukcja Meta dla Baseten](https://dev.meta.ai/docs/muse-spark-open/deploy) dokumentuje `meta-models/muse-spark-open`. Nie potwierdziliśmy uwierzytelnionym żądaniem, że wariant z `-1026` jest dostępny dla Twojego konta. Trzeba to zweryfikować przed uruchomieniem Brain; projekt zachowuje wymagany identyfikator i nie podmienia go automatycznie.
+```powershell
+.\tools\SetOmniTwinApiKey.ps1 -Provider Baseten
+.\tools\SetOmniTwinApiKey.ps1 -Provider Baseten -Action Status
+```
+
+Uruchom backend z prawdziwą percepcją i kalibracją, wejdź do Play w Unity i poczekaj na aktualny świat oraz telemetrię pięciu jednostek. Wpisz misję w HUD i wybierz **SYNTHESIZE POLICY (API)**. Samo ustawienie klucza nie wywołuje modelu. Patrol/Cordon/Grid/Hold korzystają z kodu wbudowanego; Hold przerywa także generowanie. Windows wymaga zainstalowanego runtime .NET 10 w `Program Files/dotnet` dla izolowanego wykonawcy. Brak wiarygodnego źródła albo telemetrii blokuje syntezę z jawnym powodem.
+
+Klient zaczyna od `meta-models/muse-spark-open-1026`. Wyłącznie odpowiedź HTTP 404 przełącza go na oficjalny alias `meta-models/muse-spark-open`, zgodnie z Twoim zleceniem. HUD pokazuje rzeczywiście użyty ID, flagę fallbacku, liczbę prób i diagnostykę. 401/403/429 nie zmienia modelu. Dostęp na Twoim koncie nie został jeszcze potwierdzony prawdziwym żądaniem. Ponowienia mogą naliczać kolejne koszty; maksymalnie trzy kandydatury są generowane i sprawdzane. [Szczegóły Brain](brain.md).
+
+Po zatrzymaniu backendu usuń klucz z terminala przez `.\tools\SetOmniTwinApiKey.ps1 -Provider Baseten -Action Clear`.

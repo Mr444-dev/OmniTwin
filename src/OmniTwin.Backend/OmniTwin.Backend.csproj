@@ -4,8 +4,21 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../OmniTwin.Brain/OmniTwin.Brain.csproj" />
+    <ProjectReference Include="../OmniTwin.PolicyWorker/OmniTwin.PolicyWorker.csproj" ReferenceOutputAssembly="false" />
     <EmbeddedResource Include="Calibration/Page/calibration.*" LogicalName="OmniTwin.Calibration.%(Filename)%(Extension)" />
     <ProjectReference Include="../OmniTwin.Perception.Runtime/OmniTwin.Perception.Runtime.csproj" />
     <ProjectReference Include="../OmniTwin.Transport/OmniTwin.Transport.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OmniTwin.Policies\OmniTwin.Policies.csproj" />
+  </ItemGroup>
+  <Target Name="CopyPolicyWorker" AfterTargets="Build">
+    <ItemGroup><PolicyWorkerFile Include="../OmniTwin.PolicyWorker/bin/$(Configuration)/net10.0/*.dll;../OmniTwin.PolicyWorker/bin/$(Configuration)/net10.0/*.json" /></ItemGroup>
+    <Copy SourceFiles="@(PolicyWorkerFile)" DestinationFolder="$(OutDir)PolicyWorker" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="PublishPolicyWorker" AfterTargets="Publish">
+    <ItemGroup><PublishedPolicyWorkerFile Include="../OmniTwin.PolicyWorker/bin/$(Configuration)/net10.0/*.dll;../OmniTwin.PolicyWorker/bin/$(Configuration)/net10.0/*.json" /></ItemGroup>
+    <Copy SourceFiles="@(PublishedPolicyWorkerFile)" DestinationFolder="$(PublishDir)PolicyWorker" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

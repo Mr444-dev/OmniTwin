@@ -16,7 +16,7 @@ Capture timestamps are taken when the host's native read returns. They include l
 
 The single-producer `FrameChangeTrigger` compares consecutive grayscale pixels. A pixel is changed at intensity delta 20 or greater; motion requires at least 2% of pixels. The first frame triggers segmentation. Further triggers are spaced by at least 250 ms, refresh 100 ms after movement settles when spacing permits, and refresh at least every 1000 ms while new frames arrive. Thresholds schedule requests; they do not track objects or distinguish lighting changes from motion.
 
-`SegmentationWorker` drains capture independently of inference. Its own capacity-one queue replaces pending segmentation frames, and it calls the client serially. Frames and completed results must be between zero and five seconds old by the host clock. An expired result produces `stale_result` with a null result, rather than publishing old detections. API failures produce a categorized update while capture continues. A camera/producer failure propagates and ends the session.
+`SegmentationWorker` drains capture independently of inference. Its capacity-one queue replaces pending frames and calls the client serially. Frames/results have a default 12-second useful lifetime. A linked cancellation token stops the HTTP operation at the frame's remaining lifetime; expired results are rejected. A separate hybrid consumer measures local optical flow on intervening captures. API failures produce safe categories while capture continues; camera failure invalidates the session.
 
 Cancellation stops queue waits, HTTP, delays, and producer iteration. An active native camera read depends on the driver returning; .NET cancellation cannot force it to finish. Consumers must dispose enumerators to end capture. A hard camera-driver deadline would require a separately supervised capture process. Native JPEG normalization is synchronous and must run off a UI/render thread.
 
@@ -32,10 +32,12 @@ Object IDs are response-local. Stable identity is documented for frames within a
 
 ## Failure behavior
 
-The default client permits three HTTP attempts. Each attempt has a 20-second timeout covering headers and body; the entire operation has a 60-second deadline. Retry delays start at 250 ms, double, and cap at five seconds. Only HTTP 408/429/500/502/503/504, transport failures, and per-attempt timeouts are retried. Validation, authentication, access, redirect, and other permanent failures are not retried within the call.
+The default client permits three HTTP attempts. Each has a 6-second headers/body timeout; the operation deadline is 12 seconds, possibly shortened by remaining frame usefulness. Delays start at 250 ms, double and cap at five seconds. Only HTTP 408/429/500/502/503/504, transport failures and attempt timeouts are retried. Validation, authentication, access and redirects are permanent within that call.
 
 `Retry-After` takes precedence when longer than the computed delay. If it cannot fit within the operation deadline, the client fails with `retry_exceeds_deadline` instead of retrying early. A spent deadline is `total_timeout`; exhausted per-attempt timeouts are `attempt_timeout`. A server may already have processed a request before a transport failure or timeout, so a retry can duplicate inference work and consume additional credits. No idempotency guarantee is assumed.
 
 The environment factory loads `META_API_KEY`, disables HTTP redirects, and owns its HTTP transport. Injected clients must also disable redirects and must be disposed by their owner after active calls finish. Each client rejects a second overlapping operation rather than accumulating callers. Errors omit credentials, JPEG data, and provider response bodies.
 
 No live service claim follows from the protocol tests. Account access, actual output variations, physical-camera behavior, capture-to-result latency, and sustained frame rate remain to be measured.
+
+The worker/status/HUD use `auth_missing_or_invalid_401`, `permission_denied_403`, `rate_limited_429`, `upstream_timeout` and `network_error`. Missing `META_API_KEY` uses the authentication category. Neither tokens nor raw response bodies are forwarded. Lower-level CLI timing diagnostics remain available for one-shot troubleshooting.

@@ -2,7 +2,7 @@
 
 ## Scope and ownership
 
-The later four-layer constitution takes precedence over the earlier tree that placed vision and brain implementations inside the backend. This module therefore uses `OmniTwin.Contracts` and `OmniTwin.Perception.Calibration`. The backend composes perception and transport; Brain remains a subsequent module. No empty projects or nonfunctional provider adapters have been added.
+The later four-layer constitution takes precedence over the earlier tree placing vision and brain inside the backend. Contracts, Perception, Policies, Brain and Transport remain separate libraries; the backend composes them. Generated execution has a separate trusted PolicyWorker and OS boundary. No empty provider adapters are added.
 
 Positions use Unity's X/Z plane in world meters. Image U increases rightward and V downward. The corner correspondence establishes world-axis directions; neither image axis is automatically inverted. Mapping an 80 cm desk width onto a 20 m simulation width establishes a scale of 25, not a measurement of the desk in true physical meters.
 
@@ -30,11 +30,11 @@ Four points fit their own measurements and cannot independently quantify measure
 
 The supplied namespace/identifier denylist can miss aliases and other language/runtime capabilities. Successful compilation also says nothing about infinite loops, resource exhaustion, constructor effects, or invalid directives. Static verification is useful evidence; it cannot substitute for execution isolation. Microsoft explicitly states that untrusted code cannot be safely loaded into a trusted .NET process and recommends OS or virtualization boundaries. [Microsoft plugin guidance](https://learn.microsoft.com/en-us/dotnet/core/tutorials/creating-app-with-plugin-support).
 
-For the future brain module, compile and inspect code without host-side activation. Execute only under OS-enforced permissions and resource limits, without inherited API credentials. A separate process must also be constrained; process separation alone does not remove file/network permissions. Unity should receive validated target data. The selected three-attempt interpretation means three total generation/verification attempts, followed by a documented built-in policy or safe hold. Show decision summaries and compiler diagnostics in the HUD.
+Brain now compiles without host activation and executes inside a Windows AppContainer/Job Object without inherited API keys. Process separation alone is not the security boundary. Unity receives validated targets. At most three total generation/verification attempts run, followed by the selected built-in policy or safe hold. HUD displays public decision summaries and compiler diagnostics. [Implemented limits and tests](brain.md).
 
 ## Provider facts checked on 2026-10-30
 
-The project preserves the user's required Baseten ID `meta-models/muse-spark-open-1026`. Public Baseten examples use `meta-models/muse-spark-open`; the exact dated identifier has not been confirmed by an authenticated request. Future integration must fail clearly if the requested ID is unavailable and must not silently substitute another ID. Baseten also documents that Muse Spark Open does not support its structured-output or JSON modes, so local validation and bounded correction will be necessary. [Baseten announcement](https://www.baseten.co/resources/changelog/muse-spark-open-and-nemotron-35-super-vl-available-on-baseten/), [Model APIs documentation](https://docs.baseten.co/inference/model-apis/overview).
+The adapter starts with the required `meta-models/muse-spark-open-1026`. The user's later explicit authorization permits exactly one substitution after its HTTP 404 to the public alias `meta-models/muse-spark-open`; telemetry makes this visible. Live availability is unverified. No provider structured-output/JSON mode is requested; model content is validated locally with bounded correction. [Baseten announcement](https://www.baseten.co/resources/changelog/muse-spark-open-and-nemotron-35-super-vl-available-on-baseten/), [Model APIs](https://docs.baseten.co/inference/model-apis/overview).
 
 Meta documents SAM as `sam-3.1`, transcription as `muse-voice-transcribe-1.0`, and image generation as `muse-image-1.0`. Muse Wonder produces text and supports agentic/coding work; it is not an alternative image-generation model. Segmentation request and mask formats must be taken from the segmentation guide when implementing the adapter. [Meta model catalog](https://dev.meta.ai/docs/models).
 

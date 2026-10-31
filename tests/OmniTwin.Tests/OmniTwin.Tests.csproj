@@ -16,4 +16,7 @@
     <ProjectReference Include="../../src/OmniTwin.Perception/OmniTwin.Perception.csproj" />
     <ProjectReference Include="../../src/OmniTwin.Transport/OmniTwin.Transport.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OmniTwin.Policies\OmniTwin.Policies.csproj" />
+  </ItemGroup>
 </Project>

@@ -22,6 +22,10 @@ public static class WorldStreamFreshness
         var sourceAge = message.World.SourceAgeMilliseconds!.Value;
         var remaining = message.RetentionMilliseconds - sourceAge;
         var delivery = Math.Max(0, deliveryAge);
+        foreach (var track in message.World.Obstacles)
+            if (track.ObservationSource == ObservationSource.LocalMotionEstimate &&
+                (track.GeometryAgeMilliseconds >= PerceptionTiming.LocalMotionAgeMilliseconds ||
+                delivery + localAge >= PerceptionTiming.LocalMotionAgeMilliseconds - track.GeometryAgeMilliseconds)) return false;
         return delivery < remaining && localAge < remaining - delivery;
     }
 }

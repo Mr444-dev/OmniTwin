@@ -70,7 +70,7 @@ public static class CalibrationEndpoints
         { return Error("invalid_calibration", StatusCodes.Status400BadRequest); }
     }
 
-    private static bool SameOrigin(HttpRequest request)
+    internal static bool SameOrigin(HttpRequest request)
     {
         if (!request.Headers.TryGetValue("Origin", out var origins)) return true;
         return origins.Count == 1 && Uri.TryCreate(origins[0], UriKind.Absolute, out var origin) &&

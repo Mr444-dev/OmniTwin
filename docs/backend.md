@@ -1,6 +1,6 @@
 # Local backend and world stream
 
-The backend composes the existing perception pipeline and publishes immutable world-perception snapshots. It is a loopback development host with a versioned read-only WebSocket endpoint. It does not execute generated policies or start a Unity scene.
+The loopback host composes perception, streams immutable world snapshots, and supervises swarm telemetry/missions. Generated code executes only in its restricted Windows worker, never in the host or Unity. [Brain boundary](brain.md).
 
 ## Start and configure
 
@@ -25,7 +25,7 @@ Settings are read from ASP.NET configuration section `OmniTwin`. Environment key
 | `MaximumClients` | 16 | Concurrent WebSocket slots, configurable from 1 through 128 |
 | `SendTimeoutMilliseconds` | 2000 | Deadline for one socket send |
 | `MaximumPublicationAgeMilliseconds` | 2000 | Maximum age for cached/replayed publications |
-| `RetentionMilliseconds` | 3000 | Observation retention, shared with tracking and wire metadata |
+| `RetentionMilliseconds` | 20000 | Verified observation retention; local geometry/heartbeat have independent 1-second limits |
 
 Before enabling perception, set `META_API_KEY` and configure a measured calibration:
 
@@ -48,7 +48,7 @@ dotnet run --project src/OmniTwin.Backend -c Release
 | `GET /api/world/latest` | Recent encoded wire message, or 503 when absent, too old, or terminated |
 | `GET /calibration` | Local JPEG/corner calibration page; image bytes stay in the browser |
 | `POST /api/calibration/validate` | Validated JSON attachment or a bounded schema/geometry error; no files or running calibration are changed |
-| `/ws/twin` | WebSocket upgrade requiring subprotocol `omnitwin.v1` |
+| `/ws/twin` | WebSocket upgrade requiring subprotocol `omnitwin.v2` |
 
 Liveness is independent of camera/model readiness. A recently published snapshot may report expired or absent source observations; HTTP 200 from latest-world establishes publication availability, not scene freshness. Read the source metadata and diagnostics. Responses use `Cache-Control: no-store`.
 
@@ -62,19 +62,19 @@ The endpoint owns one sender and one receiver per socket, retains the request pi
 
 This lifetime model follows the asynchronous WebSocket ownership requirements described by [ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/websockets?view=aspnetcore-8.0) and the single-send/single-receive constraint in [ClientWebSocket](https://learn.microsoft.com/en-us/dotnet/api/system.net.websockets.clientwebsocket?view=net-8.0).
 
-## Wire protocol v1
+## Wire protocol v2
 
 One UTF-8 JSON text WebSocket message carries one `WorldStreamMessage`. Compression is not enabled. Every key is required, including explicit nulls; all names are case-sensitive camel case. Unknown/duplicate fields, invalid versions, nonfinite values, and inconsistent metadata are rejected before a DTO is returned.
 
 | Root field | Meaning |
 | --- | --- |
-| `protocolVersion` | Exactly 1 |
+| `protocolVersion` | Exactly 2; prior clients must be reimported |
 | `messageType` | Exactly `world.perception` |
 | `streamId` | Backend-run GUID; changes after restart |
 | `sequenceNumber` | Increasing delivery sequence; gaps permitted |
 | `sentAtUnixMs` | Host wall-clock time when encoded |
 | `retentionMilliseconds` | Observation lifetime, from 1 through 60000 ms |
-| `world` | Version-one `ObstacleTrackingSnapshot` with session/calibration/source freshness and tracks |
+| `world` | Version-two `ObstacleTrackingSnapshot`, including separate SAM/geometry ages and observation source |
 | `failureCategory` | Sanitized category or explicit null |
 | `rejectedDetectionCount` | Count from 0 through 128 |
 
@@ -84,7 +84,7 @@ The codec accepts at most 256 KiB and 128 tracks, with JSON depth limited to 16.
 
 ## Portable receiver and freshness
 
-`OmniTwin.Transport` builds for .NET 10 and .NET Standard 2.1. `WorldStreamReceiver` consumes an already connected `WebSocket` negotiated with `omnitwin.v1`; the caller owns connection setup/disposal. It allows one active enumeration per receiver. It reassembles at most 128 receive chunks, rejects binary payloads and oversized messages, and imposes a ten-second whole-message deadline including idle time. Protocol failure ends the enumeration; invalid data is never yielded.
+`OmniTwin.Transport` builds for .NET 10 and .NET Standard 2.1. `WorldStreamReceiver` consumes an already connected `WebSocket` negotiated with `omnitwin.v2`; the caller owns connection setup/disposal. It allows one active enumeration per receiver. It reassembles at most 128 receive chunks, rejects binary payloads and oversized messages, and imposes a ten-second whole-message deadline including idle time. Protocol failure ends the enumeration; invalid data is never yielded.
 
 Use `WorldStreamFreshness.IsObservationCurrent` with locally recorded receive wall/monotonic times. It accounts for source age, delivery age, time spent in the client's cache, two-second default silence, failure/rejection metadata, and allowed clock skew. The default future clock allowance is 500 ms. Clock synchronization assumptions must hold for meaningful wall-clock delivery checks.
 
@@ -106,4 +106,10 @@ The probe validates each packet, prints three messages, and closes normally. It 
 
 Tests exercise real Kestrel sockets, the actual receiver/probe, graceful/error close, source failure after a valid publication, origin/subprotocol policy, capacity recovery, bounded fanout, and blocked-send cancellation. The backend was also launched as a separate process with perception disabled and its health/status endpoints checked. See [verification results](verification.md).
 
-The host has no public deployment/authentication configuration, agent telemetry ingestion, mission endpoint, generated-policy runner, in this stage. The separate Unity tactical scene is now wired and exercised in Play mode. Camera/API/Unity end-to-end accuracy and sustained 30 Hz performance remain unmeasured. Test source publications are explicitly confined to the test project.
+The host is a local desktop service, without public deployment/authentication configuration. Actual camera/API/Unity accuracy and sustained 30 Hz performance remain unmeasured. Test source publications are confined to test projects.
+
+## Swarm control
+
+`POST /api/swarm/telemetry` accepts strict schema-1 measured state and replies with controls; `POST /api/swarm/mission` accepts a typed command plus explicit `useBrain`; `GET /api/swarm/status` returns the latest telemetry/control pair. Mutations require JSON, `X-OmniTwin-Swarm: 1`, same-origin when supplied, a 64 KiB body limit and a two-second body deadline. Session/sequence/time/unique-ID gates reject replay and conflicting telemetry; identical retries and command IDs are idempotent. Telemetry expires after two seconds. The control response contains source currentness, perception IDs, built-in/generated policy, safe failure categories, actual model ID/fallback and bounded compiler/decision diagnostics.
+
+Synthesis has a bounded latest-command queue and continues independently of the native baseline. Untrusted perception produces zero-speed holds. [Policies, client freshness and OS isolation](brain.md).

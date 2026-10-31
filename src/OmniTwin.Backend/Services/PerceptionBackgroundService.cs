@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OmniTwin.Backend.Streaming;
+using OmniTwin.Perception.Vision;
 
 namespace OmniTwin.Backend.Services;
 
@@ -43,6 +44,7 @@ public sealed class PerceptionBackgroundService : BackgroundService
         {
             var category = error switch
             {
+                SamApiException sam => sam.OperatorCategory,
                 JsonException or FormatException or ArgumentException => "invalid_source_data_or_configuration",
                 IOException => "capture_or_calibration_io",
                 _ => "perception_source_failed"

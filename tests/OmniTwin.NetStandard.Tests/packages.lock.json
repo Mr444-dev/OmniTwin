@@ -148,6 +148,12 @@
           "OmniTwin.Contracts": "[1.0.0, )"
         }
       },
+      "omnitwin.policies": {
+        "type": "Project",
+        "dependencies": {
+          "OmniTwin.Contracts": "[1.0.0, )"
+        }
+      },
       "omnitwin.transport": {
         "type": "Project",
         "dependencies": {

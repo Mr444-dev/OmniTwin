@@ -73,24 +73,8 @@ public sealed class MaskObstacleProjector
         observation = null;
         if (detection.Confidence < _profile.MinimumConfidence) return ProjectionRejectionReason.LowConfidence;
         if (detection.ForegroundPixelCount == 0) return ProjectionRejectionReason.EmptyMask;
-        var bottom = detection.MaskHeight - 1;
-        for (; bottom >= 0; bottom--)
-        {
-            var occupied = false;
-            for (var x = 0; x < detection.MaskWidth; x++) if (detection.IsForeground(x, bottom)) { occupied = true; break; }
-            if (occupied) break;
-        }
-        if (bottom < 0) return ProjectionRejectionReason.EmptyMask;
-        var left = detection.MaskWidth; var right = -1;
-        var firstRow = Math.Max(0, bottom - Math.Max(1, (detection.MaskHeight + 9) / 10) + 1);
-        for (var y = firstRow; y <= bottom; y++)
-        for (var x = 0; x < detection.MaskWidth; x++)
-            if (detection.IsForeground(x, y)) { left = Math.Min(left, x); right = Math.Max(right, x); }
-        var scaleX = (detection.Box.Right - detection.Box.Left + 1.0) / detection.MaskWidth;
-        var scaleY = (detection.Box.Bottom - detection.Box.Top + 1.0) / detection.MaskHeight;
-        var uLeft = detection.Box.Left + left * scaleX - 0.5;
-        var uRight = detection.Box.Left + (right + 1) * scaleX - 0.5;
-        var v = detection.Box.Top + (bottom + 1.0) * scaleY - 0.5;
+        if (!TryBaseSpan(detection, out var span)) return ProjectionRejectionReason.EmptyMask;
+        var uLeft = span.Left; var uRight = span.Right; var v = span.V;
         var u = (uLeft + uRight) / 2;
         var workspace = _profile.Workspace;
         if (!workspace.ContainsPixel(uLeft, v) || !workspace.ContainsPixel(uRight, v))
@@ -102,5 +86,28 @@ public sealed class MaskObstacleProjector
         if (!workspace.ContainsCircle(center, (float)radius)) return ProjectionRejectionReason.OutsideWorldWorkspace;
         observation = new ObstacleObservation(detection.ObjectId, label, center, (float)radius, detection.Confidence, hazard);
         return null;
+    }
+
+    internal static bool TryBaseSpan(SamDetection detection, out (double Left, double Right, double V) span)
+    {
+        span = default;
+        var bottom = detection.MaskHeight - 1;
+        for (; bottom >= 0; bottom--)
+        {
+            var occupied = false;
+            for (var x = 0; x < detection.MaskWidth; x++) if (detection.IsForeground(x, bottom)) { occupied = true; break; }
+            if (occupied) break;
+        }
+        if (bottom < 0) return false;
+        var left = detection.MaskWidth; var right = -1;
+        var firstRow = Math.Max(0, bottom - Math.Max(1, (detection.MaskHeight + 9) / 10) + 1);
+        for (var y = firstRow; y <= bottom; y++)
+        for (var x = 0; x < detection.MaskWidth; x++)
+            if (detection.IsForeground(x, y)) { left = Math.Min(left, x); right = Math.Max(right, x); }
+        var scaleX = (detection.Box.Right - detection.Box.Left + 1.0) / detection.MaskWidth;
+        var scaleY = (detection.Box.Bottom - detection.Box.Top + 1.0) / detection.MaskHeight;
+        span = (detection.Box.Left + left * scaleX - 0.5,
+            detection.Box.Left + (right + 1) * scaleX - 0.5, detection.Box.Top + (bottom + 1.0) * scaleY - 0.5);
+        return true;
     }
 }

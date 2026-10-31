@@ -36,13 +36,13 @@ The rectangular Hungarian solver assigns tracks to observations or unmatched col
 
 Unmatched observations receive increasing positive local IDs. Missing tracks retain their last observed position. IDs are never reused within a session. Capacity is bounded at 128; a batch that would exceed it is rejected atomically, preserving the prior source state and next ID. A new tracking session starts with a new GUID. Compare identities using session/calibration IDs together with the local obstacle ID.
 
-This provides association-based continuity, not guaranteed physical re-identification. Indistinguishable objects, long occlusions, abrupt motion, or an unobserved crossing can still change identity. There is no local optical-flow update or appearance embedding in this stage.
+This provides association-based continuity, not guaranteed physical re-identification. Indistinguishable objects, long occlusions, abrupt motion or an unobserved crossing can still change identity. Local sparse optical flow now updates existing tracks between masks; no appearance embedding is used.
 
 ## Age, confidence, and publication
 
 Capture retains a process-local monotonic timestamp alongside UTC time. Inference duration therefore contributes to observation age. `CalibratedTrackingWorker` converts capture and current timestamps into one monotonic millisecond domain, serializes tracker operations under a short state lock, and publishes independently of the background inference consumer.
 
-The nominal publication timer is 30 Hz. Retention defaults to 3000 ms from capture, with expiry at the exact limit. Snapshots keep the last measured position; prediction is used only for association. `Obstacle.Confidence` retains the model's last confidence, while `TrackingConfidence` is:
+The nominal publication timer is 30 Hz. Verified retention defaults to 20000 ms from capture, with expiry at the exact limit. Geometry uses the latest accepted SAM or local optical-flow measurement; constant-velocity prediction is used only for association. `Obstacle.Confidence` retains the model's confidence, while `TrackingConfidence` is:
 
 ```text
 lastDetectionConfidence * (1 - monotonicAgeMilliseconds / retentionMilliseconds)
@@ -53,6 +53,14 @@ Each publication has a schema version, session ID, calibration ID, increasing pu
 Per-track metadata includes original capture UTC time, monotonic age, decayed confidence, and whether it appeared in the latest accepted batch. A fresh empty observation and an expired empty scene have different source freshness metadata. Projection diagnostics describe excluded detections; a fresh capture with rejections does not establish that every part of the scene is understood.
 
 API failures neither invent observations nor reset their age. The publisher continues aging/expiring tracks while inference waits, and exposes the latest failure category. Invalid calibration/image dimensions fail the session. Consumer backpressure coalesces timer ticks instead of creating an unbounded publication queue. The timer is a requested frequency; sustained latency and throughput have not been benchmarked.
+
+## Hybrid local measurements and fail-safe freshness
+
+`LocalMotionEstimator` processes real JPEG frames at a bounded 320-pixel grayscale working width. GoodFeaturesToTrack seeds sparse points inside a known mask ROI. Forward/backward Lucas–Kanade flow, median displacement, inlier count and reprojection/footprint checks reject uncertain estimates. The lower support span is projected through the same immutable calibration. Retained source images align delayed SAM replies with the current frame; bounded local history also associates the SAM observation at its original capture time. A fresh accepted mask immediately restores `SamVerified` geometry.
+
+Tracking schema 2 adds `ObservationSource` (`SamVerified=0`, `LocalMotionEstimate=1`), `GeometryObservedUnixMs` and `GeometryAgeMilliseconds`. `LastObservedUnixMs`/`AgeMilliseconds` continue to measure SAM verification, not local movement. A local update cannot extend verified retention. Local geometry older than 1000 ms is untrusted. The worker independently reports `camera_frame_timeout` when no capture arrives for one second, including an otherwise empty scene; failed local tracking reports `local_motion_lost`. Failure/rejection metadata invalidate movement. A stopped camera or bad local estimate cannot be hidden by 20-second stationary retention.
+
+The 6-second SAM attempt, 12-second operation and 12-second capture usefulness limits are shared in `PerceptionTiming`. Queue residence consumes usefulness; the worker links remaining frame life to HTTP cancellation. A five-second valid SAM reply is accepted within retention, rather than rejected by the previous three-second tracker budget. These are configured safety/latency budgets, not measured physical accuracy or API service guarantees.
 
 ## Run the world stream
 

@@ -3,10 +3,6 @@
   "targetFramework": "netstandard2.1",
   "files": [
     {
-      "path": "Assets/_OmniTwin/Plugins/OmniTwin.Transport.dll",
-      "sha256": "129E8BD26E79592EDED0879169A163661067BBAA9BCE419E1E90BFCB4302FB94"
-    },
-    {
       "path": "Assets/_OmniTwin/Plugins/Microsoft.Bcl.AsyncInterfaces.dll",
       "sha256": "82C3EB14261E9EDA644D66ABEBC7A57530EA062C0B0813DC36B0681546D26E49"
     },
@@ -28,11 +24,27 @@
     },
     {
       "path": "Assets/_OmniTwin/Plugins/OmniTwin.Contracts.dll",
-      "sha256": "87FF52E5563F564F028D07E73DF97D211F74B3A019C3EBEDB8C1F638382A78C3"
+      "sha256": "E7D6B62F9D1EFEC8CC9B7A309EAFB518304FACE8F949A7749C34C83C35C57F90"
+    },
+    {
+      "path": "Assets/_OmniTwin/Plugins/OmniTwin.Policies.dll",
+      "sha256": "2629D095193417A5BAD8DF3840875F2DF3AD53A88095973D81BD286EC0CC3708"
+    },
+    {
+      "path": "Assets/_OmniTwin/Plugins/OmniTwin.Transport.dll",
+      "sha256": "79259E6271E11906E585A2FC97309D9F08DECDF55F3252856CC71DE939135914"
+    },
+    {
+      "path": "Assets/_OmniTwin/Scripts/Agents/SwarmAgentController.cs",
+      "sha256": "B2A5F23FED25CA19DC1BAB9CF2521873473057E4493813BAF4F901520982D127"
     },
     {
       "path": "Assets/_OmniTwin/Scripts/Network/TwinWebSocketClient.cs",
       "sha256": "9FC2483B0F5AAA9310C70F97590DB2E3D3BA18D776A751C6429D4FC1BC10C435"
+    },
+    {
+      "path": "Assets/_OmniTwin/Scripts/Runtime/PolicyExecutor.cs",
+      "sha256": "7EC71E878096A15E4FAB8746CDD8F3CF948033F6D549330908B8C6D95BC30433"
     },
     {
       "path": "Assets/_OmniTwin/Scripts/World/DynamicObstacleSpawner.cs",

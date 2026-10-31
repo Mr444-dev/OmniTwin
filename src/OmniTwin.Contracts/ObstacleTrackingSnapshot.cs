@@ -3,18 +3,35 @@ using System.Collections.Generic;
 
 namespace OmniTwin.Contracts;
 
+/// <summary>The measurement responsible for the current displayed geometry.</summary>
+public enum ObservationSource
+{
+    /// <summary>Geometry projected directly from a validated SAM mask.</summary>
+    SamVerified,
+    /// <summary>Image motion measured locally after the last SAM capture.</summary>
+    LocalMotionEstimate
+}
+
 /// <summary>An obstacle retained from an actual observation, with explicit age and decayed tracking confidence.</summary>
 public sealed record TrackedObstacleState
 {
     /// <summary>Creates tracking metadata. The obstacle's confidence remains the last detector confidence.</summary>
     public TrackedObstacleState(SegmentedObstacle obstacle, long lastObservedUnixMs, long ageMilliseconds,
-        float trackingConfidence, bool seenInLatestObservation)
+        float trackingConfidence, bool seenInLatestObservation, ObservationSource observationSource = ObservationSource.SamVerified,
+        long geometryAgeMilliseconds = -1, long geometryObservedUnixMs = -1)
     {
         Obstacle = obstacle ?? throw new ArgumentNullException(nameof(obstacle));
         LastObservedUnixMs = ContractGuard.Nonnegative(lastObservedUnixMs, nameof(lastObservedUnixMs));
         AgeMilliseconds = ContractGuard.Nonnegative(ageMilliseconds, nameof(ageMilliseconds));
         TrackingConfidence = ContractGuard.Range(trackingConfidence, 0, obstacle.Confidence, nameof(trackingConfidence));
         SeenInLatestObservation = seenInLatestObservation;
+        if (!Enum.IsDefined(typeof(ObservationSource), observationSource)) throw new ArgumentOutOfRangeException(nameof(observationSource));
+        ObservationSource = observationSource;
+        GeometryAgeMilliseconds = ContractGuard.Nonnegative(geometryAgeMilliseconds == -1 ? ageMilliseconds : geometryAgeMilliseconds, nameof(geometryAgeMilliseconds));
+        GeometryObservedUnixMs = ContractGuard.Nonnegative(geometryObservedUnixMs == -1 ? lastObservedUnixMs : geometryObservedUnixMs, nameof(geometryObservedUnixMs));
+        if (GeometryAgeMilliseconds > AgeMilliseconds ||
+            (observationSource == ObservationSource.SamVerified && GeometryAgeMilliseconds != AgeMilliseconds))
+            throw new ArgumentException("Geometry cannot precede its SAM verification.");
     }
     /// <summary>Gets the last observed geometry with a session-stable local ID.</summary>
     public SegmentedObstacle Obstacle { get; }
@@ -26,6 +43,12 @@ public sealed record TrackedObstacleState
     public float TrackingConfidence { get; }
     /// <summary>Gets whether this obstacle matched the latest accepted observation batch.</summary>
     public bool SeenInLatestObservation { get; }
+    /// <summary>Gets the origin of the current geometry; local updates never renew SAM verification.</summary>
+    public ObservationSource ObservationSource { get; }
+    /// <summary>Gets the monotonic age of the latest image geometry measurement.</summary>
+    public long GeometryAgeMilliseconds { get; }
+    /// <summary>Gets the capture wall-clock time of that geometry measurement.</summary>
+    public long GeometryObservedUnixMs { get; }
 }
 
 /// <summary>An immutable, versioned perception publication with identity scoped to a session and calibration.</summary>
@@ -34,11 +57,11 @@ public sealed record ObstacleTrackingSnapshot
     /// <summary>Creates a publication with owned collections and unique obstacle IDs.</summary>
     public ObstacleTrackingSnapshot(Guid sessionId, Guid calibrationId, long sequenceNumber,
         long? sourceSequenceNumber, long? sourceAgeMilliseconds, bool isObservationCurrent,
-        long timestampUnixMs, IReadOnlyList<TrackedObstacleState> obstacles, int schemaVersion = 1)
+        long timestampUnixMs, IReadOnlyList<TrackedObstacleState> obstacles, int schemaVersion = 2)
     {
         if (sessionId == Guid.Empty) throw new ArgumentException("Session ID cannot be empty.", nameof(sessionId));
         if (calibrationId == Guid.Empty) throw new ArgumentException("Calibration ID cannot be empty.", nameof(calibrationId));
-        if (schemaVersion != 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
+        if (schemaVersion != 2) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
         if (sourceSequenceNumber.HasValue) ContractGuard.Nonnegative(sourceSequenceNumber.Value, nameof(sourceSequenceNumber));
         if (sourceAgeMilliseconds.HasValue) ContractGuard.Nonnegative(sourceAgeMilliseconds.Value, nameof(sourceAgeMilliseconds));
         if (sourceSequenceNumber.HasValue != sourceAgeMilliseconds.HasValue || (isObservationCurrent && !sourceSequenceNumber.HasValue))

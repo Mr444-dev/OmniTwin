@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework><IsPackable>false</IsPackable><IsTestProject>true</IsTestProject><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" /><PackageReference Include="xunit.v3" />
+    <ProjectReference Include="../../src/OmniTwin.Brain/OmniTwin.Brain.csproj" />
+    <ProjectReference Include="../../src/OmniTwin.PolicyWorker/OmniTwin.PolicyWorker.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

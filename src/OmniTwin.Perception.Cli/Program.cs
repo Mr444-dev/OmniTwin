@@ -86,7 +86,7 @@ internal static class Program
                     else
                     {
                         var tracking = new CalibratedTrackingWorker(profile, args[3], args.Length == 6);
-                        await foreach (var update in tracking.RunAsync(segmentation, stop.Token).ConfigureAwait(false)) Write(update);
+                        await foreach (var update in tracking.RunHybridAsync(frames, client, stop.Token).ConfigureAwait(false)) Write(update);
                     }
                 }
                 return 0;

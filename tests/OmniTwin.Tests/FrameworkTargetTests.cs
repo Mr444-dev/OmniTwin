@@ -20,5 +20,6 @@ public sealed class FrameworkTargetTests
         Assert.Equal(expected, typeof(Vector2D).Assembly.GetCustomAttribute<TargetFrameworkAttribute>()?.FrameworkName);
         Assert.Equal(expected, typeof(HomographyMapper).Assembly.GetCustomAttribute<TargetFrameworkAttribute>()?.FrameworkName);
         Assert.Equal(expected, typeof(WorldStreamCodec).Assembly.GetCustomAttribute<TargetFrameworkAttribute>()?.FrameworkName);
+        Assert.Equal(expected, typeof(OmniTwin.Policies.PerimeterPatrolPolicy).Assembly.GetCustomAttribute<TargetFrameworkAttribute>()?.FrameworkName);
     }
 }

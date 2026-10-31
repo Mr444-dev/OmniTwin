@@ -33,7 +33,7 @@ public sealed class CalibratedTrackingWorker
 
     /// <summary>Configures a new session per enumeration, with bounded retention and publication frequency.</summary>
     public CalibratedTrackingWorker(CalibrationProfile profile, string label, bool isHazardZone = false,
-        long retentionMilliseconds = 3000, double publicationHz = 30, TimeProvider? timeProvider = null)
+        long retentionMilliseconds = PerceptionTiming.VerifiedRetentionMilliseconds, double publicationHz = 30, TimeProvider? timeProvider = null)
     {
         _profile = profile ?? throw new ArgumentNullException(nameof(profile));
         if (string.IsNullOrWhiteSpace(label) || label.Length > 128) throw new ArgumentException("A bounded semantic label is required.", nameof(label));
@@ -45,7 +45,26 @@ public sealed class CalibratedTrackingWorker
 
     /// <summary>Publishes on a timer while segmentation runs on a background task. Recalibration requires a new enumeration.</summary>
     /// <remarks>Injected time providers and input capture timestamps must share a monotonic timestamp clock domain.</remarks>
-    public async IAsyncEnumerable<WorldPerceptionUpdate> RunAsync(IAsyncEnumerable<SegmentationUpdate> updates,
+    public IAsyncEnumerable<WorldPerceptionUpdate> RunAsync(IAsyncEnumerable<SegmentationUpdate> updates,
+        CancellationToken cancellationToken = default) => RunCoreAsync(updates, null, cancellationToken);
+
+    /// <summary>Tracks every camera frame locally while one bounded SAM request runs asynchronously.</summary>
+    public async IAsyncEnumerable<WorldPerceptionUpdate> RunHybridAsync(IAsyncEnumerable<CapturedFrame> frames, ISam31Client client,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(frames); ArgumentNullException.ThrowIfNull(client);
+        using var motion = new LocalMotionEstimator(_profile);
+        async IAsyncEnumerable<CapturedFrame> Observe([EnumeratorCancellation] CancellationToken token = default)
+        {
+            await foreach (var frame in frames.WithCancellation(token).ConfigureAwait(false))
+            { motion.Observe(frame); yield return frame; }
+        }
+        var segmentation = new SegmentationWorker(client, TimeSpan.FromMilliseconds(Math.Min(PerceptionTiming.MaximumFrameAgeMilliseconds, _retentionMs - 1)), _time);
+        await foreach (var update in RunCoreAsync(segmentation.RunAsync(Observe(cancellationToken), _label, cancellationToken), motion, cancellationToken).ConfigureAwait(false))
+            yield return update;
+    }
+
+    private async IAsyncEnumerable<WorldPerceptionUpdate> RunCoreAsync(IAsyncEnumerable<SegmentationUpdate> updates, LocalMotionEstimator? motion,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (updates is null) throw new ArgumentNullException(nameof(updates));
@@ -83,11 +102,24 @@ public sealed class CalibratedTrackingWorker
                             TrackingUpdateStatus.IdentityExhausted => "tracking_identity_exhausted",
                             _ => throw new InvalidOperationException("Unknown tracking update status.")
                         };
+                        if (status == TrackingUpdateStatus.Accepted && motion is not null)
+                        {
+                            motion.Correct(result, tracker);
+                            ApplyMotion();
+                        }
                     }
                 }
             }
             catch (OperationCanceledException) when (stop.IsCancellationRequested) { return; }
         }, CancellationToken.None);
+        void ApplyMotion()
+        {
+            if (motion is null) return;
+            var now = Milliseconds(_time.GetTimestamp());
+            foreach (var estimate in motion.ReadEstimates())
+                tracker.ApplyLocalMotion(estimate.TrackId, estimate.Position, Milliseconds(estimate.CaptureTimestamp),
+                    estimate.CapturedAtUnixMs, estimate.Quality, now);
+        }
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1 / _publicationHz), _time);
         try
         {
@@ -97,8 +129,14 @@ public sealed class CalibratedTrackingWorker
                 var completed = consumer.IsCompleted;
                 WorldPerceptionUpdate publication;
                 lock (stateGate)
+                {
+                    ApplyMotion();
+                    var cameraStale = motion?.LastCaptureTimestamp is long capture &&
+                        _time.GetElapsedTime(capture).TotalMilliseconds >= PerceptionTiming.LocalMotionAgeMilliseconds;
                     publication = new WorldPerceptionUpdate(tracker.Snapshot(Milliseconds(_time.GetTimestamp()),
-                        _time.GetUtcNow().ToUnixTimeMilliseconds()), lastFailure, rejections);
+                        _time.GetUtcNow().ToUnixTimeMilliseconds()), lastFailure ?? (cameraStale ? "camera_frame_timeout" :
+                        motion?.IsTrackingLost == true ? "local_motion_lost" : null), rejections);
+                }
                 yield return publication;
                 if (completed) break;
             }

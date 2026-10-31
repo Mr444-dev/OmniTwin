@@ -40,6 +40,20 @@
                 <ui:Label text="REFERENCE WORKSPACE" class="world-title" />
                 <ui:Label text="20 x 12.5 m / X-Z PLANE" class="world-detail" />
             </ui:VisualElement>
+            <ui:ScrollView class="swarm-panel" mode="Vertical">
+                <ui:Label text="SWARM CONTROL" class="section-title" />
+                <ui:Label name="activePolicy" text="EmergencyHoldPolicy" class="policy-name" />
+                <ui:Label name="agentTelemetry" text="Awaiting measured agent telemetry" class="telemetry-text" />
+                <ui:Label name="controlReason" text="Waiting for trustworthy source" class="notice" />
+                <ui:VisualElement class="divider" />
+                <ui:VisualElement class="mission-row"><ui:Button name="patrolButton" text="PATROL" class="mission-button" /><ui:Button name="cordonButton" text="CORDON" class="mission-button" /></ui:VisualElement>
+                <ui:VisualElement class="mission-row"><ui:Button name="searchButton" text="GRID SEARCH" class="mission-button" /><ui:Button name="holdButton" text="HOLD" class="mission-button" /></ui:VisualElement>
+                <ui:TextField name="missionInstruction" label="MISSION INSTRUCTION" multiline="true" max-length="4096" class="mission-input" />
+                <ui:Button name="generateButton" text="SYNTHESIZE POLICY (API)" class="action synthesize" />
+                <ui:Label name="brainState" text="Brain / baseline" class="notice" />
+                <ui:Label name="modelIdentity" text="Model / none" class="model-name" />
+                <ui:Label name="compilerDiagnostics" text="" class="diagnostic-text" />
+            </ui:ScrollView>
         </ui:VisualElement>
         <ui:VisualElement class="footer" picking-mode="Ignore">
             <ui:Label text="RMB drag: orbit    Scroll: zoom    Home: reset view" class="footer-text" />

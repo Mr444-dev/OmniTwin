@@ -59,7 +59,7 @@ public sealed class SegmentationWorkerTests
     {
         var calls = 0;
         var worker = new SegmentationWorker(new Client((frame, _) => { calls++; return Task.FromResult(Result(frame)); }), timeProvider: new Clock());
-        foreach (var time in new[] { InitialTime.AddSeconds(-6), InitialTime.AddSeconds(1) })
+        foreach (var time in new[] { InitialTime.AddSeconds(-13), InitialTime.AddSeconds(1) })
         {
             await foreach (var update in worker.RunAsync(One(Frame(1, time)), "cup", TestContext.Current.CancellationToken))
             {
@@ -74,7 +74,7 @@ public sealed class SegmentationWorkerTests
     public async Task DiscardsResultsThatBecomeStaleDuringInference()
     {
         var clock = new Clock();
-        var client = new Client((frame, _) => { clock.Now = InitialTime.AddSeconds(6); return Task.FromResult(Result(frame)); });
+        var client = new Client((frame, _) => { clock.Now = InitialTime.AddSeconds(13); return Task.FromResult(Result(frame)); });
         var worker = new SegmentationWorker(client, timeProvider: clock);
         await foreach (var update in worker.RunAsync(One(Frame(1)), "cup", TestContext.Current.CancellationToken))
         {
@@ -90,7 +90,7 @@ public sealed class SegmentationWorkerTests
         var worker = new SegmentationWorker(new Client((_, _) => { calls++; throw new SamApiException("attempt_timeout", 3); }), timeProvider: new Clock());
         var updates = 0;
         await foreach (var update in worker.RunAsync(One(Frame(1)), "cup", TestContext.Current.CancellationToken))
-        { updates++; Assert.Equal("attempt_timeout", update.FailureCategory); }
+        { updates++; Assert.Equal("upstream_timeout", update.FailureCategory); }
         Assert.Equal(1, updates);
         await foreach (var _ in worker.RunAsync(One(Frame(2, shouldSegment: false)), "cup", TestContext.Current.CancellationToken)) updates++;
         Assert.Equal(1, updates);
@@ -101,6 +101,34 @@ public sealed class SegmentationWorkerTests
     {
         await Task.Yield();
         yield return frame;
+    }
+
+    [Fact]
+    public async Task CancelsWorkWhenCaptureUsefulnessExpires()
+    {
+        var cancelled = false;
+        var client = new Client(async (_, token) =>
+        {
+            try { await Task.Delay(Timeout.Infinite, token); }
+            catch (OperationCanceledException) { cancelled = token.IsCancellationRequested; throw; }
+            throw new InvalidOperationException("The deadline did not cancel the operation.");
+        });
+        var worker = new SegmentationWorker(client, TimeSpan.FromMilliseconds(50), new Clock());
+        await foreach (var update in worker.RunAsync(One(Frame(1)), "cup", TestContext.Current.CancellationToken))
+        { Assert.Equal("upstream_timeout", update.FailureCategory); Assert.Null(update.Result); }
+        Assert.True(cancelled);
+    }
+
+    [Fact]
+    public async Task FiveSecondSamResponseRemainsUsefulWithSharedDefaults()
+    {
+        var clock = new Clock();
+        var client = new Client((frame, _) => { clock.Now = InitialTime.AddSeconds(5); return Task.FromResult(Result(frame)); });
+        var worker = new SegmentationWorker(client, timeProvider: clock);
+        await foreach (var update in worker.RunAsync(One(Frame(1)), "cup", TestContext.Current.CancellationToken))
+        { Assert.NotNull(update.Result); Assert.Null(update.FailureCategory); }
+        Assert.Equal(TimeSpan.FromSeconds(6), new SamClientOptions().AttemptTimeout);
+        Assert.Equal(TimeSpan.FromSeconds(12), new SamClientOptions().TotalTimeout);
     }
 
     private sealed class Clock : TimeProvider

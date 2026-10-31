@@ -10,6 +10,7 @@ Checked against official release metadata and registries on **2026-10-30**. Pref
 | Shared library targets | net10.0; netstandard2.1 | Backend and Unity API boundary |
 | System.Text.Json | 10.0.14 | Explicit dependency of the .NET Standard transport target |
 | OpenCvSharp4 / runtime.win | 4.13.0.20260627 | Matching managed/native Windows packages |
+| Microsoft.CodeAnalysis.CSharp | [5.9.0](https://www.nuget.org/packages/Microsoft.CodeAnalysis.CSharp/5.9.0) | Stable Roslyn compiler in Brain; never imported into Unity |
 | Microsoft.Testing.Extensions.TrxReport | 2.5.2 | MTP test reports |
 | xunit.v3 | 4.0.2 | Current xUnit framework, standalone test executables |
 | Playwright | 1.64.1 | Optional isolated calibration browser checks, Node.js 20+; no backend runtime dependency |
