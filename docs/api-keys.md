@@ -1,6 +1,6 @@
 # Klucze API i pierwsze uruchomienie
 
-Backend korzysta z **META_API_KEY dla SAM 3.1** oraz **BASETEN_API_KEY dla syntezy polityk Brain**. Zwykłe polityki nie wymagają Baseten; przycisk **SYNTHESIZE POLICY (API)** jawnie uruchamia płatną inferencję. Głos i pozostałe modele pozostają poza tą wersją. [Stan projektu](project-audit.md).
+Backend korzysta z **META_API_KEY dla SAM 3.1 i Muse Voice Transcribe** oraz **BASETEN_API_KEY dla syntezy polityk Brain**. Zwykłe polityki nie wymagają Baseten; przycisk **SYNTHESIZE POLICY (API)** jawnie uruchamia inferencję. Nagrywanie/transkrypcję uruchamiasz osobno przyciskiem głosu. [Stan projektu](project-audit.md), [głos i podgląd](operator-media.md).
 
 Klucz wpisujesz lokalnie w terminalu. Nie przesyłaj jego wartości do czatu, Unity, kalibratora ani GitHuba. Nasz backend czyta zmienne środowiskowe; plik `.env.example` jest wzorem i nie jest automatycznie ładowany. Prywatne repozytorium również nie jest miejscem na sekrety.
 
@@ -89,7 +89,7 @@ dotnet run --project src/OmniTwin.Backend -c Release -- --OmniTwin:EnablePercept
 
 CLI `true` jawnie włącza kamerę i żądania SAM. W innej karcie przeglądarki otwórz [status backendu](http://127.0.0.1:5108/api/status). `disabled` oznacza wyłączoną percepcję, `starting` jej start, `running` pracę źródła, `degraded` błąd operacji/odrzucone detekcje, a `faulted` zakończenie źródła z błędem. Sprawdzaj również `isObservationCurrent`; sam status połączenia nie potwierdza aktualności geometrii.
 
-Otwórz `unity/OmniTwin.Unity` w Unity **6000.6.3f1**, następnie scenę `Assets/_OmniTwin/Scenes/TacticalDesk.unity`, Play i przycisk ponownego połączenia w HUD. [Instrukcja sceny](unity-scene.md). Scena ma 3 roboty naziemne i 2 drony, telemetrię i przyciski Patrol/Cordon/Grid/Hold. Bez świeżego źródła jednostki zatrzymują się. Głos nie jest jeszcze wdrożony.
+Otwórz `unity/OmniTwin.Unity` w Unity **6000.6.3f1**, następnie scenę `Assets/_OmniTwin/Scenes/TacticalDesk.unity`, Play i przycisk ponownego połączenia w HUD. [Instrukcja sceny](unity-scene.md). Scena ma 3 roboty naziemne i 2 drony, telemetrię, Patrol/Cordon/Grid/Hold, przyciski głosu i podglądu kamery. Bez świeżego źródła jednostki zatrzymują się. Głos tworzy edytowalny tekst misji i wymaga dostępu do `muse-voice-transcribe-1.0`; nie uruchamia się automatycznie. [Szczegóły](operator-media.md).
 
 Po pracy zatrzymaj backend, a następnie usuń klucz z terminala:
 

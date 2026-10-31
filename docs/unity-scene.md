@@ -16,6 +16,8 @@ Scena zawiera podłogę 20 × 12,5 m, siatkę X/Z, zapisany NavMesh, 3 roboty na
 
 HUD udostępnia Patrol/Cordon/Grid/Hold, tekst misji i **SYNTHESIZE POLICY (API)**. Cztery pierwsze przyciski wybierają kod wbudowany; synteza wymaga BASETEN_API_KEY tylko w backendzie. Hold anuluje także generowanie. Stan źródła, pięć pomiarów agentów, model/fallback i diagnostyka Roslyn są widoczne w HUD. Bez świeżej percepcji lub kontroli wszystkie jednostki zatrzymują się. [Konfiguracja obu kluczy](api-keys.md).
 
+Kontroler `Operator Media` dodaje **RECORD VOICE (META API)**, anulowanie, przeniesienie transkrypcji do pola oraz **SHOW CAMERA PREVIEW**. Mikrofon i podgląd są wyłączone na starcie. Nagrywanie jest ograniczone do 5 s i anulowane przy utracie fokusu; działa tylko w aktywnym oknie aplikacji. Podgląd znika po utracie świeżych klatek i nie zastępuje walidacji SAM. Panele przewijają się przy mniejszych rozdzielczościach. [Instrukcja mediów](operator-media.md).
+
 Żądania do Meta/Baseten na koncie użytkownika nadal wymagają odbioru. Scena nie otrzymuje zastępczych detekcji. Kontrolowany test nawigacyjny uruchamiał prawdziwe kontrolery wokół jawnie oznaczonej tymczasowej przeszkody, poza strumieniem SAM. [Dowody i ograniczenia](verification.md).
 
 Sprawdzone w Editorze: kompilacja, rosnący licznik klatek w Play mode, odczyt kontraktów/JSON na Mono, odrzucenie błędnego komunikatu, kliknięcie przycisku reconnect z przejściem do `Connected`, brak aktualności przy wyłączonej percepcji, reakcja kamery na kółko oraz zapisany NavMesh. Nie wykonano jeszcze pomiaru FPS, testu IL2CPP, builda standalone ani testu kamery/API.

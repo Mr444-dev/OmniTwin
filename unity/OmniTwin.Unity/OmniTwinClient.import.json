@@ -24,19 +24,27 @@
     },
     {
       "path": "Assets/_OmniTwin/Plugins/OmniTwin.Contracts.dll",
-      "sha256": "E7D6B62F9D1EFEC8CC9B7A309EAFB518304FACE8F949A7749C34C83C35C57F90"
+      "sha256": "72A7FC51C278B24C6FFB8F09F211C478728C913746C01702BB69F3C6A398EC82"
+    },
+    {
+      "path": "Assets/_OmniTwin/Plugins/OmniTwin.Perception.dll",
+      "sha256": "00403A27B38A736CCD3281DA08020EE9F32C16089645E1131DC1EFF11523DFB5"
     },
     {
       "path": "Assets/_OmniTwin/Plugins/OmniTwin.Policies.dll",
-      "sha256": "2629D095193417A5BAD8DF3840875F2DF3AD53A88095973D81BD286EC0CC3708"
+      "sha256": "DE591BB10121888BA4FEF26688089B425E5AAE80B7C7829C26DD60B7962B485D"
     },
     {
       "path": "Assets/_OmniTwin/Plugins/OmniTwin.Transport.dll",
-      "sha256": "79259E6271E11906E585A2FC97309D9F08DECDF55F3252856CC71DE939135914"
+      "sha256": "D5C59E8A353EA2A3121AEAE3855812EB333C075BE963BE61EF768E1E38DD9593"
     },
     {
       "path": "Assets/_OmniTwin/Scripts/Agents/SwarmAgentController.cs",
       "sha256": "B2A5F23FED25CA19DC1BAB9CF2521873473057E4493813BAF4F901520982D127"
+    },
+    {
+      "path": "Assets/_OmniTwin/Scripts/Media/MediaConsoleController.cs",
+      "sha256": "641B3F629A4B426B95C0DFCA831FB3247624B70EA59D0077ACDB0A3F90E34249"
     },
     {
       "path": "Assets/_OmniTwin/Scripts/Network/TwinWebSocketClient.cs",

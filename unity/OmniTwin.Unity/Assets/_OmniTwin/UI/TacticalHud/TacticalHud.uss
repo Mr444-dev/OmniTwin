@@ -84,3 +84,10 @@
 .body { flex-basis: 0; min-height: 0; }
 .swarm-panel { height: 100%; min-height: 0; overflow: hidden; }
 .swarm-panel .unity-scroll-view__content-viewport { overflow: hidden; }
+.observation-panel { height: 100%; min-height: 0; overflow: hidden; }
+.observation-panel .unity-scroll-view__content-container > * { flex-shrink: 0; }
+.camera-preview { height: 150px; margin-top: 10px; margin-bottom: 12px; }
+.preview-hidden { display: none; }
+.preview-toggle, .voice-record { flex-basis: auto; flex-shrink: 0; min-height: 38px; }
+.media-status { font-size: 11px; white-space: normal; color: rgb(160, 194, 206); margin-top: 7px; margin-bottom: 9px; }
+.voice-draft { font-size: 12px; white-space: normal; color: rgb(221, 236, 231); max-height: 72px; overflow: hidden; }

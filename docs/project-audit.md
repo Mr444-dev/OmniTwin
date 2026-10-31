@@ -1,6 +1,6 @@
 # Stan odbioru OmniTwin — 31 października 2026
 
-Wdrożono trzy zadania z ostatniego zlecenia: percepcję P1, rzeczywisty rój i Brain z izolowanym wykonawcą. **Nie oznacza to ukończenia całej pierwotnej specyfikacji produktu.** Dowody poniżej oddzielają sprawdzony kod od odbioru na fizycznym stole i płatnych usługach.
+Wdrożono percepcję P1, rzeczywisty rój, Brain z izolowanym wykonawcą oraz kolejny etap: komendy głosowe i podgląd kamery w HUD. **Nie oznacza to ukończenia całej pierwotnej specyfikacji produktu.** Dowody poniżej oddzielają sprawdzony kod od odbioru na fizycznym stole i płatnych usługach.
 
 | Etap / wcześniejszy bloker | Wdrożenie | Dowód i pozostały odbiór |
 | --- | --- | --- |
@@ -15,19 +15,21 @@ Wdrożono trzy zadania z ostatniego zlecenia: percepcję P1, rzeczywisty rój i 
 | 4 / P0 Roslyn | SemanticModel, jawna lista symboli, limity źródła, 0 błędów/ostrzeżeń, maks. 3 kandydatów | Testy poprawnego kodu, pełnych nazw, reflection/dynamic/I/O oraz powrotu diagnostyki do naprawy |
 | 4 / P0 izolacja | AppContainer bez capabilities, Job Object, brak kluczy, ograniczone IPC, 100 ms compute, limity pamięci/CPU/procesów/lifetime | Prawdziwe testy OS: token, odmowa pliku, blokada loopback, pętla, presja pamięci, wyjątek konstruktora i NaN/Infinity |
 | 4 / fallback | Nieudana synteza/wykonanie → wybrana polityka wbudowana; utrata percepcji → Hold | Test koordynatora z rzeczywistym izolowanym procesem i timeoutem |
-| Weryfikacja | 366 testów .NET w pięciu zestawach; Unity Mono/Play/NavMesh/Hold | Zestaw lokalny przechodzi; [szczegóły](verification.md). Hostowane CI podlega ograniczeniom konta |
+| 5 / głos | Jawne nagrywanie do 5 s, PCM16/16 kHz, rzeczywisty adapter Muse Voice, retry/deduplikacja i edytowalny tekst | Testy kodeka i całej ścieżki HTTP; Spacja w polu instrukcji nie włącza mikrofonu. Fizyczny mikrofon i live API wymagają odbioru |
+| 5 / PIP | Podgląd z istniejącego źródła OpenCV, do 320 px/5 Hz, wygasanie 750 ms, bez dodatkowej kamery | Natywne JPEG i testy świeżości; HUD prawidłowo pokazuje brak obrazu przy wyłączonej percepcji. Rzeczywisty obraz stołu wymaga odbioru |
+| Weryfikacja | 411 testów .NET w pięciu zestawach; Unity Mono/Play/NavMesh/Hold i HUD mediów | Zestaw lokalny przechodzi; [szczegóły](verification.md). Hostowane CI podlega ograniczeniom konta |
 
 ## Co nadal wymaga pracy
 
 - **Odbiór sprzętowy P0:** klucze i dostęp do modeli, własna kalibracja, prawdziwe SAM i Baseten oraz przejazd wokół przedmiotu obserwowanego kamerą. [Instrukcja](api-keys.md).
-- **Głos i PIP:** nagrywanie, Muse Voice, fallback mikrofonu i kamera w HUD pozostają do wdrożenia. Tekst i przyciski misji już działają.
+- **Odbiór głosu i PIP:** sprawdzenie uprawnień/urządzenia mikrofonu, polskiej transkrypcji na koncie Meta i podglądu fizycznego stołu. Kod i ścieżka lokalna są wdrożone; [obsługa operatora](operator-media.md). Nakładka masek SAM zsynchronizowana z obrazem nie jest jeszcze wdrożona.
 - **Semantyka i scenerie:** klasyfikacja multimodalna, pamięć nowych obiektów i Muse Image/scenerie pozostają do wdrożenia. Hazard jest oznaczeniem operatora.
 - **LiDAR:** agent ma lokalną kontrolę kolizji; pełny sensor i wizualizacja LiDAR pozostają do wdrożenia.
 - **Wydanie:** standalone/IL2CPP, długi test, pomiar FPS/opóźnień, profilowanie i nagranie scenariusza. 60 FPS to cel, nie wynik benchmarku.
-- **GitHub Actions:** [przebieg po wdrożeniu](https://github.com/Mr444-dev/OmniTwin/actions/runs/41192723331) ponownie zablokowały płatności/limit konta przed uruchomieniem zadania. Lokalnie przechodzi 366 testów; hostowane testy nie wystartowały. Rozliczenia wymagają działania właściciela konta.
+- **GitHub Actions:** [przebieg etapu 4](https://github.com/Mr444-dev/OmniTwin/actions/runs/41192723331) zablokowały płatności/limit konta przed uruchomieniem zadania. Lokalnie przechodzi 411 testów; hostowane testy nie są potwierdzone. Rozliczenia wymagają działania właściciela konta.
 
 ## Uruchomienie i granice
 
-Otwórz istniejącą scenę Unity **6000.6.3f1 / URP**, ustaw oba klucze w terminalu backendu i własny profil stołu według [instrukcji](api-keys.md). W Play dostępne są Patrol/Cordon/Grid/Hold oraz jawny przycisk syntezy API. Bez wiarygodnej percepcji jednostki pozostają w Hold. Klucze nie trafiają do Unity.
+Otwórz istniejącą scenę Unity **6000.6.3f1 / URP**, ustaw oba klucze w terminalu backendu i własny profil stołu według [instrukcji](api-keys.md). W Play dostępne są Patrol/Cordon/Grid/Hold, nagrywanie, przełącznik podglądu oraz jawny przycisk syntezy API. Sprawdź treść transkrypcji przed syntezą; głos sam nie wydaje rozkazu. Bez wiarygodnej percepcji jednostki pozostają w Hold. Klucze nie trafiają do Unity.
 
 [Brain i izolacja](brain.md), [tracking](tracking.md), [protokół backendu](backend.md), [weryfikacja](verification.md). Nie podajemy procentu ukończenia: cały pierwotny zakres jest większy niż te trzy moduły.

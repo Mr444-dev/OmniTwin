@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 using System.Text;
 using OmniTwin.Contracts;
 using OmniTwin.Simulation.Runtime;
+using OmniTwin.Simulation.Media;
 
 namespace OmniTwin.Simulation.UI
 {
@@ -16,6 +17,7 @@ namespace OmniTwin.Simulation.UI
     {
         [SerializeField] private TwinWebSocketClient stream = null;
         [SerializeField] private PolicyExecutor executor = null;
+        [SerializeField] private MediaConsoleController media = null;
         private VisualElement _screen;
         private Label _badge, _connection, _tracks, _hazards, _age, _publication, _calibration, _notice;
         private Button _reconnect;
@@ -26,11 +28,16 @@ namespace OmniTwin.Simulation.UI
         private SwarmMissionKind _selectedMission = SwarmMissionKind.PatrolPerimeter;
         private string _feedback;
         private float _feedbackUntil;
+        private Button _recordVoice, _cancelVoice, _useTranscript, _previewToggle;
+        private Label _voiceStatus, _voiceDraft, _previewStatus;
+        private Image _previewImage;
+        private VoiceTranscription _lastTranscript;
+        private string _instructionBeforeVoice;
 
         private void OnEnable()
         {
             var root = GetComponent<UIDocument>().rootVisualElement;
-            if (stream == null || executor == null || root == null)
+            if (stream == null || executor == null || media == null || root == null)
                 throw new InvalidOperationException("Tactical HUD needs its stream and an initialized UIDocument.");
             _screen = Required<VisualElement>(root, "screen");
             _badge = Required<Label>(root, "statusBadge");
@@ -50,6 +57,14 @@ namespace OmniTwin.Simulation.UI
             _patrol = Required<Button>(root, "patrolButton"); _cordon = Required<Button>(root, "cordonButton");
             _search = Required<Button>(root, "searchButton"); _hold = Required<Button>(root, "holdButton"); _generate = Required<Button>(root, "generateButton");
             _instruction = Required<TextField>(root, "missionInstruction");
+            _recordVoice = Required<Button>(root, "recordVoiceButton"); _cancelVoice = Required<Button>(root, "cancelVoiceButton");
+            _useTranscript = Required<Button>(root, "useTranscriptButton"); _previewToggle = Required<Button>(root, "previewToggleButton");
+            _voiceStatus = Required<Label>(root, "voiceStatus"); _voiceDraft = Required<Label>(root, "voiceDraft"); _previewStatus = Required<Label>(root, "previewStatus");
+            _previewImage = Required<Image>(root, "cameraPreview");
+            _previewImage.scaleMode = ScaleMode.ScaleToFit;
+            _voiceStatus.enableRichText = false; _voiceDraft.enableRichText = false; _previewStatus.enableRichText = false;
+            _recordVoice.clicked += RecordVoice; _cancelVoice.clicked += CancelVoice; _useTranscript.clicked += UseTranscript; _previewToggle.clicked += TogglePreview;
+            media.RecordingStarted += VoiceStarted;
             _patrol.clicked += Patrol; _cordon.clicked += Cordon; _search.clicked += Search; _hold.clicked += Hold; _generate.clicked += Generate;
             _screen.RegisterCallback<GeometryChangedEvent>(Resize);
             _refresh = root.schedule.Execute(Refresh).Every(100);
@@ -95,7 +110,25 @@ namespace OmniTwin.Simulation.UI
             var diagnostics = new StringBuilder(control?.BrainDiagnostic ?? "");
             if (control != null) foreach (var diagnostic in control.CompilationDiagnostics) diagnostics.Append("\n").Append(diagnostic);
             _compiler.text = diagnostics.ToString();
+            _voiceStatus.text = media.VoiceStatus; _recordVoice.text = media.IsRecording ? "STOP & TRANSCRIBE (META API)" : "RECORD VOICE (META API)";
+            _recordVoice.SetEnabled(!media.IsTranscribing); _cancelVoice.SetEnabled(media.IsRecording || media.IsTranscribing);
+            var draft = media.Transcript;
+            _useTranscript.SetEnabled(draft != null && draft.Transcript.Length > 0);
+            if (draft != null && !ReferenceEquals(draft, _lastTranscript))
+            {
+                _lastTranscript = draft; _voiceDraft.text = draft.Transcript;
+                if (draft.Transcript.Length > 0 && _instruction.value == _instructionBeforeVoice) _instruction.value = draft.Transcript;
+            }
+            _previewToggle.text = media.PreviewEnabled ? "HIDE CAMERA PREVIEW" : "SHOW CAMERA PREVIEW";
+            _previewStatus.text = media.PreviewStatus; _previewImage.image = media.PreviewTexture;
+            _previewImage.EnableInClassList("preview-hidden", media.PreviewTexture == null);
         }
+
+        private void VoiceStarted() => _instructionBeforeVoice = _instruction.value;
+        private void RecordVoice() => media.ToggleRecording();
+        private void CancelVoice() => media.CancelVoice();
+        private void UseTranscript() { var value = media.Transcript; if (value != null && value.Transcript.Length > 0) _instruction.value = value.Transcript; }
+        private void TogglePreview() => media.SetPreviewEnabled(!media.PreviewEnabled);
 
         private void Mission(SwarmMissionKind kind, string instruction, bool brain = false)
         {
@@ -118,6 +151,9 @@ namespace OmniTwin.Simulation.UI
             if (_reconnect != null) _reconnect.clicked -= Reconnect;
             if (_patrol != null) _patrol.clicked -= Patrol; if (_cordon != null) _cordon.clicked -= Cordon;
             if (_search != null) _search.clicked -= Search; if (_hold != null) _hold.clicked -= Hold; if (_generate != null) _generate.clicked -= Generate;
+            if (_recordVoice != null) _recordVoice.clicked -= RecordVoice; if (_cancelVoice != null) _cancelVoice.clicked -= CancelVoice;
+            if (_useTranscript != null) _useTranscript.clicked -= UseTranscript; if (_previewToggle != null) _previewToggle.clicked -= TogglePreview;
+            if (media != null) media.RecordingStarted -= VoiceStarted;
             _screen?.UnregisterCallback<GeometryChangedEvent>(Resize);
         }
         private static T Required<T>(VisualElement root, string name) where T : VisualElement =>

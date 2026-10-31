@@ -7,6 +7,7 @@ using OmniTwin.Simulation.World;
 using OmniTwin.Contracts;
 using OmniTwin.Simulation.Agents;
 using OmniTwin.Simulation.Runtime;
+using OmniTwin.Simulation.Media;
 using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -168,6 +169,7 @@ namespace OmniTwin.Simulation.Editor
             if (document.visualTreeAsset == null) throw new InvalidOperationException("Tactical HUD layout is missing.");
             Assign(document.gameObject.AddComponent<TacticalHudController>(), "stream", connection);
             AddSwarmToScene();
+            AddMediaToScene();
 
             PlayerSettings.companyName = "OmniTwin";
             PlayerSettings.productName = "OmniTwin";
@@ -182,6 +184,21 @@ namespace OmniTwin.Simulation.Editor
             AssetDatabase.SaveAssets();
             Selection.activeGameObject = connection.gameObject;
             Debug.Log("OmniTwin TacticalDesk created with authored simulation agents; movement requires current perception.");
+        }
+
+        /// <summary>Wires the opt-in camera preview and operator-initiated voice controller in the existing scene.</summary>
+        [MenuItem("OmniTwin/Add Operator Media To Tactical Desk")]
+        public static void AddMediaToScene()
+        {
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (EditorApplication.isPlaying || scene.name != "TacticalDesk" || (!string.IsNullOrEmpty(scene.path) && scene.path != ScenePath))
+                throw new InvalidOperationException("Open TacticalDesk in Edit mode.");
+            var hud = UnityEngine.Object.FindObjectsByType<TacticalHudController>(); var controllers = UnityEngine.Object.FindObjectsByType<MediaConsoleController>();
+            if (hud.Length != 1 || controllers.Length > 1) throw new InvalidOperationException("One HUD and at most one media controller are required.");
+            var controller = controllers.Length == 0 ? Root("Operator Media").AddComponent<MediaConsoleController>() : controllers[0];
+            Assign(hud[0], "media", controller);
+            EditorSceneManager.MarkSceneDirty(scene);
+            if (!string.IsNullOrEmpty(scene.path) && !EditorSceneManager.SaveScene(scene)) throw new IOException("Media scene wiring could not be saved.");
         }
 
         /// <summary>Adds three real NavMesh vehicles and two aerial simulation entities to the existing authored scene.</summary>

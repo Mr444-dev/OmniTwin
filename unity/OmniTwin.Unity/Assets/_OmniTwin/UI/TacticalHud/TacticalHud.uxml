@@ -12,8 +12,11 @@
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement class="body" picking-mode="Ignore">
-            <ui:VisualElement class="sidebar">
+            <ui:ScrollView class="sidebar observation-panel" mode="Vertical">
                 <ui:Label text="WORLD OBSERVATION" class="section-title" />
+                <ui:Button name="previewToggleButton" text="SHOW CAMERA PREVIEW" class="mission-button preview-toggle" />
+                <ui:Label name="previewStatus" text="Camera preview off" class="media-status" />
+                <ui:Image name="cameraPreview" class="camera-preview preview-hidden" />
                 <ui:Label name="trackCount" text="--" class="big-value" />
                 <ui:Label text="CURRENT OBSTACLE TRACKS" class="value-caption" />
                 <ui:VisualElement class="metric">
@@ -35,7 +38,7 @@
                 <ui:VisualElement class="divider" />
                 <ui:Label name="sourceNotice" text="Waiting for a calibrated camera observation." class="notice" />
                 <ui:Button name="reconnectButton" text="RECONNECT STREAM" class="action" />
-            </ui:VisualElement>
+            </ui:ScrollView>
             <ui:VisualElement class="world-caption" picking-mode="Ignore">
                 <ui:Label text="REFERENCE WORKSPACE" class="world-title" />
                 <ui:Label text="20 x 12.5 m / X-Z PLANE" class="world-detail" />
@@ -48,6 +51,10 @@
                 <ui:VisualElement class="divider" />
                 <ui:VisualElement class="mission-row"><ui:Button name="patrolButton" text="PATROL" class="mission-button" /><ui:Button name="cordonButton" text="CORDON" class="mission-button" /></ui:VisualElement>
                 <ui:VisualElement class="mission-row"><ui:Button name="searchButton" text="GRID SEARCH" class="mission-button" /><ui:Button name="holdButton" text="HOLD" class="mission-button" /></ui:VisualElement>
+                <ui:Button name="recordVoiceButton" text="RECORD VOICE (META API)" class="mission-button voice-record" />
+                <ui:VisualElement class="mission-row"><ui:Button name="cancelVoiceButton" text="CANCEL VOICE" class="mission-button" /><ui:Button name="useTranscriptButton" text="USE TRANSCRIPT" class="mission-button" /></ui:VisualElement>
+                <ui:Label name="voiceStatus" text="Hold Space outside controls to record · 5 s maximum" class="media-status" />
+                <ui:Label name="voiceDraft" text="" class="voice-draft" />
                 <ui:TextField name="missionInstruction" label="MISSION INSTRUCTION" multiline="true" max-length="4096" class="mission-input" />
                 <ui:Button name="generateButton" text="SYNTHESIZE POLICY (API)" class="action synthesize" />
                 <ui:Label name="brainState" text="Brain / baseline" class="notice" />

@@ -30,7 +30,7 @@ if (-not $packages.dependencies.'com.unity.render-pipelines.universal') { throw 
 if (Test-Path -LiteralPath (Join-Path $projectDirectory 'Temp/UnityLockfile')) { throw 'Close this project in Unity before importing.' }
 
 $dotnetExecutable = (Get-Command $DotNetPath -CommandType Application -ErrorAction Stop).Source
-$projects = @('OmniTwin.Transport', 'OmniTwin.Policies')
+$projects = @('OmniTwin.Transport', 'OmniTwin.Policies', 'OmniTwin.Perception')
 $libraries = [Collections.Generic.List[string]]::new()
 Push-Location $repoDirectory
 try {

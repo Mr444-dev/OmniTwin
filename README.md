@@ -10,6 +10,8 @@ The screenshot shows the actual scene, five measured simulation agents and `Emer
 
 The [project audit](docs/project-audit.md) separates implemented modules from outstanding hardware/product acceptance. The [API key guide](docs/api-keys.md) covers masked local setup of both `META_API_KEY` and `BASETEN_API_KEY`. Model synthesis starts only after an explicit HUD command; normal baseline missions do not invoke Baseten.
 
+The operator HUD also supports short microphone commands through **Muse Voice Transcribe** and an opt-in camera PIP from the existing capture pipeline. Transcripts remain editable drafts; manual text is preserved while transcription runs. No microphone opens at startup. Preview images expire independently and do not establish navigation trust. [Voice/preview setup, limits and verification](docs/operator-media.md).
+
 ## Build and verify
 
 Install [.NET SDK 10.0.403](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (or a newer stable patch in its 10.0.4xx feature band). The SDK includes the .NET/ASP.NET Core runtime. `global.json` pins this SDK feature band and rejects previews and unreviewed major upgrades. NuGet access is needed for the initial restore; no API credentials or camera are needed for these checks.
@@ -35,13 +37,16 @@ See [verification results](docs/verification.md) for the checks actually run and
 | `src/OmniTwin.Perception/Vision` | Frame-change scheduling and bounded canonical one_bit mask decoding |
 | `src/OmniTwin.Perception/Tracking` | Global gated association, bounded motion prediction, monotonic expiry, and confidence decay |
 | `src/OmniTwin.Perception.Runtime` | OpenCV capture, SAM client, strict calibration loading, mask projection, and independent tracking publication |
+| `src/OmniTwin.Perception/Audio` | Bounded PCM16 WAV, stereo mixdown and filtered resampling for voice commands |
+| `src/OmniTwin.Perception.Runtime/Audio` | Real Muse Voice multipart adapter, strict transcript parsing, deadlines and safe failures |
+| `src/OmniTwin.Backend/Media` | Capture preview cache, same-origin media endpoints and bounded transcription deduplication |
 | `src/OmniTwin.Transport` | Closed-schema codec, order guard, bounded receiver, reconnecting single-producer client, atomic latest-state handoff, and source/track freshness checks |
 | `src/OmniTwin.Backend` | Loopback host, source supervision, health/status/latest endpoints, and bounded per-client WebSocket publication |
 | `src/OmniTwin.Policies` | Perimeter patrol, hazard quarantine, grid search, emergency hold, swept-footprint checks and bounded A* waypoints |
 | `src/OmniTwin.Brain` | Baseten 404-only model alias fallback, semantic compiler, three-attempt self-repair, AppContainer/Job supervision |
 | `src/OmniTwin.PolicyWorker` | Trusted IPC worker; generated assembly loading occurs only after an AppContainer token check |
 | `src/OmniTwin.Perception.Cli` | Capture, local JPEG snapshots, inference/tracking tools, and a validated `stream-probe` client |
-| `unity/client/Runtime` | Desktop Unity worker adapter and main-thread observed-footprint visualizer with navigation obstacles |
+| `unity/client/Runtime` | Desktop network, navigation, fail-safe controls, opt-in camera texture and operator-initiated microphone capture |
 | `tools/InstallUnityClient.ps1` | Imports portable DLLs and Unity scripts into an existing project while protecting local edits and `.meta` files |
 | `tests/OmniTwin.Tests` | Geometry, numerical boundaries, concurrency, collection ownership, constructor validation, and JSON round trips |
 | `tests/OmniTwin.NetStandard.Tests` | Runs the shared tests against the .NET Standard assemblies |

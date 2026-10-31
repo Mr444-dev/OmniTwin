@@ -16,12 +16,13 @@ $record = Get-Content -LiteralPath $recordPath -Raw | ConvertFrom-Json
 $expectedPaths = @('Assets/_OmniTwin/Plugins/OmniTwin.Contracts.dll', 'Assets/_OmniTwin/Plugins/OmniTwin.Transport.dll',
     'Assets/_OmniTwin/Plugins/System.Text.Json.dll', 'Assets/_OmniTwin/Scripts/Network/TwinWebSocketClient.cs',
     'Assets/_OmniTwin/Scripts/World/DynamicObstacleSpawner.cs', 'Assets/_OmniTwin/Plugins/OmniTwin.Policies.dll',
-    'Assets/_OmniTwin/Scripts/Agents/SwarmAgentController.cs', 'Assets/_OmniTwin/Scripts/Runtime/PolicyExecutor.cs')
+    'Assets/_OmniTwin/Scripts/Agents/SwarmAgentController.cs', 'Assets/_OmniTwin/Scripts/Runtime/PolicyExecutor.cs',
+    'Assets/_OmniTwin/Plugins/OmniTwin.Perception.dll', 'Assets/_OmniTwin/Scripts/Media/MediaConsoleController.cs')
 foreach ($path in $expectedPaths) {
     if (-not (Test-Path -LiteralPath (Join-Path $fixtureDirectory $path))) { throw "Missing real imported artifact: $path" }
 }
 if ($record.targetFramework -ne 'netstandard2.1') { throw 'Wrong imported framework.' }
-if (@($record.files).Count -ne 12) { throw 'Expected eight DLLs and four canonical client scripts.' }
+if (@($record.files).Count -ne 14) { throw 'Expected nine DLLs and five canonical client scripts.' }
 $clientPath = Join-Path $fixtureDirectory 'Assets/_OmniTwin/Scripts/Network/TwinWebSocketClient.cs'
 $originalScript = [IO.File]::ReadAllText($clientPath)
 $metaPath = $clientPath + '.meta'
