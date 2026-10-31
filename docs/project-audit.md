@@ -26,7 +26,7 @@ Wdrożono percepcję P1, rzeczywisty rój, Brain z izolowanym wykonawcą oraz ko
 - **Semantyka i scenerie:** klasyfikacja multimodalna, pamięć nowych obiektów i Muse Image/scenerie pozostają do wdrożenia. Hazard jest oznaczeniem operatora.
 - **LiDAR:** agent ma lokalną kontrolę kolizji; pełny sensor i wizualizacja LiDAR pozostają do wdrożenia.
 - **Wydanie:** standalone/IL2CPP, długi test, pomiar FPS/opóźnień, profilowanie i nagranie scenariusza. 60 FPS to cel, nie wynik benchmarku.
-- **GitHub Actions:** [przebieg etapu 4](https://github.com/Mr444-dev/OmniTwin/actions/runs/41192723331) zablokowały płatności/limit konta przed uruchomieniem zadania. Lokalnie przechodzi 411 testów; hostowane testy nie są potwierdzone. Rozliczenia wymagają działania właściciela konta.
+- **GitHub Actions:** [przebieg etapu 5](https://github.com/Mr444-dev/OmniTwin/actions/runs/41205766849) ponownie zablokowały płatności/limit konta przed uruchomieniem zadania. Lokalnie przechodzi 411 testów; hostowane testy nie wystartowały. Rozliczenia wymagają działania właściciela konta.
 
 ## Uruchomienie i granice
 
