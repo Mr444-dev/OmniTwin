@@ -64,6 +64,8 @@ The .NET 10 migration also passed `dotnet restore OmniTwin.sln --locked-mode`. T
 
 The source was pushed to the private [Mr444-dev/OmniTwin repository](https://github.com/Mr444-dev/OmniTwin). The [initial Verify run](https://github.com/Mr444-dev/OmniTwin/actions/runs/41088989197) failed before any runner step started. GitHub's check annotation reports an account payment or spending-limit restriction and directs the account owner to **Billing & plans**. Hosted CI has therefore not executed; the passing results above are local results. Account billing settings were not changed. After the account restriction is resolved, rerun Verify from the Actions page; the workflow also supports manual dispatch.
 
+Rechecked on **2026-10-31** after implementation commit `53b6a26e8b5ab2cf83eafdd16b141b57bf318a8e`: the [new Verify run](https://github.com/Mr444-dev/OmniTwin/actions/runs/41192723331) also completed with failure **before the job started**. Its check annotation again identifies failed account payments or the spending limit. This is an account execution block, not an observed test failure. The final local results remain 366 passed and a warning-free build. The GitHub connector confirmed repository visibility `private`; `git ls-remote` matched the pushed implementation SHA, and the working tree was clean.
+
 ## Coverage of behavior
 
 - Rectangle corners, center, interior points, and documented extrapolation.

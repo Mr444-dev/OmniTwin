@@ -24,7 +24,7 @@ Wdrożono trzy zadania z ostatniego zlecenia: percepcję P1, rzeczywisty rój i 
 - **Semantyka i scenerie:** klasyfikacja multimodalna, pamięć nowych obiektów i Muse Image/scenerie pozostają do wdrożenia. Hazard jest oznaczeniem operatora.
 - **LiDAR:** agent ma lokalną kontrolę kolizji; pełny sensor i wizualizacja LiDAR pozostają do wdrożenia.
 - **Wydanie:** standalone/IL2CPP, długi test, pomiar FPS/opóźnień, profilowanie i nagranie scenariusza. 60 FPS to cel, nie wynik benchmarku.
-- **GitHub Actions:** poprzednie przebiegi blokował limit płatności konta przed testami. Zielony zestaw lokalny nie oznacza zielonego hostowanego CI. Nie zmieniamy rozliczeń użytkownika.
+- **GitHub Actions:** [przebieg po wdrożeniu](https://github.com/Mr444-dev/OmniTwin/actions/runs/41192723331) ponownie zablokowały płatności/limit konta przed uruchomieniem zadania. Lokalnie przechodzi 366 testów; hostowane testy nie wystartowały. Rozliczenia wymagają działania właściciela konta.
 
 ## Uruchomienie i granice
 
