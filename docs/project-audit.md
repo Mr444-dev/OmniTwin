@@ -1,4 +1,4 @@
-# Stan odbioru OmniTwin — 31 października 2026
+# Stan odbioru OmniTwin — 1 listopada 2026
 
 Wdrożono percepcję P1, rzeczywisty rój, Brain z izolowanym wykonawcą, komendy głosowe, PIP, wizualne systemy oraz etap 7 z jawnym replayem offline i preflightem. **Nie oznacza to ukończenia całej pierwotnej specyfikacji produktu.** Dowody poniżej oddzielają sprawdzony kod od odbioru na fizycznym stole i płatnych usługach.
 
@@ -17,18 +17,18 @@ Wdrożono percepcję P1, rzeczywisty rój, Brain z izolowanym wykonawcą, komend
 | 4 / fallback | Nieudana synteza/wykonanie → wybrana polityka wbudowana; utrata percepcji → Hold | Test koordynatora z rzeczywistym izolowanym procesem i timeoutem |
 | 5 / głos | Jawne nagrywanie do 5 s, PCM16/16 kHz, rzeczywisty adapter Muse Voice, retry/deduplikacja i edytowalny tekst | Testy kodeka i całej ścieżki HTTP; Spacja w polu instrukcji nie włącza mikrofonu. Fizyczny mikrofon i live API wymagają odbioru |
 | 5 / PIP | Podgląd z istniejącego źródła OpenCV, do 320 px/5 Hz, wygasanie 750 ms, bez dodatkowej kamery | Natywne JPEG i testy świeżości; brak źródła jest jawny. PIP nie potwierdza wolnego stołu |
-| 6 / maski PIP | Atomowa para obrazu i przezroczystej maski z identyczną klatką, sesją, czasem i rozmiarem | Test integracyjny backend/klient odrzuca złe wymiary i pochodzenie; optical-flow mask jest przerywana i nie odnawia wieku SAM. Unity kompiluje przełącznik nakładki; rzeczywisty kadr wymaga aktywnego backendu/kamery |
-| 6 / LiDAR | Każda z 5 jednostek ma 48 wiązek, zasięg 6 m, skan 20 Hz, punkty trafień, widoczność w HUD, minimum i wiek w telemetrii | W Play rzeczywiste skany zwróciły trafienia dla trzech agentów naziemnych (3/6/3) i telemetrię dla wszystkich pięciu; oba drony nie trafiły w przeszkodę w swoim planarnym przekroju. `BlocksTravel` zamyka ruch przy przeterminowanym skanie i sprawdza obrys |
+| 6 / maski PIP | Atomowa para obrazu i przezroczystej maski z identyczną klatką, sesją, czasem i rozmiarem | Test integracyjny backend/klient odrzuca złe wymiary i pochodzenie; optical-flow mask jest przerywana i nie odnawia wieku SAM. Unity pokazuje przełącznik i synchroniczny overlay w syntetycznym replayu; live SAM nadal wymaga kamery i odpowiedzi dostawcy |
+| 6 / LiDAR | Każda z 5 jednostek ma 48 wiązek, zasięg 6 m, skan 20 Hz, punkty trafień, widoczność w HUD, minimum i wiek w telemetrii | W Play skany i telemetria działają dla pięciu agentów; wizualizacja jest domyślnie włączona, rysuje jedną z ośmiu wiązek, nie ograniczając pełnego skanowania. `BlocksTravel` zamyka ruch przy przeterminowanym skanie i sprawdza obrys |
 | 6 / semantyka | Po dwóch stabilnych obserwacjach SAM asynchroniczny Muse Spark `muse-spark-1.3` klasyfikuje crop; pamięć ogranicza się do sesji i wspiera nadpisanie operatora | Lokalne Kestrel testy sprawdzają payload obrazu/JSON, próg potwierdzenia, priorytet ręcznego tagu i anulowanie po zmianie sesji; live Meta wymaga klucza |
 | 6 / sceneria | Jawny Muse Image `muse-image-1.0`; walidacja rastra, kontrast, bezpieczna podmiana materiału URP i reset | Testy kontrolowanego protokołu i CRC/rozmiaru PNG/JPEG; Unity kompiluje i wiąże controller z powierzchnią. Płatna generacja wymaga klucza operatora |
 | 7 / preflight i replay | `live-preflight`; deterministyczne `--synthetic-tabletop-replay`; source mode przesyłany przez v3 i jawny baner w HUD | Lokalny backend odebrał Unity, opublikował 3 syntetyczne tracki i aktualny stan; żaden klucz ani endpoint modelu nie był użyty |
-| Weryfikacja | [Raport](verification.md): Release build 0 warning/error, **435/435 testów**, Unity 6000.6.3f1 Play Mode i screenshot z aktualnego Game View | Rzeczywisty stream, 5 agentów, 48-ray LiDAR, 0 błędów/ostrzeżeń w końcowej konsoli; stabilny pomiar w Editorze 125–155 FPS. To krótki pomiar desktopowy, nie benchmark wydania |
+| Weryfikacja wizualna | [Raport](verification.md): Release build 0 warning/error, **435/435 testów**, Unity 6000.6.3f1 Play Mode i [zrzut Game View](images/tactical-desk.png) | PIP i maski `LOCAL CV` zsynchronizowane w synthetic replay, LiDAR widoczny, tabela mieści się w wolnym oknie, pięciu agentów ma telemetrykę. Zrzut pokazuje 66 FPS / 15.2 ms w jednej próbce; nie jest to benchmark wydania |
 
 ## Co nadal wymaga pracy
 
 - **Odbiór sprzętowy P0:** klucze i dostęp do modeli, własna kalibracja, prawdziwe SAM i Baseten oraz przejazd wokół przedmiotu obserwowanego kamerą. Semantyczny hazard jest tagiem symulacji, a nie oceną rzeczywistego niebezpieczeństwa. [Instrukcja](api-keys.md).
-- **Odbiór wizualny na żywym źródle:** sprawdzenie zsynchronizowanych masek PIP i wygenerowanej tekstury w Game view z backendem, kluczem Meta i fizyczną kamerą. Weryfikacja kompilacji i Play mode nie jest pomiarem wydajności długotrwałej.
-- **Wydanie:** standalone/IL2CPP, długi test, profilowanie GC/opóźnień i nagranie scenariusza. Krótki pomiar Game View w Editorze wyniósł 125–155 FPS; nie zastępuje benchmarku wydania ani testu obciążeniowego.
+- **Odbiór na żywym źródle:** powtórzenie wizualnego testu PIP/masek z fizyczną kamerą i odpowiedzią SAM; wygenerowana tekstura wymaga klucza Meta. Obecny zrzut potwierdza synthetic replay i lokalne CV, nie live SAM. Weryfikacja kompilacji i Play mode nie jest pomiarem wydajności długotrwałej.
+- **Wydanie:** standalone/IL2CPP, długi test, profilowanie GC/opóźnień i nagranie scenariusza. Jedna próbka Game View wyniosła 66 FPS / 15.2 ms; nie zastępuje benchmarku wydania ani testu obciążeniowego.
 - **GitHub Actions:** [run #12 dla commitu Stage 6](https://github.com/Mr444-dev/OmniTwin/actions/runs/41242900294) nie uruchomił kroków i nie ma archiwum logów; wcześniejsze adnotacje workflow wskazują limit konta. Lokalnie aktualny zestaw przechodzi 435 testów.
 
 ## Uruchomienie i granice

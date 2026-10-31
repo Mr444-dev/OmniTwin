@@ -10,8 +10,8 @@ namespace OmniTwin.Simulation.CameraControl
     [DisallowMultipleComponent]
     public sealed class TacticalCameraController : MonoBehaviour
     {
-        [SerializeField] private Vector3 focus = new Vector3(-2, 0, 0);
-        [SerializeField] private float initialDistance = 32;
+        [SerializeField] private Vector3 focus = Vector3.zero;
+        [SerializeField] private float initialDistance = 52;
         [SerializeField] private float initialYaw = -32;
         [SerializeField] private float initialPitch = 53;
         [SerializeField] private float orbitSensitivity = 0.18f;
@@ -23,7 +23,7 @@ namespace OmniTwin.Simulation.CameraControl
         private UIDocument _hud;
         private UnityEngine.Camera _camera;
         private int _preset = 1;
-        private float _targetOrthoSize = 6.55f;
+        private float _targetOrthoSize = 15.5f;
 
         /// <summary>Restores the authored tactical overview.</summary>
         public void ResetView() => SetPreset(1, null);
@@ -33,11 +33,11 @@ namespace OmniTwin.Simulation.CameraControl
             if (preset < 1 || preset > 3) throw new ArgumentOutOfRangeException(nameof(preset));
             _preset = preset;
             _followAgent = preset == 3 ? selectedAgent : null;
-            _targetFocus = preset == 3 && selectedAgent != null ? selectedAgent.transform.position : new Vector3(-2, 0, 0);
+            _targetFocus = preset == 3 && selectedAgent != null ? selectedAgent.transform.position : Vector3.zero;
             _targetDistance = preset == 2 ? 24 : preset == 3 ? 10 : initialDistance;
             _targetYaw = preset == 2 ? 0 : preset == 3 ? -42 : initialYaw;
             _targetPitch = preset == 2 ? 90 : preset == 3 ? 32 : initialPitch;
-            if (preset == 2) _targetOrthoSize = 8.0f;
+            if (preset == 2) _targetOrthoSize = 15.5f;
             if (_camera != null) _camera.orthographic = preset == 2;
         }
         private void OnEnable() { _hud = UnityEngine.Object.FindAnyObjectByType<UIDocument>(); _camera = GetComponent<UnityEngine.Camera>(); ResetView(); }
@@ -56,14 +56,14 @@ namespace OmniTwin.Simulation.CameraControl
                 else if (keyboard.digit3Key.wasPressedThisFrame) SetPreset(3, UnityEngine.Object.FindAnyObjectByType<SwarmAgentController>());
             }
             var mouse = Mouse.current;
-            if (mouse == null) return;
-            if (panel != null)
+            var pointerOverHud = false;
+            if (mouse != null && panel != null)
             {
                 var cursor = mouse.position.ReadValue(); cursor.y = Screen.height - cursor.y;
                 var picked = panel.Pick(RuntimePanelUtils.ScreenToPanel(panel, cursor));
-                if (picked != null && picked != root && picked.name != "screen") return;
+                pointerOverHud = picked != null && picked != root && picked.name != "screen";
             }
-            if (mouse.rightButton.isPressed)
+            if (mouse != null && !pointerOverHud && mouse.rightButton.isPressed)
             {
                 var delta = mouse.delta.ReadValue();
                 if (_preset == 2) _targetFocus += new Vector3(-delta.x * 0.025f, 0, -delta.y * 0.025f);
@@ -73,9 +73,12 @@ namespace OmniTwin.Simulation.CameraControl
                     _targetPitch = Mathf.Clamp(_targetPitch - delta.y * orbitSensitivity, 25, 88);
                 }
             }
-            var wheel = Mathf.Clamp(mouse.scroll.ReadValue().y, -4, 4);
-            if (_preset == 2) _targetOrthoSize = Mathf.Clamp(_targetOrthoSize * Mathf.Exp(-wheel * zoomSensitivity), 3.2f, 13);
-            else _targetDistance = Mathf.Clamp(_targetDistance * Mathf.Exp(-wheel * zoomSensitivity), 8, 48);
+            if (mouse != null && !pointerOverHud)
+            {
+                var wheel = Mathf.Clamp(mouse.scroll.ReadValue().y, -4, 4);
+                if (_preset == 2) _targetOrthoSize = Mathf.Clamp(_targetOrthoSize * Mathf.Exp(-wheel * zoomSensitivity), 3.2f, 22);
+                else _targetDistance = Mathf.Clamp(_targetDistance * Mathf.Exp(-wheel * zoomSensitivity), 8, 68);
+            }
             if (_followAgent != null) _targetFocus = _followAgent.transform.position;
             var blend = 1 - Mathf.Exp(-8 * Time.unscaledDeltaTime);
             focus = Vector3.Lerp(focus, _targetFocus, blend);

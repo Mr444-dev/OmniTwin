@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using OpenCvSharp;
 using OmniTwin.Backend;
 using OmniTwin.Backend.Media;
 using OmniTwin.Backend.Services;
@@ -232,7 +233,25 @@ public sealed class BackendIntegrationTests
         Assert.Equal(3, first.Snapshot.Obstacles.Count);
         Assert.All(first.Snapshot.Obstacles, track => Assert.Equal(ObservationSource.LocalImageSegmentation, track.ObservationSource));
         Assert.Contains(first.Snapshot.Obstacles, track => track.Lifecycle == ObstacleLifecycleState.TransientManipulator);
-        Assert.Empty(preview.Read()!.Masks);
+        var paired = Assert.IsType<CameraPreviewFrame>(preview.Read());
+        Assert.Equal(0, paired.SequenceNumber);
+        Assert.Equal(320, paired.Width);
+        Assert.Equal(240, paired.Height);
+        Assert.Equal(3, paired.Masks.Count);
+        Assert.All(paired.Masks, mask => Assert.Equal(ObservationSource.LocalImageSegmentation, mask.ObservationSource));
+        Assert.All(paired.Masks, mask =>
+        {
+            Assert.Equal(paired.SequenceNumber, mask.SamSequenceNumber);
+            Assert.Equal(paired.CapturedAtUnixMs, mask.SamCapturedAtUnixMs);
+        });
+        Assert.Contains(paired.Masks, mask => mask.IsHazardZone);
+        using var overlay = Cv2.ImDecode(paired.CopyMaskLayer(), ImreadModes.Unchanged);
+        Assert.False(overlay.Empty());
+        Assert.Equal(paired.Width, overlay.Width);
+        Assert.Equal(paired.Height, overlay.Height);
+        using var alpha = new Mat();
+        Cv2.ExtractChannel(overlay, alpha, 3);
+        Assert.True(Cv2.CountNonZero(alpha) > 0);
 
         for (var i = 0; i < 6; i++) Assert.True(await updates.MoveNextAsync());
         var settled = updates.Current.Snapshot.Obstacles;

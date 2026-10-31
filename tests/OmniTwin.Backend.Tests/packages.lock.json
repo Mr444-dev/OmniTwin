@@ -182,6 +182,7 @@
       "omnitwin.perception.cli": {
         "type": "Project",
         "dependencies": {
+          "OmniTwin.Brain": "[1.0.0, )",
           "OmniTwin.Perception.Runtime": "[1.0.0, )",
           "OmniTwin.Transport": "[1.0.0, )"
         }

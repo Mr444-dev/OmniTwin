@@ -29,7 +29,8 @@ public sealed class AnnotatedCameraPreview
             var mask = masks[i];
             if (mask is null || !ids.Add(mask.TrackId) || mask.SamSequenceNumber > image.SequenceNumber || mask.SamCapturedAtUnixMs > image.CapturedAtUnixMs ||
                 image.CapturedAtUnixMs - mask.SamCapturedAtUnixMs >= PerceptionTiming.MaximumFrameAgeMilliseconds ||
-                (mask.ObservationSource == ObservationSource.SamVerified) != (mask.SamSequenceNumber == image.SequenceNumber && mask.SamCapturedAtUnixMs == image.CapturedAtUnixMs))
+                (mask.ObservationSource is ObservationSource.SamVerified or ObservationSource.LocalImageSegmentation) !=
+                    (mask.SamSequenceNumber == image.SequenceNumber && mask.SamCapturedAtUnixMs == image.CapturedAtUnixMs))
                 throw new WorldStreamProtocolException("mask_frame_correlation");
             copy[i] = mask;
         }

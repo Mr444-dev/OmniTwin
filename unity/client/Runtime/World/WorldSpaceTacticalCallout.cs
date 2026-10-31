@@ -21,18 +21,22 @@ namespace OmniTwin.Simulation.World
         private Transform _bracketRoot;
         private Transform _ringRoot;
         private float _nextFacing;
+        private float _labelHeightOffset;
+        private float _labelLateralOffset;
 
         /// <summary>Builds child visuals at runtime from shared URP materials.</summary>
-        public void Configure(Material sharedUnlit, string label, Color color, float radius, float height)
+        public void Configure(Material sharedUnlit, string label, Color color, float radius, float height, int obstacleId)
         {
             if (sharedUnlit == null || string.IsNullOrWhiteSpace(label) || !Finite(radius) || radius <= 0 || !Finite(height) || height <= 0)
                 throw new System.ArgumentException("A bounded label, dimensions, and shared material are required.");
             if (_block == null) _block = new MaterialPropertyBlock();
+            _labelHeightOffset = 0.85f + (obstacleId % 2 == 0 ? 0.45f : 0f);
+            _labelLateralOffset = obstacleId % 2 == 0 ? 0.55f : -0.55f;
             if (_label != null) { UpdateDetails(label, color, radius, height); return; }
             _camera = Camera.main;
             var labelObject = new GameObject("World-space callout"); labelObject.transform.SetParent(transform, false);
-            labelObject.transform.localPosition = new Vector3(0, height + 0.38f, 0);
-            _label = labelObject.AddComponent<TextMesh>(); _label.text = label; _label.fontSize = 44; _label.characterSize = 0.035f;
+            labelObject.transform.localPosition = new Vector3(_labelLateralOffset, height + _labelHeightOffset, 0);
+            _label = labelObject.AddComponent<TextMesh>(); _label.text = label; _label.fontSize = 96; _label.characterSize = 0.07f;
             _label.anchor = TextAnchor.LowerCenter; _label.alignment = TextAlignment.Center; _label.color = color;
             _label.richText = false;
 
@@ -68,7 +72,7 @@ namespace OmniTwin.Simulation.World
             _block.SetColor(BaseColor, color); _ring.SetPropertyBlock(_block); _bracketRenderer.SetPropertyBlock(_block);
             _bracketRoot.localScale = new Vector3(diameter, height, diameter);
             BuildBracketMesh();
-            _label.transform.localPosition = new Vector3(0, height + 0.38f, 0);
+            _label.transform.localPosition = new Vector3(_labelLateralOffset, height + _labelHeightOffset, 0);
         }
 
         private void LateUpdate()
@@ -76,7 +80,7 @@ namespace OmniTwin.Simulation.World
             if (Time.unscaledTime < _nextFacing) return;
             _nextFacing = Time.unscaledTime + 0.05f;
             if (_camera == null) _camera = Camera.main;
-            if (_camera != null) _label.transform.rotation = Quaternion.LookRotation(_camera.transform.position - _label.transform.position, Vector3.up);
+            if (_camera != null) _label.transform.rotation = Quaternion.LookRotation(_label.transform.position - _camera.transform.position, _camera.transform.up);
         }
 
         private void BuildBracketMesh()

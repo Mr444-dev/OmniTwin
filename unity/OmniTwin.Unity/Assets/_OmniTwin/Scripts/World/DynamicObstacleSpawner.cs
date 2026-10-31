@@ -82,9 +82,7 @@ namespace OmniTwin.Simulation.World
                 visual.Obstacle.carving = track.Lifecycle == ObstacleLifecycleState.SettledObstacle;
                 visual.Tint.SetColor(BaseColor, RenderColor(track));
                 visual.Renderer.SetPropertyBlock(visual.Tint);
-                var source = track.ObservationSource == ObservationSource.SamVerified ? "SAM VERIFIED" : track.ObservationSource == ObservationSource.LocalMotionEstimate ? "LOCAL ESTIMATE" : "LOCAL CV";
-                var state = track.Lifecycle == ObstacleLifecycleState.SettledObstacle ? "SETTLED" : track.Lifecycle == ObstacleLifecycleState.TransientManipulator ? "TRANSIENT" : "SETTLING";
-                var label = "#" + obstacle.Id + "  " + obstacle.Label + "\nR " + obstacle.RadiusMeters.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "m  C " + obstacle.Confidence.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "\n" + source + "  /  " + state;
+                var label = FormatCallout(track);
                 visual.Callout.UpdateDetails(label, RenderColor(track), obstacle.RadiusMeters, proxyHeightMeters);
             }
             _removed.Clear();
@@ -122,10 +120,8 @@ namespace OmniTwin.Simulation.World
             nav.carvingTimeToStationary = 0.2f;
             var callout = root.AddComponent<WorldSpaceTacticalCallout>();
             var accent = accentMaterial != null ? accentMaterial : renderer.sharedMaterial;
-            var source = track.ObservationSource == ObservationSource.SamVerified ? "SAM VERIFIED" : track.ObservationSource == ObservationSource.LocalMotionEstimate ? "LOCAL ESTIMATE" : "LOCAL CV";
-            var state = track.Lifecycle == ObstacleLifecycleState.SettledObstacle ? "SETTLED" : track.Lifecycle == ObstacleLifecycleState.TransientManipulator ? "TRANSIENT" : "SETTLING";
-            var label = "#" + obstacle.Id + "  " + obstacle.Label + "\nR " + obstacle.RadiusMeters.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "m  C " + obstacle.Confidence.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + "\n" + source + "  /  " + state;
-            callout.Configure(accent, label, RenderColor(track), obstacle.RadiusMeters, proxyHeightMeters);
+            var label = FormatCallout(track);
+            callout.Configure(accent, label, RenderColor(track), obstacle.RadiusMeters, proxyHeightMeters, obstacle.Id);
             return new Visual(root, body.transform, renderer, nav, callout);
         }
 
@@ -135,6 +131,18 @@ namespace OmniTwin.Simulation.World
             if (track.ObservationSource == ObservationSource.LocalMotionEstimate) return new Color(0.92f, 0.66f, 0.24f, 0.85f);
             if (track.ObservationSource == ObservationSource.LocalImageSegmentation) return new Color(0.25f, 0.86f, 0.7f, 0.88f);
             return obstacleColor;
+        }
+
+        private static string FormatCallout(TrackedObstacleState track)
+        {
+            var source = track.ObservationSource switch
+            {
+                ObservationSource.SamVerified => "SAM",
+                ObservationSource.LocalMotionEstimate => "FLOW",
+                _ => "CV"
+            };
+            return "OBJ-" + track.Obstacle.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n" + source + " " +
+                track.Obstacle.Confidence.ToString("P0", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         private void OnDisable() { IsWorldCurrent = false; Clear(); }

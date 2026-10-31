@@ -39,8 +39,29 @@ namespace OmniTwin.Simulation.Media
         /// <summary>Toggles mask rendering independently of the camera and navigation.</summary>
         public void SetMasksEnabled(bool value) => Volatile.Write(ref _masksEnabled, value ? 1 : 0);
         /// <summary>Gets visible mask provenance; a dashed contour always denotes a translated earlier SAM mask.</summary>
-        public string MaskStatus => !MasksEnabled ? "Mask layer off" : PreviewTexture == null ? "Masks unavailable · no current image" :
-            _shown.Masks.Count + " masks · solid: same-frame SAM · dashed: local estimate / SAM age";
+        public string MaskStatus
+        {
+            get
+            {
+                if (!MasksEnabled) return "Mask layer off";
+                if (PreviewTexture == null) return "Masks unavailable · no current image";
+                var exactSam = 0; var localEstimate = 0; var localImage = 0;
+                if (_shown.Masks.Count == 0) return "No masks in this frame";
+                foreach (var mask in _shown.Masks)
+                {
+                    if (mask.ObservationSource == ObservationSource.SamVerified) exactSam++;
+                    else if (mask.ObservationSource == ObservationSource.LocalMotionEstimate) localEstimate++;
+                    else if (mask.ObservationSource == ObservationSource.LocalImageSegmentation) localImage++;
+                }
+                if (localImage == _shown.Masks.Count && localImage > 0) return localImage + " masks · LOCAL CV · same frame";
+                if (exactSam == _shown.Masks.Count && exactSam > 0) return exactSam + " masks · SAM verified";
+                if (localEstimate == _shown.Masks.Count && localEstimate > 0) return localEstimate + " masks · local estimate · SAM age retained";
+                if (exactSam > 0 && localImage > 0) return _shown.Masks.Count + " masks · SAM + local CV";
+                if (exactSam > 0) return _shown.Masks.Count + " masks · SAM + local estimates";
+                if (localEstimate > 0 && localImage > 0) return _shown.Masks.Count + " masks · local CV + estimates";
+                return _shown.Masks.Count + " masks · local estimate · SAM age retained";
+            }
+        }
         /// <summary>Gets bounded preview status; an image never establishes SAM validity.</summary>
         public string PreviewStatus { get { lock (_gate) return _previewStatus; } }
         /// <summary>Gets whether the microphone is currently owned by this controller.</summary>

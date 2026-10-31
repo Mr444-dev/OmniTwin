@@ -16,7 +16,7 @@ public sealed class PipMaskMetadata
     }
     /// <summary>Gets the stable track ID scoped to the supplied tracking session.</summary>
     public int TrackId { get; }
-    /// <summary>Gets last SAM confidence.</summary>
+    /// <summary>Gets source detector confidence; local synthetic CV is never represented as a SAM result.</summary>
     public float Confidence { get; }
     /// <summary>Gets local alignment quality, separately from SAM confidence.</summary>
     public float TrackingQuality { get; }
@@ -24,8 +24,8 @@ public sealed class PipMaskMetadata
     public bool IsHazardZone { get; }
     /// <summary>Gets solid verified versus dashed locally estimated provenance.</summary>
     public ObservationSource ObservationSource { get; }
-    /// <summary>Gets original SAM capture sequence.</summary>
+    /// <summary>Gets the source-mask sequence, or the last SAM sequence for a locally motion-aligned estimate.</summary>
     public long SamSequenceNumber { get; }
-    /// <summary>Gets original SAM capture time; local tracking never refreshes it.</summary>
+    /// <summary>Gets the source-mask capture time; local motion never refreshes it.</summary>
     public long SamCapturedAtUnixMs { get; }
 }

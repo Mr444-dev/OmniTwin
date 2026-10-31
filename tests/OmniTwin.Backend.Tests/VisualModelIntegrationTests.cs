@@ -121,6 +121,9 @@ public sealed class VisualModelIntegrationTests
         var paired = new AnnotatedCameraPreview(image, tracking, png, new[] { local }, 4);
         Assert.Equal(ObservationSource.LocalMotionEstimate, Assert.Single(paired.Masks).ObservationSource);
         Assert.Equal(7, paired.Masks[0].SamSequenceNumber); Assert.Equal(8, paired.Image.SequenceNumber);
+        var replayMask = new PipMaskMetadata(4, 0.72f, 1f, true, ObservationSource.LocalImageSegmentation, 8, captured);
+        var replay = new AnnotatedCameraPreview(image, tracking, png, new[] { replayMask }, 5);
+        Assert.Equal(ObservationSource.LocalImageSegmentation, Assert.Single(replay.Masks).ObservationSource);
         Assert.Throws<WorldStreamProtocolException>(() => new AnnotatedCameraPreview(image, tracking, png,
             new[] { new PipMaskMetadata(3, 0.91f, 0.8f, true, ObservationSource.SamVerified, 7, captured - 100) }));
         Assert.Throws<WorldStreamProtocolException>(() => new AnnotatedCameraPreview(image, tracking, new byte[] { 1, 2, 3, 4 }, Array.Empty<PipMaskMetadata>()));

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,7 +41,8 @@ public sealed class SyntheticTabletopReplaySource : IWorldPerceptionSource
             new[] { new PixelPoint(0, 0), new PixelPoint(Width - 1, 0), new PixelPoint(Width - 1, Height - 1), new PixelPoint(0, Height - 1) },
             new[] { new Vector2D(-10, -6.25f), new Vector2D(10, -6.25f), new Vector2D(10, 6.25f), new Vector2D(-10, 6.25f) },
             0.08f, 2.5f, 0.08f, 0.1f);
-        var tracker = new ObstacleTracker(Guid.NewGuid(), calibrationId, _options.RetentionMilliseconds);
+        var trackingSessionId = Guid.NewGuid();
+        var tracker = new ObstacleTracker(trackingSessionId, calibrationId, _options.RetentionMilliseconds);
         long sequence = 0;
         try
         {
@@ -51,22 +53,23 @@ public sealed class SyntheticTabletopReplaySource : IWorldPerceptionSource
                 var elapsedSeconds = sequence * 0.2;
                 var capturedAt = _time.GetUtcNow();
                 byte[] jpeg;
-                IReadOnlyList<ObstacleObservation> observations;
+                ReplaySegmentation segmentation;
                 using (var image = RenderFrame(sequence, elapsedSeconds))
                 {
                     Cv2.ImEncode(".jpg", image, out jpeg, new ImageEncodingParam(ImwriteFlags.JpegQuality, 88));
                     if (jpeg.Length is 0 or > 8_388_608)
                         throw new IOException("Synthetic replay frame encoding failed.");
-                    observations = SegmentLocalContours(image, profile);
+                    segmentation = SegmentLocalContours(image, profile, sequence, capturedAt.ToUnixTimeMilliseconds());
                 }
                 var frame = CapturedFrame.FromJpeg(jpeg, sequence, capturedAt, capturedTicks);
-                _preview.Publish(frame, calibrationId);
                 var capturedElapsed = ToMilliseconds(capturedTicks);
-                var batch = new ObstacleObservationBatch(sequence, capturedElapsed, capturedAt.ToUnixTimeMilliseconds(), observations);
+                var batch = new ObstacleObservationBatch(sequence, capturedElapsed, capturedAt.ToUnixTimeMilliseconds(), segmentation.Observations);
                 var now = ToMilliseconds(Stopwatch.GetTimestamp());
                 var update = tracker.Update(batch, now, ObservationSource.LocalImageSegmentation);
                 if (update != TrackingUpdateStatus.Accepted) throw new InvalidOperationException("Synthetic local tracker rejected a deterministic in-order frame: " + update + ".");
-                yield return new PerceptionPublication(tracker.Snapshot(now, _time.GetUtcNow().ToUnixTimeMilliseconds()), null, 0, SourceMode);
+                var snapshot = tracker.Snapshot(now, _time.GetUtcNow().ToUnixTimeMilliseconds());
+                _preview.Publish(frame, calibrationId, segmentation.Masks, trackingSessionId, segmentation.IsHazardTrack);
+                yield return new PerceptionPublication(snapshot, null, 0, SourceMode);
                 sequence++;
                 await Task.Delay(200, cancellationToken).ConfigureAwait(false);
             }
@@ -95,24 +98,36 @@ public sealed class SyntheticTabletopReplaySource : IWorldPerceptionSource
         return image;
     }
 
-    private static IReadOnlyList<ObstacleObservation> SegmentLocalContours(Mat image, CalibrationProfile profile)
+    private static ReplaySegmentation SegmentLocalContours(Mat image, CalibrationProfile profile, long sequenceNumber, long capturedAtUnixMs)
     {
         using var containerMask = new Mat(); using var hazardMask = new Mat(); using var handMask = new Mat();
         Cv2.InRange(image, new Scalar(80, 35, 0), new Scalar(255, 155, 90), containerMask);
         Cv2.InRange(image, new Scalar(0, 0, 120), new Scalar(75, 80, 255), hazardMask);
         Cv2.InRange(image, new Scalar(0, 115, 140), new Scalar(75, 230, 255), handMask);
-        var observations = new List<ObstacleObservation>(3);
+        var contours = new List<ReplayContour>(3);
         var nextId = 0;
         Append(containerMask, "container", false);
         Append(hazardMask, "hazard drum", true);
         Append(handMask, "hand", false);
-        observations.Sort((left, right) => left.SourceObjectId.CompareTo(right.SourceObjectId));
-        return observations.AsReadOnly();
+        contours.Sort(CompareContours);
+        var observations = new ObstacleObservation[contours.Count];
+        var masks = new MaskOverlaySample[contours.Count];
+        var hazardTrackIds = new HashSet<int>();
+        for (var index = 0; index < contours.Count; index++)
+        {
+            var contour = contours[index];
+            observations[index] = contour.Observation;
+            var trackId = index + 1;
+            masks[index] = MaskOverlaySample.FromLocalImageSegmentation(trackId, contour.Left, contour.Top, contour.Right, contour.Bottom,
+                contour.Observation.Confidence, contour.MaskWidth, contour.MaskHeight, contour.ForegroundMask, sequenceNumber, capturedAtUnixMs);
+            if (contour.Observation.IsHazardZone) hazardTrackIds.Add(trackId);
+        }
+        return new ReplaySegmentation(Array.AsReadOnly(observations), Array.AsReadOnly(masks), hazardTrackIds);
 
         void Append(Mat mask, string label, bool hazard)
         {
-            Cv2.FindContours(mask, out Point[][] contours, out _, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
-            foreach (var contour in contours)
+            Cv2.FindContours(mask, out Point[][] detectedContours, out _, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+            foreach (var contour in detectedContours)
             {
                 if (Cv2.ContourArea(contour) < 250) continue;
                 var box = Cv2.BoundingRect(contour);
@@ -123,10 +138,38 @@ public sealed class SyntheticTabletopReplaySource : IWorldPerceptionSource
                 var radius = (float)(Math.Max(box.Width, box.Height) * 10.0 / Width * 0.5 + profile.SafetyMarginMeters);
                 radius = Math.Clamp(radius, profile.MinimumRadiusMeters + profile.SafetyMarginMeters, profile.MaximumRadiusMeters);
                 if (!profile.Workspace.ContainsCircle(world, radius)) continue;
-                observations.Add(new ObstacleObservation(nextId++, label, world, radius, 0.72f, hazard));
+                var observation = new ObstacleObservation(nextId++, label, world, radius, 0.72f, hazard);
+                using var region = new Mat(mask, box);
+                var foreground = new byte[checked(box.Width * box.Height)];
+                Marshal.Copy(region.Data, foreground, 0, foreground.Length);
+                contours.Add(new ReplayContour(observation, box.X, box.Y, box.Right - 1, box.Bottom - 1, box.Width, box.Height, foreground));
             }
         }
     }
+
+    private static int CompareContours(ReplayContour left, ReplayContour right)
+    {
+        var comparison = string.CompareOrdinal(left.Observation.Label, right.Observation.Label);
+        if (comparison == 0) comparison = left.Observation.IsHazardZone.CompareTo(right.Observation.IsHazardZone);
+        if (comparison == 0) comparison = left.Observation.Position.X.CompareTo(right.Observation.Position.X);
+        if (comparison == 0) comparison = left.Observation.Position.Z.CompareTo(right.Observation.Position.Z);
+        if (comparison == 0) comparison = left.Observation.RadiusMeters.CompareTo(right.Observation.RadiusMeters);
+        if (comparison == 0) comparison = left.Observation.Confidence.CompareTo(right.Observation.Confidence);
+        return comparison;
+    }
+
+    private sealed class ReplaySegmentation
+    {
+        private readonly HashSet<int> _hazardTrackIds;
+        internal ReplaySegmentation(IReadOnlyList<ObstacleObservation> observations, IReadOnlyList<MaskOverlaySample> masks, HashSet<int> hazardTrackIds)
+        { Observations = observations; Masks = masks; _hazardTrackIds = hazardTrackIds; }
+        internal IReadOnlyList<ObstacleObservation> Observations { get; }
+        internal IReadOnlyList<MaskOverlaySample> Masks { get; }
+        internal bool IsHazardTrack(int id) => _hazardTrackIds.Contains(id);
+    }
+
+    private readonly record struct ReplayContour(ObstacleObservation Observation, int Left, int Top, int Right, int Bottom,
+        int MaskWidth, int MaskHeight, byte[] ForegroundMask);
 
     private static long ToMilliseconds(long timestamp) => checked((long)(timestamp * 1000.0 / Stopwatch.Frequency));
 }

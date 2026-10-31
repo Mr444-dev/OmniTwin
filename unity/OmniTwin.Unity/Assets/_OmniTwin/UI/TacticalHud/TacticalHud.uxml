@@ -6,6 +6,18 @@
                 <ui:Label text="OMNITWIN" class="brand" />
                 <ui:Label text="PERCEPTION / DIGITAL TWIN" class="eyebrow" />
             </ui:VisualElement>
+            <ui:VisualElement class="camera-toolbar" picking-mode="Position">
+                <ui:VisualElement class="workspace-meta">
+                    <ui:Label text="REFERENCE WORKSPACE" class="world-title" />
+                    <ui:Label text="20 x 12.5 m / X-Z PLANE" class="world-detail" />
+                </ui:VisualElement>
+                <ui:VisualElement class="camera-presets" picking-mode="Position">
+                    <ui:Button name="view1Button" text="1 · ISO" class="camera-button" />
+                    <ui:Button name="view2Button" text="2 · MAP" class="camera-button" />
+                    <ui:Button name="view3Button" text="3 · CHASE" class="camera-button" />
+                </ui:VisualElement>
+                <ui:DropdownField name="cameraAgent" label="CHASE AGENT" class="camera-agent" />
+            </ui:VisualElement>
             <ui:VisualElement class="header-right">
                 <ui:Label name="statusBadge" text="NO OBSERVATION" class="badge" />
                 <ui:Label name="connectionState" text="Connecting to local backend" class="connection" />
@@ -19,10 +31,6 @@
                 <ui:Label name="previewStatus" text="Camera preview off" class="media-status" />
                 <ui:Button name="maskToggleButton" text="HIDE SAM MASKS" class="mission-button preview-toggle" />
                 <ui:Label name="maskStatus" text="Masks unavailable · no current image" class="media-status" />
-                <ui:VisualElement name="previewFrame" class="camera-preview preview-hidden" picking-mode="Ignore">
-                    <ui:Image name="cameraPreview" class="preview-image" picking-mode="Ignore" />
-                    <ui:Image name="maskPreview" class="preview-image" picking-mode="Ignore" />
-                </ui:VisualElement>
                 <ui:Label name="trackCount" text="--" class="big-value" />
                 <ui:Label text="CURRENT OBSTACLE TRACKS" class="value-caption" />
                 <ui:VisualElement class="metric">
@@ -40,6 +48,11 @@
                 <ui:VisualElement class="metric">
                     <ui:Label text="Calibration" class="metric-name" />
                     <ui:Label name="calibration" text="--" class="metric-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="previewFrame" class="camera-preview preview-hidden" picking-mode="Ignore">
+                    <ui:Image name="cameraPreview" class="preview-image" picking-mode="Ignore" />
+                    <ui:Image name="maskPreview" class="preview-image" picking-mode="Ignore" />
+                    <ui:Label name="previewReplayBadge" text="SYNTHETIC REPLAY · LOCAL CV" class="preview-replay-badge preview-hidden" picking-mode="Ignore" />
                 </ui:VisualElement>
                 <ui:VisualElement class="divider" />
                 <ui:Label text="MODEL / SANDBOX MATRIX" class="section-title" />
@@ -66,16 +79,7 @@
                 <ui:Button name="resetSceneryButton" text="RESTORE DEFAULT SURFACE" class="mission-button" />
                 <ui:Label name="sceneryStatus" text="Default tactical surface" class="media-status" />
             </ui:ScrollView>
-            <ui:VisualElement class="world-caption" picking-mode="Ignore">
-                <ui:Label text="REFERENCE WORKSPACE" class="world-title" />
-                <ui:Label text="20 x 12.5 m / X-Z PLANE" class="world-detail" />
-                <ui:VisualElement class="camera-presets" picking-mode="Position">
-                    <ui:Button name="view1Button" text="1 · ISO" class="camera-button" />
-                    <ui:Button name="view2Button" text="2 · MAP" class="camera-button" />
-                    <ui:Button name="view3Button" text="3 · CHASE" class="camera-button" />
-                </ui:VisualElement>
-                <ui:DropdownField name="cameraAgent" label="CHASE AGENT" class="camera-agent" />
-            </ui:VisualElement>
+            <ui:VisualElement class="world-spacer" picking-mode="Ignore" />
             <ui:ScrollView class="swarm-panel" mode="Vertical">
                 <ui:Label text="SWARM CONTROL" class="section-title" />
                 <ui:Label name="activePolicy" text="EmergencyHoldPolicy" class="policy-name" />

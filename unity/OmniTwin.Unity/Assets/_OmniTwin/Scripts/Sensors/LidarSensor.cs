@@ -11,7 +11,8 @@ namespace OmniTwin.Simulation.Sensors
     [DisallowMultipleComponent, DefaultExecutionOrder(-80)]
     public sealed class LidarSensor : MonoBehaviour
     {
-        private const int RenderedBeamStride = 4;
+        // Show a sparse six-direction sample while retaining all 48 physics rays for sensing.
+        private const int RenderedBeamStride = 8;
         [SerializeField, Range(8, 128)] private int beamCount = 48;
         [SerializeField, Range(30, 360)] private float fieldOfView = 360;
         [SerializeField, Range(0.5f, 30)] private float rangeMeters = 6;
@@ -52,8 +53,8 @@ namespace OmniTwin.Simulation.Sensors
             for (var beam = 0; beam < beamCount; beam += RenderedBeamStride)
             { _rayIndices[renderedIndex++] = beam * 2; _rayIndices[renderedIndex++] = beam * 2 + 1; }
             for (var i = 0; i < _hitIndices.Length; i++) _hitIndices[i] = i;
-            _rays = Visual("LiDAR beams · 1 of 4 sampled", new Color(0.04f, 0.42f, 0.48f, 0.24f), true, out _rayRenderer, out _rayMaterial);
-            _markers = Visual("LiDAR hit markers", new Color(1, 0.38f, 0.08f, 0.92f), false, out _markerRenderer, out _hitMaterial);
+            _rays = Visual("LiDAR beams · 1 of 8 sampled", new Color(0.12f, 0.9f, 1f, 0.42f), true, out _rayRenderer, out _rayMaterial);
+            _markers = Visual("LiDAR hit markers", new Color(1, 0.48f, 0.12f, 1f), false, out _markerRenderer, out _hitMaterial);
             SetVisualizationEnabled(false);
         }
         private Mesh Visual(string name, Color color, bool transparent, out MeshRenderer renderer, out Material material)

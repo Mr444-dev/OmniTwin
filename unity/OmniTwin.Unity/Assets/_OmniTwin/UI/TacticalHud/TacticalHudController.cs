@@ -42,10 +42,11 @@ namespace OmniTwin.Simulation.UI
         private Label _maskStatus, _semanticStatus, _semanticSelected, _sceneryStatus;
         private Image _maskImage;
         private VisualElement _previewFrame;
+        private Label _previewReplayBadge;
         private DropdownField _semanticTrack, _semanticRole, _semanticHazard;
         private TextField _semanticLabel, _sceneryPrompt;
         private SemanticSceneState _lastSemantics;
-        private bool _lidarVisible;
+        private bool _lidarVisible = true;
         private string _visualFeedback;
         private float _visualFeedbackUntil;
         private Button _view1, _view2, _view3;
@@ -91,8 +92,10 @@ namespace OmniTwin.Simulation.UI
             _voiceStatus = Required<Label>(root, "voiceStatus"); _voiceDraft = Required<Label>(root, "voiceDraft"); _previewStatus = Required<Label>(root, "previewStatus");
             _previewImage = Required<Image>(root, "cameraPreview");
             _previewFrame = Required<VisualElement>(root, "previewFrame"); _maskImage = Required<Image>(root, "maskPreview"); _maskImage.scaleMode = ScaleMode.ScaleToFit;
+            _previewReplayBadge = Required<Label>(root, "previewReplayBadge"); _previewReplayBadge.enableRichText = false;
             _maskToggle = Required<Button>(root, "maskToggleButton"); _maskStatus = Required<Label>(root, "maskStatus");
             _lidarToggle = Required<Button>(root, "lidarToggleButton"); _maskToggle.clicked += ToggleMasks; _lidarToggle.clicked += ToggleLidar;
+            SetLidarVisibility(_lidarVisible);
             _semanticStatus = Required<Label>(root, "semanticStatus"); _semanticSelected = Required<Label>(root, "semanticSelected"); _sceneryStatus = Required<Label>(root, "sceneryStatus");
             _semanticTrack = Required<DropdownField>(root, "semanticTrack"); _semanticRole = Required<DropdownField>(root, "semanticRole"); _semanticHazard = Required<DropdownField>(root, "semanticHazard");
             _semanticTrack.RegisterValueChangedCallback(SelectSemanticTrack);
@@ -186,8 +189,10 @@ namespace OmniTwin.Simulation.UI
                 if (draft.Transcript.Length > 0 && _instruction.value == _instructionBeforeVoice) _instruction.value = draft.Transcript;
             }
             _previewToggle.text = media.PreviewEnabled ? "HIDE CAMERA PREVIEW" : "SHOW CAMERA PREVIEW";
-            _previewStatus.text = media.PreviewStatus; _previewImage.image = media.PreviewTexture;
-            _maskImage.image = media.MaskTexture; _previewFrame.EnableInClassList("preview-hidden", media.PreviewTexture == null);
+            var previewTexture = media.PreviewTexture;
+            _previewStatus.text = media.PreviewStatus; _previewImage.image = previewTexture;
+            _maskImage.image = media.MaskTexture; _previewFrame.EnableInClassList("preview-hidden", previewTexture == null);
+            _previewReplayBadge.EnableInClassList("preview-hidden", !synthetic || previewTexture == null);
             _maskToggle.text = media.MasksEnabled ? "HIDE SAM MASKS" : "SHOW SAM MASKS"; _maskStatus.text = media.MaskStatus;
             _lidarToggle.text = _lidarVisible ? "HIDE LIDAR BEAMS" : "SHOW LIDAR BEAMS";
             _semanticStatus.text = Time.unscaledTime < _visualFeedbackUntil ? _visualFeedback : visuals.SemanticStatus;
@@ -219,7 +224,12 @@ namespace OmniTwin.Simulation.UI
         private void UseTranscript() { var value = media.Transcript; if (value != null && value.Transcript.Length > 0) _instruction.value = value.Transcript; }
         private void TogglePreview() => media.SetPreviewEnabled(!media.PreviewEnabled);
         private void ToggleMasks() => media.SetMasksEnabled(!media.MasksEnabled);
-        private void ToggleLidar() { _lidarVisible = !_lidarVisible; foreach (var agent in executor.Agents) if (agent.Lidar != null) agent.Lidar.SetVisualizationEnabled(_lidarVisible); }
+        private void ToggleLidar() => SetLidarVisibility(!_lidarVisible);
+        private void SetLidarVisibility(bool visible)
+        {
+            _lidarVisible = visible;
+            foreach (var agent in executor.Agents) if (agent.Lidar != null) agent.Lidar.SetVisualizationEnabled(visible);
+        }
         private SemanticObjectState SelectedTag()
         {
             var state = visuals.Semantics; if (state == null || !int.TryParse(_semanticTrack.value, NumberStyles.None, CultureInfo.InvariantCulture, out var id)) return null;

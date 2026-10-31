@@ -251,8 +251,8 @@ namespace OmniTwin.Simulation.Editor
             var hud = UnityEngine.Object.FindObjectsByType<TacticalHudController>();
             if (connection.Length != 1 || hud.Length != 1) throw new InvalidOperationException("One stream and HUD are required.");
             var existing = UnityEngine.Object.FindObjectsByType<PolicyExecutor>();
-            var groundMaterial = CreateLitMaterial("SwarmGround", new Color(0.055f, 0.085f, 0.11f, 1), 0.86f, 0.68f, Color.black);
-            var aerialMaterial = CreateLitMaterial("SwarmAerial", new Color(0.07f, 0.13f, 0.16f, 1), 0.72f, 0.62f, Color.black);
+            var groundMaterial = CreateLitMaterial("SwarmGround", new Color(0.5f, 0.67f, 0.72f, 1), 0.42f, 0.78f, new Color(0.07f, 0.2f, 0.24f, 1));
+            var aerialMaterial = CreateLitMaterial("SwarmAerial", new Color(0.62f, 0.76f, 0.72f, 1), 0.36f, 0.76f, new Color(0.1f, 0.25f, 0.18f, 1));
             var accentMaterial = CreateLitMaterial("TacticalAccent", new Color(0.12f, 0.7f, 0.78f, 1), 0.2f, 0.78f, new Color(0.04f, 0.55f, 0.68f, 1));
             var hazardMaterial = CreateLitMaterial("TacticalWarning", new Color(1, 0.4f, 0.12f, 1), 0.25f, 0.68f, new Color(0.75f, 0.18f, 0.03f, 1));
             var scanMaterial = CreateSurfaceMaterial("DroneScanCone", new Color(0.18f, 0.75f, 0.82f, 0.14f), true);
@@ -261,7 +261,12 @@ namespace OmniTwin.Simulation.Editor
             {
                 if (existing.Length != 1 || existing[0].Agents.Count != 5) throw new InvalidOperationException("Existing swarm configuration requires review.");
                 Assign(hud[0], "executor", existing[0]);
-                foreach (var agent in existing[0].Agents) UpgradeAgentRig(agent, groundMaterial, aerialMaterial, accentMaterial, hazardMaterial, scanMesh, scanMaterial);
+                foreach (var agent in existing[0].Agents)
+                {
+                    UpgradeAgentRig(agent, groundMaterial, aerialMaterial, accentMaterial, hazardMaterial, scanMesh, scanMaterial);
+                    var path = agent.GetComponentInChildren<LineRenderer>();
+                    if (path != null) ConfigurePathLine(path, accentMaterial, agent.Role == AgentRole.AerialDrone);
+                }
                 EditorSceneManager.MarkSceneDirty(scene);
                 if (!EditorSceneManager.SaveScene(scene, ScenePath)) throw new IOException("Swarm presentation update failed to save.");
                 AssetDatabase.SaveAssets(); return;
@@ -285,9 +290,8 @@ namespace OmniTwin.Simulation.Editor
                     navigation.avoidancePriority = 20 + index * 10;
                 }
                 var pathObject = new GameObject("Planned trajectory"); pathObject.transform.SetParent(entity.transform, false);
-                var pathLine = pathObject.AddComponent<LineRenderer>(); pathLine.sharedMaterial = aerial ? aerialMaterial : groundMaterial;
-                pathLine.useWorldSpace = true; pathLine.startWidth = 0.045f; pathLine.endWidth = 0.025f; pathLine.positionCount = 0;
-                pathLine.shadowCastingMode = ShadowCastingMode.Off; pathLine.receiveShadows = false;
+                var pathLine = pathObject.AddComponent<LineRenderer>(); ConfigurePathLine(pathLine, accentMaterial, aerial);
+                pathLine.positionCount = 0;
                 controllers[index] = entity.AddComponent<SwarmAgentController>();
                 controllers[index].Configure(id, aerial ? AgentRole.AerialDrone : AgentRole.GroundVehicle, altitude, pathLine);
                 entity.AddComponent<LidarSensor>();
@@ -332,6 +336,13 @@ namespace OmniTwin.Simulation.Editor
             fillLight.type = LightType.Directional; fillLight.color = new Color(0.28f, 0.78f, 0.88f);
             fillLight.intensity = 0.55f; fillLight.shadows = LightShadows.None;
             fillLight.transform.rotation = Quaternion.Euler(26f, 145f, 0f);
+            var tacticalCamera = UnityEngine.Object.FindAnyObjectByType<TacticalCameraController>();
+            if (tacticalCamera == null) throw new InvalidOperationException("The authored tactical camera is missing.");
+            var cameraSettings = new SerializedObject(tacticalCamera);
+            var overviewDistance = cameraSettings.FindProperty("initialDistance");
+            if (overviewDistance == null) throw new InvalidOperationException("The tactical overview distance is not serialized.");
+            overviewDistance.floatValue = 52f;
+            cameraSettings.ApplyModifiedPropertiesWithoutUndo();
             EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
             if (!EditorSceneManager.SaveScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene(), ScenePath)) throw new IOException("Upgraded scene could not be saved.");
             AssetDatabase.SaveAssets();
@@ -404,6 +415,21 @@ namespace OmniTwin.Simulation.Editor
             if (animation == null) animation = agent.gameObject.AddComponent<SwarmRigAnimator>();
             animation.Configure(agent, role, pivot, turret, rotors.ToArray(), lights.ToArray());
             if (agent.GetComponent<AgentWorldCallout>() == null) agent.gameObject.AddComponent<AgentWorldCallout>();
+        }
+
+        private static void ConfigurePathLine(LineRenderer line, Material material, bool aerial)
+        {
+            line.sharedMaterial = material;
+            line.useWorldSpace = true;
+            line.startWidth = aerial ? 0.095f : 0.12f;
+            line.endWidth = aerial ? 0.085f : 0.11f;
+            line.startColor = aerial ? new Color(0.52f, 1f, 0.64f, 1f) : new Color(0.12f, 1f, 1f, 1f);
+            line.endColor = line.startColor;
+            line.numCapVertices = 2;
+            line.numCornerVertices = 2;
+            line.alignment = LineAlignment.View;
+            line.shadowCastingMode = ShadowCastingMode.Off;
+            line.receiveShadows = false;
         }
 
         private static Transform EnsureChild(Transform parent, string name)

@@ -35,9 +35,9 @@
     border-left-width: 2px;
     border-left-color: rgb(39, 91, 105);
 }
-.section-title { font-size: 11px; letter-spacing: 2px; color: rgb(115, 157, 170); margin-bottom: 12px; }
-.big-value { font-size: 46px; -unity-font-style: bold; color: rgb(234, 247, 246); }
-.value-caption { font-size: 12px; color: rgb(139, 168, 178); margin-bottom: 14px; }
+.section-title { font-size: 11px; letter-spacing: 2px; color: rgb(115, 157, 170); margin-bottom: 8px; }
+.big-value { font-size: 38px; -unity-font-style: bold; color: rgb(234, 247, 246); }
+.value-caption { font-size: 12px; color: rgb(139, 168, 178); margin-bottom: 6px; }
 .metric { flex-direction: row; justify-content: space-between; margin-top: 8px; }
 .metric-name { color: rgb(139, 168, 178); font-size: 13px; }
 .metric-value { color: rgb(225, 240, 241); font-size: 13px; -unity-font-style: bold; }
@@ -58,25 +58,28 @@
 .action:focus { border-color: rgb(111, 247, 219); }
 .action:active { background-color: rgb(13, 38, 46); }
 .action:disabled { color: rgb(99, 127, 135); background-color: rgb(21, 37, 45); }
+.workspace-meta { min-width: 148px; margin-right: 12px; }
+.world-spacer { flex-grow: 1; min-width: 0; }
 .world-caption { flex-grow: 1; align-items: flex-end; justify-content: flex-end; padding: 0 12px 18px 22px; }
 .world-title { font-size: 12px; letter-spacing: 3px; color: rgb(124, 170, 182); }
 .world-detail { font-size: 11px; color: rgb(104, 137, 149); margin-top: 6px; }
-.camera-presets { flex-direction: row; margin-top: 16px; align-self: flex-end; }
+.camera-toolbar { flex-direction: row; align-items: center; flex-shrink: 0; }
+.camera-presets { flex-direction: row; margin-top: 0; align-self: auto; }
 .camera-button { min-width: 74px; margin: 2px; padding: 7px 5px; background-color: rgb(10, 31, 40); color: rgb(148, 220, 219); border-width: 1px; border-color: rgb(39, 101, 111); font-size: 11px; }
 .camera-button:hover { background-color: rgb(20, 61, 69); }
-.camera-agent { width: 190px; margin-top: 6px; align-self: flex-end; font-size: 11px; }
+.camera-agent { width: 164px; margin: 0 0 0 8px; align-self: center; font-size: 11px; }
 .camera-agent .unity-base-field__input { background-color: rgb(10, 27, 35); color: rgb(214, 235, 235); }
 .model-matrix { font-size: 11px; color: rgb(195, 216, 220); white-space: normal; line-height: 15px; }
 .matrix-caption { margin-top: 8px; color: rgb(125, 158, 168); font-size: 9px; white-space: normal; }
 .footer { flex-direction: row; justify-content: space-between; padding: 16px 2px 0 2px; }
 .footer-text { font-size: 11px; color: rgb(127, 162, 174); }
-.compact .sidebar { width: 240px; padding: 16px; }
+.compact .sidebar { width: 240px; padding: 12px; }
 .compact .brand { font-size: 24px; letter-spacing: 3px; }
 .compact .header { padding: 14px 18px; }
 .swarm-panel { width: 300px; flex-shrink: 0; padding: 16px; background-color: rgba(7, 16, 23, 0.94); border-right-width: 2px; border-right-color: rgb(39, 91, 105); }
 .swarm-panel .section-title { margin-bottom: 10px; }
 .policy-name { font-size: 15px; color: rgb(95, 237, 208); white-space: normal; margin-bottom: 12px; }
-.telemetry-text { font-size: 12px; color: rgb(203, 225, 229); white-space: normal; margin-bottom: 14px; }
+.telemetry-text { font-size: 13px; line-height: 17px; color: rgb(203, 225, 229); white-space: normal; margin-bottom: 14px; }
 .mission-row { flex-direction: row; flex-shrink: 0; min-height: 42px; }
 .mission-button { flex-grow: 1; width: 48%; margin: 3px; padding: 8px 3px; background-color: rgb(19, 53, 61); color: rgb(167, 235, 224); border-width: 1px; border-color: rgb(42, 117, 119); font-size: 12px; }
 .mission-button:hover { background-color: rgb(28, 79, 85); }
@@ -102,6 +105,73 @@
 .semantic-field .unity-base-field__input { background-color: rgb(13, 30, 40); color: rgb(221, 240, 239); min-height: 28px; }
 .mission-button:focus { border-color: rgb(132, 245, 217); }
 .preview-hidden { display: none; }
-.preview-toggle, .voice-record { flex-basis: auto; flex-shrink: 0; min-height: 38px; }
-.media-status { font-size: 11px; white-space: normal; color: rgb(160, 194, 206); margin-top: 5px; margin-bottom: 5px; }
+.preview-toggle { flex-basis: auto; flex-shrink: 0; min-height: 32px; margin: 2px; padding: 4px 3px; font-size: 11px; }
+.voice-record { flex-basis: auto; flex-shrink: 0; min-height: 38px; }
+.media-status { font-size: 11px; line-height: 14px; white-space: nowrap; overflow: hidden; color: rgb(160, 194, 206); margin-top: 2px; margin-bottom: 2px; }
+.sidebar { padding: 14px; }
 .voice-draft { font-size: 12px; white-space: normal; color: rgb(221, 236, 231); max-height: 72px; overflow: hidden; }
+
+/* Fixed text boxes keep the dashboard readable with the bundled narrow tactical font. */
+.screen { height: 100%; min-height: 0; overflow: hidden; }
+.header { flex-shrink: 0; }
+.body { flex-grow: 1; min-height: 0; overflow: hidden; }
+.sidebar, .swarm-panel { min-width: 0; flex-shrink: 0; }
+.metric {
+    min-height: 20px;
+    height: 20px;
+    margin-top: 0;
+    margin-bottom: 2px;
+    flex-shrink: 0;
+    align-items: center;
+}
+.metric-name, .metric-value {
+    min-height: 18px;
+    line-height: 16px;
+    margin-top: 0;
+    margin-bottom: 0;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.metric-value { min-width: 78px; text-align: right; }
+.telemetry-text { line-height: 17px; flex-shrink: 0; white-space: pre; }
+.camera-preview { width: 192px; height: 144px; min-height: 144px; align-self: center; flex-shrink: 0; }
+.preview-replay-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 2;
+    max-height: 24px;
+    padding: 4px 6px;
+    color: rgb(255, 235, 224);
+    background-color: rgba(111, 32, 24, 0.94);
+    border-left-width: 3px;
+    border-left-color: rgb(255, 113, 82);
+    font-size: 10px;
+    line-height: 15px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+}
+.world-caption { min-width: 0; min-height: 0; padding-bottom: 28px; }
+.camera-toolbar { min-width: 0; }
+.workspace-meta { flex-shrink: 0; }
+.camera-presets { flex-shrink: 0; margin-top: 0; }
+.camera-button { min-height: 36px; min-width: 76px; flex-shrink: 0; font-size: 12px; }
+.camera-agent { width: 164px; height: 58px; min-height: 58px; margin: 0 0 0 8px; padding-bottom: 3px; flex-shrink: 0; }
+.footer {
+    height: 56px;
+    min-height: 56px;
+    max-height: 56px;
+    flex-shrink: 0;
+    align-items: center;
+    padding: 2px 2px 0;
+    margin-top: 2px;
+}
+.footer-text {
+    min-height: 22px;
+    line-height: 22px;
+    padding: 2px 3px;
+    font-size: 14px;
+    -unity-font-style: bold;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
