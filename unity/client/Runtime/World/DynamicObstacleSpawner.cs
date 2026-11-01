@@ -135,14 +135,8 @@ namespace OmniTwin.Simulation.World
 
         private static string FormatCallout(TrackedObstacleState track)
         {
-            var source = track.ObservationSource switch
-            {
-                ObservationSource.SamVerified => "SAM",
-                ObservationSource.LocalMotionEstimate => "FLOW",
-                _ => "CV"
-            };
-            return "OBJ-" + track.Obstacle.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\n" + source + " " +
-                track.Obstacle.Confidence.ToString("P0", System.Globalization.CultureInfo.InvariantCulture);
+            return "OBJ-" + track.Obstacle.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " +
+                (track.Obstacle.IsHazardZone ? "HAZ" : track.Obstacle.Confidence.ToString("P0", System.Globalization.CultureInfo.InvariantCulture));
         }
 
         private void OnDisable() { IsWorldCurrent = false; Clear(); }

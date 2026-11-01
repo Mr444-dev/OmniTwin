@@ -21,10 +21,12 @@ namespace OmniTwin.Simulation.Agents
             _camera = Camera.main;
             var label = new GameObject("Agent tactical callout"); label.transform.SetParent(transform, false);
             var id = agent.ReadTelemetry().AgentId;
-            var rowStagger = id % 2 == 0 ? 0.35f : 0f;
-            label.transform.localPosition = Vector3.up * (verticalOffset + rowStagger);
+            var aerial = agent.Role == AgentRole.AerialDrone;
+            var roleOffset = aerial ? verticalOffset + 1.0f : Mathf.Max(0.95f, verticalOffset - 0.35f);
+            var rowStagger = id % 2 == 0 ? 0.55f : 0f;
+            label.transform.localPosition = Vector3.up * (roleOffset + rowStagger);
             _text = label.AddComponent<TextMesh>(); _text.anchor = TextAnchor.LowerCenter; _text.alignment = TextAlignment.Center;
-            _text.fontSize = 96; _text.characterSize = 0.075f; _text.richText = false;
+            _text.fontSize = 256; _text.characterSize = 0.020f; _text.richText = false;
             _text.color = agent.Role == AgentRole.GroundVehicle ? new Color(0.35f, 0.91f, 1f) : new Color(1f, 0.74f, 0.35f);
             _text.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
@@ -35,12 +37,21 @@ namespace OmniTwin.Simulation.Agents
             {
                 _nextUpdate = Time.unscaledTime + 0.1f;
                 var telemetry = agent.ReadTelemetry();
-                var speed = Mathf.Sqrt(telemetry.CurrentVelocity.X * telemetry.CurrentVelocity.X + telemetry.CurrentVelocity.Z * telemetry.CurrentVelocity.Z);
                 _text.text = "#" + telemetry.AgentId.ToString("D2", CultureInfo.InvariantCulture) + " " +
-                    (agent.Role == AgentRole.GroundVehicle ? "AGV" : "UAV") + " " + speed.ToString("F1", CultureInfo.InvariantCulture) + "m/s";
+                    (agent.Role == AgentRole.GroundVehicle ? "AGV" : "UAV");
             }
             if (_camera == null) _camera = Camera.main;
-            if (_camera != null) _text.transform.rotation = Quaternion.LookRotation(_text.transform.position - _camera.transform.position, _camera.transform.up);
+            if (_camera != null)
+            {
+                _text.transform.rotation = Quaternion.LookRotation(_text.transform.position - _camera.transform.position, _camera.transform.up);
+                var screenX = _camera.WorldToViewportPoint(transform.position).x;
+                var anchor = screenX > 0.72f ? TextAnchor.LowerRight : screenX < 0.28f ? TextAnchor.LowerLeft : TextAnchor.LowerCenter;
+                if (_text.anchor != anchor)
+                {
+                    _text.anchor = anchor;
+                    _text.alignment = anchor == TextAnchor.LowerRight ? TextAlignment.Right : anchor == TextAnchor.LowerLeft ? TextAlignment.Left : TextAlignment.Center;
+                }
+            }
         }
     }
 }

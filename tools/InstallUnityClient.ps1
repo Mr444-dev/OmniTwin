@@ -163,7 +163,8 @@ for (var i = 0; i < sources.Length; i++)
     if (sourceBytes.Length > 16 * 1024 * 1024 || totalBytes > 64 * 1024 * 1024 || hash(sourceBytes) != hashes[i]) throw new System.InvalidOperationException("Import source changed or exceeded limits.");
     var exists = System.IO.File.Exists(target);
     string oldHash;
-    if (exists && (!owned.TryGetValue(relative, out oldHash) || hash(System.IO.File.ReadAllBytes(target)) != oldHash)) throw new System.InvalidOperationException("A destination is unowned or locally edited: " + relative);
+    var existingHash = exists ? hash(System.IO.File.ReadAllBytes(target)) : null;
+    if (exists && existingHash != hashes[i] && (!owned.TryGetValue(relative, out oldHash) || existingHash != oldHash)) throw new System.InvalidOperationException("A destination is unowned or locally edited: " + relative);
     if (!exists && owned.ContainsKey(relative)) throw new System.InvalidOperationException("An owned destination disappeared before live import: " + relative);
     entries.Add((source, target, relative));
 }

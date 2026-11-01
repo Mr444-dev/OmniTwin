@@ -30,13 +30,13 @@ namespace OmniTwin.Simulation.World
             if (sharedUnlit == null || string.IsNullOrWhiteSpace(label) || !Finite(radius) || radius <= 0 || !Finite(height) || height <= 0)
                 throw new System.ArgumentException("A bounded label, dimensions, and shared material are required.");
             if (_block == null) _block = new MaterialPropertyBlock();
-            _labelHeightOffset = 0.85f + (obstacleId % 2 == 0 ? 0.45f : 0f);
-            _labelLateralOffset = obstacleId % 2 == 0 ? 0.55f : -0.55f;
+            _labelHeightOffset = 0.9f + (obstacleId % 3) * 0.35f;
+            _labelLateralOffset = obstacleId % 2 == 0 ? 0.75f : -0.75f;
             if (_label != null) { UpdateDetails(label, color, radius, height); return; }
             _camera = Camera.main;
             var labelObject = new GameObject("World-space callout"); labelObject.transform.SetParent(transform, false);
             labelObject.transform.localPosition = new Vector3(_labelLateralOffset, height + _labelHeightOffset, 0);
-            _label = labelObject.AddComponent<TextMesh>(); _label.text = label; _label.fontSize = 96; _label.characterSize = 0.07f;
+            _label = labelObject.AddComponent<TextMesh>(); _label.text = label; _label.fontSize = 256; _label.characterSize = 0.020f;
             _label.anchor = TextAnchor.LowerCenter; _label.alignment = TextAlignment.Center; _label.color = color;
             _label.richText = false;
 
@@ -80,7 +80,17 @@ namespace OmniTwin.Simulation.World
             if (Time.unscaledTime < _nextFacing) return;
             _nextFacing = Time.unscaledTime + 0.05f;
             if (_camera == null) _camera = Camera.main;
-            if (_camera != null) _label.transform.rotation = Quaternion.LookRotation(_label.transform.position - _camera.transform.position, _camera.transform.up);
+            if (_camera != null)
+            {
+                _label.transform.rotation = Quaternion.LookRotation(_label.transform.position - _camera.transform.position, _camera.transform.up);
+                var screenX = _camera.WorldToViewportPoint(transform.position).x;
+                var anchor = screenX > 0.72f ? TextAnchor.LowerRight : screenX < 0.28f ? TextAnchor.LowerLeft : TextAnchor.LowerCenter;
+                if (_label.anchor != anchor)
+                {
+                    _label.anchor = anchor;
+                    _label.alignment = anchor == TextAnchor.LowerRight ? TextAlignment.Right : anchor == TextAnchor.LowerLeft ? TextAlignment.Left : TextAlignment.Center;
+                }
+            }
         }
 
         private void BuildBracketMesh()

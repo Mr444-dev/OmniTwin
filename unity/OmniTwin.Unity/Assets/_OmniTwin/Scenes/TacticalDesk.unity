@@ -10963,8 +10963,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::OmniTwin.Simulation.CameraControl.TacticalCameraController
   focus: {x: -2, y: 0, z: 0}
-  initialDistance: 52
-  initialYaw: -32
+  initialDistance: 38.5
+  initialYaw: -16
   initialPitch: 53
   orbitSensitivity: 0.18
   zoomSensitivity: 0.12

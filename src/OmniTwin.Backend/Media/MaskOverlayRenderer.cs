@@ -60,14 +60,8 @@ internal static class MaskOverlayRenderer
             }
             var box = item.Sample.Mask.Box;
             var position = new Point(Math.Clamp((int)((box.Left + item.Sample.ShiftU) * sx), 1, Math.Max(1, width - 90)), Math.Clamp((int)((box.Top + item.Sample.ShiftV) * sy) - 3, 10, height - 1));
-            var age = (frame.CapturedAt.ToUnixTimeMilliseconds() - item.Sample.SamCapturedAtUnixMs) / 1000.0;
-            var source = item.Sample.ObservationSource switch
-            {
-                ObservationSource.SamVerified => "SAM",
-                ObservationSource.LocalImageSegmentation => "LOCAL CV",
-                _ => "~" + age.ToString("F1", CultureInfo.InvariantCulture) + "s"
-            };
-            var text = "OBJ-" + item.Sample.TrackId.ToString("D2", CultureInfo.InvariantCulture) + " | " + source + " " + item.Sample.Mask.Confidence.ToString("P0", CultureInfo.InvariantCulture);
+            var text = "#" + item.Sample.TrackId.ToString(CultureInfo.InvariantCulture) +
+                (item.Hazard ? " HAZ" : " " + item.Sample.Mask.Confidence.ToString("P0", CultureInfo.InvariantCulture));
             Cv2.PutText(layer, text, position, HersheyFonts.HersheySimplex, 0.38, new Scalar(0, 0, 0, 255), 3);
             Cv2.PutText(layer, text, position, HersheyFonts.HersheySimplex, 0.38, color, 1, LineTypes.AntiAlias);
         }

@@ -11,8 +11,9 @@ namespace OmniTwin.Simulation.Sensors
     [DisallowMultipleComponent, DefaultExecutionOrder(-80)]
     public sealed class LidarSensor : MonoBehaviour
     {
-        // Show a sparse six-direction sample while retaining all 48 physics rays for sensing.
+        // Show sparse empty-space coverage while drawing every actual impact.
         private const int RenderedBeamStride = 8;
+        private const float ClearBeamVisualRangeMeters = 1.1f;
         [SerializeField, Range(8, 128)] private int beamCount = 48;
         [SerializeField, Range(30, 360)] private float fieldOfView = 360;
         [SerializeField, Range(0.5f, 30)] private float rangeMeters = 6;
@@ -20,15 +21,17 @@ namespace OmniTwin.Simulation.Sensors
         [SerializeField] private LayerMask collisionMask = ~0;
         private readonly RaycastHit[] _hits = new RaycastHit[128];
         private readonly Collider[] _overlaps = new Collider[128];
-        private Vector3[] _directions, _ends, _rayVertices, _hitVertices;
+        private Vector3[] _directions, _hitVertices;
         private float[] _distances;
-        private int[] _rayIndices, _hitIndices;
+        private bool[] _renderedBeams;
+        private int[] _hitIndices;
         private int _hitCount;
         private float _sampledAt = -1, _nextScan, _minimum;
         private bool _visible;
         private SwarmAgentController _owner;
-        private Mesh _rays, _markers;
-        private MeshRenderer _rayRenderer, _markerRenderer;
+        private Mesh _markers;
+        private LineRenderer[] _rayLines;
+        private MeshRenderer _markerRenderer;
         private Material _rayMaterial, _hitMaterial;
 
         /// <summary>Gets whether beam rendering is enabled; scanning continues while hidden.</summary>
@@ -46,16 +49,34 @@ namespace OmniTwin.Simulation.Sensors
                 throw new InvalidOperationException("Invalid LiDAR configuration.");
             _owner = GetComponent<SwarmAgentController>();
             if (_owner == null) throw new InvalidOperationException("LiDAR requires its owning agent.");
-            _directions = new Vector3[beamCount]; _ends = new Vector3[beamCount]; _distances = new float[beamCount];
-            _rayVertices = new Vector3[beamCount * 2]; _hitVertices = new Vector3[beamCount * 6];
-            _rayIndices = new int[((beamCount + RenderedBeamStride - 1) / RenderedBeamStride) * 2]; _hitIndices = new int[_hitVertices.Length];
-            var renderedIndex = 0;
-            for (var beam = 0; beam < beamCount; beam += RenderedBeamStride)
-            { _rayIndices[renderedIndex++] = beam * 2; _rayIndices[renderedIndex++] = beam * 2 + 1; }
+            _directions = new Vector3[beamCount]; _distances = new float[beamCount]; _renderedBeams = new bool[beamCount];
+            _hitVertices = new Vector3[beamCount * 6]; _hitIndices = new int[_hitVertices.Length];
             for (var i = 0; i < _hitIndices.Length; i++) _hitIndices[i] = i;
-            _rays = Visual("LiDAR beams · 1 of 8 sampled", new Color(0.12f, 0.9f, 1f, 0.42f), true, out _rayRenderer, out _rayMaterial);
+            CreateRayLines();
             _markers = Visual("LiDAR hit markers", new Color(1, 0.48f, 0.12f, 1f), false, out _markerRenderer, out _hitMaterial);
             SetVisualizationEnabled(false);
+        }
+
+        private void CreateRayLines()
+        {
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) throw new InvalidOperationException("URP Unlit is required for LiDAR.");
+            _rayMaterial = new Material(shader) { name = "LiDAR beam material" };
+            _rayMaterial.SetColor("_BaseColor", Color.white);
+            _rayMaterial.SetFloat("_Surface", 1); _rayMaterial.SetFloat("_Blend", 0); _rayMaterial.SetFloat("_ZWrite", 0);
+            _rayMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha); _rayMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+            _rayMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); _rayMaterial.renderQueue = (int)RenderQueue.Transparent;
+            _rayLines = new LineRenderer[beamCount];
+            for (var index = 0; index < beamCount; index++)
+            {
+                var child = new GameObject("LiDAR sampled beam " + index);
+                child.transform.SetParent(transform, false);
+                var line = child.AddComponent<LineRenderer>();
+                line.useWorldSpace = false; line.loop = false; line.positionCount = 2; line.sharedMaterial = _rayMaterial;
+                line.alignment = LineAlignment.View; line.numCapVertices = 2; line.numCornerVertices = 0;
+                line.shadowCastingMode = ShadowCastingMode.Off; line.receiveShadows = false;
+                line.enabled = false; _rayLines[index] = line;
+            }
         }
         private Mesh Visual(string name, Color color, bool transparent, out MeshRenderer renderer, out Material material)
         {
@@ -73,9 +94,15 @@ namespace OmniTwin.Simulation.Sensors
             renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
             var mesh = new Mesh { name = name }; mesh.MarkDynamic(); filter.sharedMesh = mesh; return mesh;
         }
-        /// <summary>Toggles only the two lightweight line meshes.</summary>
+        /// <summary>Toggles only the sampled line renderers and impact marker mesh; physics scanning continues.</summary>
         public void SetVisualizationEnabled(bool visible)
-        { _visible = visible; if (_rayRenderer != null) _rayRenderer.enabled = visible; if (_markerRenderer != null) _markerRenderer.enabled = visible; }
+        {
+            _visible = visible;
+            if (_rayLines != null)
+                for (var i = 0; i < _rayLines.Length; i++)
+                    if (_rayLines[i] != null) _rayLines[i].enabled = visible && _renderedBeams[i];
+            if (_markerRenderer != null) _markerRenderer.enabled = visible;
+        }
         private Vector3 Origin => transform.position + (_owner.Role == AgentRole.GroundVehicle ? Vector3.up * 0.4f : Vector3.zero);
         private void FixedUpdate()
         {
@@ -95,10 +122,22 @@ namespace OmniTwin.Simulation.Sensors
                 var nearest = rangeMeters; var hit = false;
                 if (count == _hits.Length) { nearest = 0; hit = true; }
                 for (var j = 0; j < count; j++) if (Relevant(_hits[j].collider) && _hits[j].distance < nearest) { nearest = _hits[j].distance; hit = true; }
-                _directions[i] = direction; _distances[i] = hit ? nearest : -1; _ends[i] = origin + direction * nearest;
+                _directions[i] = direction; _distances[i] = hit ? nearest : -1;
                 if (hit) { _hitCount++; _minimum = Mathf.Min(_minimum, nearest); }
-                _rayVertices[2 * i] = transform.InverseTransformPoint(origin); _rayVertices[2 * i + 1] = transform.InverseTransformPoint(_ends[i]);
-                var point = transform.InverseTransformPoint(_ends[i]); var size = hit ? 0.055f : 0;
+                var renderBeam = hit || i % RenderedBeamStride == 0;
+                _renderedBeams[i] = renderBeam;
+                var line = _rayLines[i];
+                if (renderBeam)
+                {
+                    var visualDistance = hit ? nearest : Mathf.Min(rangeMeters, ClearBeamVisualRangeMeters);
+                    line.SetPosition(0, transform.InverseTransformPoint(origin));
+                    line.SetPosition(1, transform.InverseTransformPoint(origin + direction * visualDistance));
+                    line.startWidth = line.endWidth = hit ? 0.022f : 0.008f;
+                    var color = hit ? new Color(0.12f, 0.9f, 1f, 0.9f) : new Color(0.12f, 0.75f, 0.88f, 0.22f);
+                    line.startColor = color; line.endColor = color; line.enabled = _visible;
+                }
+                else if (line.enabled) line.enabled = false;
+                var point = transform.InverseTransformPoint(origin + direction * nearest); var size = hit ? 0.055f : 0;
                 for (var axis = 0; axis < 3; axis++)
                 {
                     var delta = axis == 0 ? Vector3.right * size : axis == 1 ? Vector3.up * size : Vector3.forward * size;
@@ -106,7 +145,6 @@ namespace OmniTwin.Simulation.Sensors
                 }
             }
             _sampledAt = Time.unscaledTime;
-            _rays.vertices = _rayVertices; _rays.SetIndices(_rayIndices, MeshTopology.Lines, 0); _rays.RecalculateBounds();
             _markers.vertices = _hitVertices; _markers.SetIndices(_hitIndices, MeshTopology.Lines, 0); _markers.RecalculateBounds();
         }
         /// <summary>Fails closed for stale sensing, near forward hits, or colliders intersecting the next swept body.</summary>
@@ -129,6 +167,6 @@ namespace OmniTwin.Simulation.Sensors
         private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
         private void OnDisable() { _sampledAt = -1; SetVisualizationEnabled(false); }
         private void OnDestroy()
-        { if (_rays != null) Destroy(_rays); if (_markers != null) Destroy(_markers); if (_rayMaterial != null) Destroy(_rayMaterial); if (_hitMaterial != null) Destroy(_hitMaterial); }
+        { if (_markers != null) Destroy(_markers); if (_rayMaterial != null) Destroy(_rayMaterial); if (_hitMaterial != null) Destroy(_hitMaterial); }
     }
 }
