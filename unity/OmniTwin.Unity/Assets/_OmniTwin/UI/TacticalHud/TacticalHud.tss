@@ -1,4 +1,3 @@
-.unity-ui-document__root { flex-grow: 1; }
 .unity-text-element {
     -unity-text-align: upper-left;
     color: rgb(222, 237, 240);

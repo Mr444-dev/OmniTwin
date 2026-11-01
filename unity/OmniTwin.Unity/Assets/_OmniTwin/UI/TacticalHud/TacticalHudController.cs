@@ -27,6 +27,8 @@ namespace OmniTwin.Simulation.UI
         private Label _badge, _connection, _tracks, _hazards, _age, _publication, _calibration, _notice;
         private Label _sourceMode, _performance;
         private Label _modelSam, _modelSparkOpen, _modelSemantic, _modelVoice, _modelImage, _modelSandbox;
+        private VisualElement _modelMatrix, _brainView, _semanticsView, _sceneryView;
+        private Button _brainTab, _semanticsTab, _sceneryTab;
         private Button _reconnect;
         private IVisualElementScheduledItem _refresh;
         private Label _policy, _telemetry, _reason, _brain, _model, _compiler;
@@ -61,6 +63,7 @@ namespace OmniTwin.Simulation.UI
             var root = GetComponent<UIDocument>().rootVisualElement;
             if (stream == null || executor == null || media == null || visuals == null || root == null)
                 throw new InvalidOperationException("Tactical HUD needs its stream and an initialized UIDocument.");
+            root.style.flexGrow = 1;
             _screen = Required<VisualElement>(root, "screen");
             _badge = Required<Label>(root, "statusBadge");
             _connection = Required<Label>(root, "connectionState");
@@ -71,9 +74,16 @@ namespace OmniTwin.Simulation.UI
             _calibration = Required<Label>(root, "calibration");
             _notice = Required<Label>(root, "sourceNotice");
             _sourceMode = Required<Label>(root, "sourceModeBanner");
+            _modelMatrix = Required<VisualElement>(root, "modelMatrix");
+            _modelMatrix.pickingMode = PickingMode.Ignore;
             _modelSam = Required<Label>(root, "modelSam"); _modelSparkOpen = Required<Label>(root, "modelSparkOpen");
             _modelSemantic = Required<Label>(root, "modelSemantic"); _modelVoice = Required<Label>(root, "modelVoice");
             _modelImage = Required<Label>(root, "modelImage"); _modelSandbox = Required<Label>(root, "modelSandbox");
+            _brainTab = Required<Button>(root, "brainTab"); _semanticsTab = Required<Button>(root, "semanticsTab"); _sceneryTab = Required<Button>(root, "sceneryTab");
+            _brainView = Required<VisualElement>(root, "brainView"); _semanticsView = Required<VisualElement>(root, "semanticsView");
+            _sceneryView = Required<VisualElement>(root, "sceneryView");
+            _brainTab.clicked += ShowBrainTab; _semanticsTab.clicked += ShowSemanticsTab; _sceneryTab.clicked += ShowSceneryTab;
+            ShowDockTab(_brainTab, _brainView);
             _performance = Required<Label>(root, "performanceMetrics");
             _sourceMode.enableRichText = false; _performance.enableRichText = false;
             foreach (var label in new[] { _modelSam, _modelSparkOpen, _modelSemantic, _modelVoice, _modelImage, _modelSandbox }) label.enableRichText = false;
@@ -176,16 +186,16 @@ namespace OmniTwin.Simulation.UI
             _brain.text = "Brain / " + (control?.BrainStatus ?? "awaiting backend") + (control == null ? "" : " / attempt " + control.GenerationAttempts);
             _model.text = "Model / " + (control?.ModelIdUsed ?? "none") + (control?.UsedModelFallback == true ? " / 404 fallback" : "");
             var readiness = visuals.Readiness;
-            _modelSam.text = readiness == null ? "SAM 3.1\nSTATUS UNAVAILABLE" : "SAM 3.1\n" +
+            _modelSam.text = readiness == null ? "SAM 3.1\nSTATUS OFFLINE" : "SAM 3.1\n" +
                 (readiness.MetaApiKeyConfigured ? "META KEY SET" : "META KEY MISSING");
-            _modelSparkOpen.text = readiness == null ? "MUSE SPARK OPEN\nSTATUS UNAVAILABLE" : "MUSE SPARK OPEN\n" +
+            _modelSparkOpen.text = readiness == null ? "MUSE SPARK OPEN\nSTATUS OFFLINE" : "MUSE SPARK OPEN\n" +
                 (readiness.BasetenApiKeyConfigured ? "BASETEN KEY SET" : "BASETEN KEY MISSING") +
                 (control?.ModelIdUsed == null ? "" : " · " + (control.UsedModelFallback ? "FALLBACK ID" : "MODEL ACTIVE"));
-            _modelSemantic.text = readiness == null ? "MUSE SPARK 1.3\nSTATUS UNAVAILABLE" : "MUSE SPARK 1.3\n" + readiness.MuseSemanticModelId;
-            _modelVoice.text = readiness == null ? "MUSE VOICE\nSTATUS UNAVAILABLE" : "MUSE VOICE\n" + readiness.MuseVoiceModelId;
-            _modelImage.text = readiness == null ? "MUSE IMAGE\nSTATUS UNAVAILABLE" : "MUSE IMAGE\n" + readiness.MuseImageModelId;
-            _modelSandbox.text = readiness == null ? "ROSLYN + APPCONTAINER\nSTATUS UNAVAILABLE" : "ROSLYN + APPCONTAINER\n" +
-                "WORKER " + (readiness.PolicyWorkerPresent ? "READY" : "MISSING") + " · " +
+            _modelSemantic.text = readiness == null ? "MUSE SPARK 1.3\nSTATUS OFFLINE" : "MUSE SPARK 1.3\nMODEL CONFIGURED";
+            _modelVoice.text = readiness == null ? "MUSE VOICE\nSTATUS OFFLINE" : "MUSE VOICE\nMODEL CONFIGURED";
+            _modelImage.text = readiness == null ? "MUSE IMAGE\nSTATUS OFFLINE" : "MUSE IMAGE\nMODEL CONFIGURED";
+            _modelSandbox.text = readiness == null ? "ROSLYN + APPCONTAINER\nSTATUS OFFLINE" : "ROSLYN + APPCONTAINER\n" +
+                (readiness.PolicyWorkerPresent ? "WORKER READY" : "WORKER MISSING") + " · " +
                 (readiness.WindowsAppContainerSupported ? "ISOLATION READY" : "ISOLATION N/A");
             var fps = 1f / Mathf.Max(_frameTimeEma, 0.0001f);
             var evaluation = control == null ? "--" : control.EvaluationDurationMilliseconds.ToString("F1", CultureInfo.InvariantCulture);
@@ -282,6 +292,18 @@ namespace OmniTwin.Simulation.UI
         private void Generate() => Mission(_selectedMission, _instruction.value, true);
 
         private void Reconnect() { stream.Reconnect(); Refresh(); }
+        private void ShowBrainTab() => ShowDockTab(_brainTab, _brainView);
+        private void ShowSemanticsTab() => ShowDockTab(_semanticsTab, _semanticsView);
+        private void ShowSceneryTab() => ShowDockTab(_sceneryTab, _sceneryView);
+        private void ShowDockTab(Button selected, VisualElement activeView)
+        {
+            _brainTab?.EnableInClassList("selected", selected == _brainTab);
+            _semanticsTab?.EnableInClassList("selected", selected == _semanticsTab);
+            _sceneryTab?.EnableInClassList("selected", selected == _sceneryTab);
+            _brainView?.EnableInClassList("active", activeView == _brainView);
+            _semanticsView?.EnableInClassList("active", activeView == _semanticsView);
+            _sceneryView?.EnableInClassList("active", activeView == _sceneryView);
+        }
         private void ViewIsometric() => _cameraController.SetPreset(1, null);
         private void ViewMap() => _cameraController.SetPreset(2, null);
         private void ViewChase()
@@ -301,6 +323,9 @@ namespace OmniTwin.Simulation.UI
         {
             _refresh?.Pause();
             if (_reconnect != null) _reconnect.clicked -= Reconnect;
+            if (_brainTab != null) _brainTab.clicked -= ShowBrainTab;
+            if (_semanticsTab != null) _semanticsTab.clicked -= ShowSemanticsTab;
+            if (_sceneryTab != null) _sceneryTab.clicked -= ShowSceneryTab;
             if (_patrol != null) _patrol.clicked -= Patrol; if (_cordon != null) _cordon.clicked -= Cordon;
             if (_search != null) _search.clicked -= Search; if (_hold != null) _hold.clicked -= Hold; if (_generate != null) _generate.clicked -= Generate;
             if (_recordVoice != null) _recordVoice.clicked -= RecordVoice; if (_cancelVoice != null) _cancelVoice.clicked -= CancelVoice;

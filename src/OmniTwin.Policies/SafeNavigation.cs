@@ -18,6 +18,40 @@ public static class SafeNavigation
         return true;
     }
 
+    /// <summary>Finds the nearest deterministic free grid point for correcting an authored spawn overlap.</summary>
+    public static bool TryFindNearestFreePoint(Vector2D origin, WorkspaceBounds bounds,
+        IReadOnlyList<SegmentedObstacle> obstacles, out Vector2D point, float gridStepMeters = 0.25f)
+    {
+        if (obstacles is null) throw new ArgumentNullException(nameof(obstacles));
+        if (!Finite(origin.X) || !Finite(origin.Z) || !Finite(gridStepMeters) || gridStepMeters < 0.1f || gridStepMeters > 1f)
+            throw new ArgumentOutOfRangeException(nameof(gridStepMeters));
+        point = default;
+        if (obstacles.Count > 128) throw new ArgumentException("At most 128 obstacle footprints are supported.", nameof(obstacles));
+        if (IsFree(origin, bounds, obstacles)) { point = origin; return true; }
+
+        var maximumRing = (int)Math.Ceiling(Math.Max(bounds.MaximumX - bounds.MinimumX, bounds.MaximumZ - bounds.MinimumZ) / gridStepMeters);
+        for (var ring = 1; ring <= maximumRing; ring++)
+        {
+            var found = false;
+            var bestDistance = double.PositiveInfinity;
+            for (var offsetX = -ring; offsetX <= ring; offsetX++)
+            for (var offsetZ = -ring; offsetZ <= ring; offsetZ++)
+            {
+                if (Math.Max(Math.Abs(offsetX), Math.Abs(offsetZ)) != ring) continue;
+                var candidate = new Vector2D(origin.X + offsetX * gridStepMeters, origin.Z + offsetZ * gridStepMeters);
+                if (!IsFree(candidate, bounds, obstacles)) continue;
+                var distance = origin.DistanceTo(candidate);
+                if (found && (distance > bestDistance || (distance == bestDistance &&
+                    (candidate.X > point.X || (candidate.X == point.X && candidate.Z >= point.Z))))) continue;
+                point = candidate; bestDistance = distance; found = true;
+            }
+            if (found) return true;
+        }
+        return false;
+    }
+
+    private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+
     /// <summary>Tests the complete swept segment against expanded obstacle circles.</summary>
     public static bool SegmentIsFree(Vector2D start, Vector2D end, WorkspaceBounds bounds, IReadOnlyList<SegmentedObstacle> obstacles)
     {

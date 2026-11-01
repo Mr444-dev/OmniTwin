@@ -32,6 +32,19 @@ Sprawdź wyłącznie obecność klucza:
 
 `IsSet = True` oznacza konfigurację tego terminala. Nie jest to test uprawnień ani odpowiedzi API. Uruchom backend **w tym samym terminalu**. Już działający backend oraz inne okna PowerShell nie otrzymają nowej wartości. Po zamknięciu terminala ustaw ją ponownie; skrypt nie zmienia ustawień użytkownika ani komputera.
 
+### Ustawienie obu kluczy w jednej sesji
+
+Jeśli chcesz korzystać zarówno z percepcji Meta, jak i syntezy Brain, uruchom po kolei te polecenia w **tym samym oknie PowerShell**. Każde z dwóch pierwszych wyświetli osobne maskowane pole na odpowiedni klucz:
+
+```powershell
+.\tools\SetOmniTwinApiKey.ps1 -Provider Meta
+.\tools\SetOmniTwinApiKey.ps1 -Provider Baseten
+.\tools\SetOmniTwinApiKey.ps1 -Provider Meta -Action Status
+.\tools\SetOmniTwinApiKey.ps1 -Provider Baseten -Action Status
+```
+
+Przy obu statusach sprawdź `IsSet = True`. Następnie uruchom backend z tego samego okna PowerShell; nowe procesy dziedziczą oba klucze. Unity łączy się z backendem i nie potrzebuje kluczy. Samo ustawienie zmiennych nie wykonuje żądań: tryb `--synthetic-tabletop-replay` nie wywołuje modeli, Meta jest używana przez funkcje percepcji/głosu, a Baseten dopiero po jawnym wybraniu syntezy polityki w Brain. Nie uruchamiaj skryptu przez dwuklik — po zamknięciu osobnego okna znikną zmienne procesowe.
+
 Nie wpisuj literalnego klucza jako `$env:META_API_KEY = '...'`: treść takiego polecenia może zostać w historii. Jeśli organizacyjna polityka blokuje uruchamianie `.ps1`, nie trzeba zmieniać ustawień bezpieczeństwa; poniższe pojedyncze polecenie wykonuje maskowany odczyt w bieżącym terminalu:
 
 ```powershell

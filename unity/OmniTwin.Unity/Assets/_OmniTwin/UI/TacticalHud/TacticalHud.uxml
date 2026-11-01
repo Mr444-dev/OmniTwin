@@ -61,63 +61,68 @@
                 <ui:VisualElement class="world-stage" picking-mode="Ignore" />
                 <ui:VisualElement class="command-dock" picking-mode="Position">
                     <ui:Label text="AI COMMAND &amp; MODEL MATRIX DOCK" class="dock-title" />
-                    <ui:VisualElement class="model-matrix">
-                        <ui:Label name="modelSam" text="SAM 3.1&#10;WAITING FOR STATUS" class="model-card" />
-                        <ui:Label name="modelSparkOpen" text="MUSE SPARK OPEN&#10;WAITING FOR STATUS" class="model-card" />
-                        <ui:Label name="modelSemantic" text="MUSE SPARK 1.3&#10;WAITING FOR STATUS" class="model-card" />
-                        <ui:Label name="modelVoice" text="MUSE VOICE&#10;WAITING FOR STATUS" class="model-card" />
-                        <ui:Label name="modelImage" text="MUSE IMAGE&#10;WAITING FOR STATUS" class="model-card" />
-                        <ui:Label name="modelSandbox" text="ROSLYN + APPCONTAINER&#10;WAITING FOR STATUS" class="model-card sandbox-card" />
+                    <ui:VisualElement name="modelMatrix" class="model-matrix">
+                        <ui:Label name="modelSam" text="SAM 3.1&#10;WAITING" class="model-card" />
+                        <ui:Label name="modelSparkOpen" text="MUSE SPARK OPEN&#10;WAITING" class="model-card" />
+                        <ui:Label name="modelSemantic" text="MUSE SPARK 1.3&#10;WAITING" class="model-card" />
+                        <ui:Label name="modelVoice" text="MUSE VOICE&#10;WAITING" class="model-card" />
+                        <ui:Label name="modelImage" text="MUSE IMAGE&#10;WAITING" class="model-card" />
+                        <ui:Label name="modelSandbox" text="ROSLYN + APPCONTAINER&#10;WAITING" class="model-card sandbox-card" />
                     </ui:VisualElement>
-                    <ui:VisualElement class="command-primary-row">
-                        <ui:VisualElement class="voice-column">
-                            <ui:Button name="recordVoiceButton" text="RECORD VOICE" class="mission-button voice-record" />
-                            <ui:VisualElement class="mission-row voice-actions">
-                                <ui:Button name="cancelVoiceButton" text="CANCEL" class="mission-button" />
-                                <ui:Button name="useTranscriptButton" text="USE TRANSCRIPT" class="mission-button" />
+                    <ui:VisualElement class="dock-tabs">
+                        <ui:Button name="brainTab" text="BRAIN &amp; VOICE" class="dock-tab selected" />
+                        <ui:Button name="semanticsTab" text="OBJECT SEMANTICS" class="dock-tab" />
+                        <ui:Button name="sceneryTab" text="MUSE IMAGE" class="dock-tab" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="brainView" class="dock-view brain-view active">
+                        <ui:VisualElement class="command-primary-row">
+                            <ui:VisualElement class="voice-column">
+                                <ui:Button name="recordVoiceButton" text="RECORD VOICE" class="mission-button voice-record" />
+                                <ui:VisualElement class="mission-row voice-actions">
+                                    <ui:Button name="cancelVoiceButton" text="CANCEL" class="mission-button" />
+                                    <ui:Button name="useTranscriptButton" text="USE TRANSCRIPT" class="mission-button" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                            <ui:TextField name="missionInstruction" label="MISSION INSTRUCTION" multiline="true" max-length="4096" class="mission-input" />
+                            <ui:VisualElement class="synthesis-column">
+                                <ui:Button name="generateButton" text="SYNTHESIZE POLICY (BRAIN)" class="action synthesize" />
+                                <ui:Label name="brainState" text="Brain / baseline" class="brain-status" />
+                                <ui:Label name="modelIdentity" text="Model / none" class="model-name" />
                             </ui:VisualElement>
                         </ui:VisualElement>
-                        <ui:TextField name="missionInstruction" label="MISSION INSTRUCTION" multiline="true" max-length="4096" class="mission-input" />
-                        <ui:VisualElement class="synthesis-column">
-                            <ui:Button name="generateButton" text="SYNTHESIZE POLICY (BRAIN)" class="action synthesize" />
-                            <ui:Label name="brainState" text="Brain / baseline" class="brain-status" />
-                            <ui:Label name="modelIdentity" text="Model / none" class="model-name" />
+                        <ui:VisualElement class="operator-status-row">
+                            <ui:Label name="voiceStatus" text="Voice ready · 5 s maximum" class="media-status" />
+                            <ui:Label name="voiceDraft" text="" class="voice-draft" />
+                            <ui:Label name="compilerDiagnostics" text="" class="diagnostic-text" />
                         </ui:VisualElement>
                     </ui:VisualElement>
-                    <ui:VisualElement class="operator-status-row">
-                        <ui:Label name="voiceStatus" text="Voice ready · 5 s maximum" class="media-status" />
-                        <ui:Label name="voiceDraft" text="" class="voice-draft" />
-                        <ui:Label name="compilerDiagnostics" text="" class="diagnostic-text" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="command-details-row">
-                        <ui:VisualElement class="operator-card semantic-console">
-                            <ui:Label text="OBJECT SEMANTICS / OPERATOR OVERRIDE" class="section-title" />
+                    <ui:VisualElement name="semanticsView" class="dock-view semantics-view">
+                        <ui:VisualElement class="semantic-status-row">
                             <ui:Label name="semanticStatus" text="No active perception session" class="media-status" />
-                            <ui:VisualElement class="semantic-selection-row">
-                                <ui:Label text="TRACK" class="section-title semantic-track-caption" />
-                                <ui:DropdownField name="semanticTrack" label="" class="semantic-field semantic-track" />
-                                <ui:Button name="loadSemanticButton" text="LOAD TAG" class="mission-button compact-action" />
-                            </ui:VisualElement>
                             <ui:Label name="semanticSelected" text="Select a confirmed object" class="media-status semantic-selected" />
-                            <ui:VisualElement class="semantic-edit-row">
-                                <ui:TextField name="semanticLabel" label="LABEL" max-length="96" class="semantic-field semantic-label" />
-                                <ui:DropdownField name="semanticRole" label="ROLE" class="semantic-field semantic-choice" />
-                                <ui:DropdownField name="semanticHazard" label="HAZARD" class="semantic-field semantic-choice" />
-                            </ui:VisualElement>
-                            <ui:VisualElement class="mission-row semantic-actions">
-                                <ui:Button name="applySemanticButton" text="APPLY OPERATOR TAG" class="mission-button" />
-                                <ui:Button name="clearSemanticButton" text="USE MODEL TAG" class="mission-button" />
-                            </ui:VisualElement>
                         </ui:VisualElement>
-                        <ui:VisualElement class="operator-card scenery-console">
-                            <ui:Label text="MUSE IMAGE / TACTICAL SURFACE" class="section-title" />
-                            <ui:TextField name="sceneryPrompt" label="SURFACE DESCRIPTION" value="Dark industrial warehouse floor" max-length="1000" class="semantic-field scenery-prompt" />
-                            <ui:VisualElement class="mission-row scenery-actions">
-                                <ui:Button name="generateSceneryButton" text="GENERATE SURFACE" class="mission-button" />
-                                <ui:Button name="resetSceneryButton" text="RESTORE DEFAULT" class="mission-button" />
-                            </ui:VisualElement>
-                            <ui:Label name="sceneryStatus" text="Default tactical surface" class="media-status" />
+                        <ui:VisualElement class="semantic-selection-row">
+                            <ui:Label text="TRACK" class="section-title semantic-track-caption" />
+                            <ui:DropdownField name="semanticTrack" label="" class="semantic-field semantic-track" />
+                            <ui:Button name="loadSemanticButton" text="LOAD TAG" class="mission-button compact-action" />
                         </ui:VisualElement>
+                        <ui:VisualElement class="semantic-edit-row">
+                            <ui:TextField name="semanticLabel" label="LABEL" max-length="96" class="semantic-field semantic-label" />
+                            <ui:DropdownField name="semanticRole" label="ROLE" class="semantic-field semantic-choice" />
+                            <ui:DropdownField name="semanticHazard" label="HAZARD" class="semantic-field semantic-choice" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="mission-row semantic-actions">
+                            <ui:Button name="applySemanticButton" text="APPLY OPERATOR TAG" class="mission-button" />
+                            <ui:Button name="clearSemanticButton" text="USE MODEL TAG" class="mission-button" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="sceneryView" class="dock-view scenery-view">
+                        <ui:TextField name="sceneryPrompt" label="SURFACE DESCRIPTION" value="Dark industrial warehouse floor" max-length="1000" class="semantic-field scenery-prompt" />
+                        <ui:VisualElement class="mission-row scenery-actions">
+                            <ui:Button name="generateSceneryButton" text="GENERATE SURFACE" class="mission-button" />
+                            <ui:Button name="resetSceneryButton" text="RESTORE DEFAULT" class="mission-button" />
+                        </ui:VisualElement>
+                        <ui:Label name="sceneryStatus" text="Default tactical surface" class="media-status" />
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>

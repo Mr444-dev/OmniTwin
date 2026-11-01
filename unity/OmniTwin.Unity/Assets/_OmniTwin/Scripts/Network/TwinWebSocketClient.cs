@@ -47,6 +47,7 @@ namespace OmniTwin.Simulation.Network
 
         private void OnEnable()
         {
+            ApplyCommandLineBackendOrigin();
             if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var address) ||
                 (address.Scheme != "ws" && address.Scheme != "wss") || address.UserInfo.Length != 0 || address.Fragment.Length != 0 ||
                 maximumAttempts < 1 || maximumAttempts > 10)
@@ -61,6 +62,23 @@ namespace OmniTwin.Simulation.Network
             var stop = new CancellationTokenSource();
             _stop = stop;
             _worker = Task.Run(() => client.RunAsync(address, stop.Token));
+        }
+
+        private void ApplyCommandLineBackendOrigin()
+        {
+            const string prefix = "--omnitwin-backend-origin=";
+            var arguments = Environment.GetCommandLineArgs();
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                if (!arguments[i].StartsWith(prefix, StringComparison.Ordinal)) continue;
+                var value = arguments[i].Substring(prefix.Length).Trim('"');
+                if (!Uri.TryCreate(value, UriKind.Absolute, out var address) || address.Scheme != "http" ||
+                    !(address.Host == "127.0.0.1" || address.Host == "localhost") || address.AbsolutePath != "/" ||
+                    address.Query.Length != 0 || address.Fragment.Length != 0 || address.UserInfo.Length != 0)
+                    throw new InvalidOperationException("The standalone backend override must be an HTTP loopback origin.");
+                endpoint = new UriBuilder("ws", address.Host, address.Port, "ws/twin").Uri.AbsoluteUri;
+                return;
+            }
         }
 
         private void Update()

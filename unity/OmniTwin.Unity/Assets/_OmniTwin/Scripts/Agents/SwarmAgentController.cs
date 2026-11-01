@@ -3,6 +3,7 @@ using OmniTwin.Contracts;
 using UnityEngine;
 using UnityEngine.AI;
 using OmniTwin.Simulation.Sensors;
+using OmniTwin.Simulation.Navigation;
 
 namespace OmniTwin.Simulation.Agents
 {
@@ -10,6 +11,9 @@ namespace OmniTwin.Simulation.Agents
     [DisallowMultipleComponent]
     public sealed class SwarmAgentController : MonoBehaviour
     {
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void BootstrapWorkspaceNavigation() => RuntimeNavMeshBootstrap.EnsureBeforeAgentsAwake();
+
         [SerializeField] private int agentId = 1;
         [SerializeField] private AgentRole role;
         [SerializeField] private float flightAltitude = 2.2f;
@@ -23,6 +27,7 @@ namespace OmniTwin.Simulation.Agents
         private AgentStatus _status = AgentStatus.Holding;
         private Vector3 _previous, _velocity;
         private float _battery = 1, _pathRefresh;
+        private bool _hasReceivedMovementDirective;
         private readonly RaycastHit[] _hits = new RaycastHit[128];
         private readonly Vector3[] _corners = new Vector3[128];
 
@@ -30,12 +35,17 @@ namespace OmniTwin.Simulation.Agents
         public int AgentId => agentId;
         /// <summary>Gets its navigation class.</summary>
         public AgentRole Role => role;
-        /// <summary>Gets its current operational state.</summary>
-        public AgentStatus Status => _status;
+        /// <summary>Gets its current operational state, including active aerial patrol directives.</summary>
+        public AgentStatus Status => role == AgentRole.AerialDrone && _directive != null &&
+            _directive.DesiredSpeed > 0 && _battery > 0.1f ? AgentStatus.Navigating : _status;
         /// <summary>Gets the most recently sampled world velocity for rig tilt and callouts.</summary>
         public Vector3 MeasuredVelocity => _velocity;
         /// <summary>Gets the current policy-provided visualization mode tag, if moving.</summary>
         public string DirectiveStatusTag => _directive?.StatusTag;
+        /// <summary>Gets the currently applied validated directive for telemetry and diagnostics.</summary>
+        public AgentTargetDirective CurrentDirective => _directive;
+        /// <summary>Gets whether this entity has previously accepted an active movement command.</summary>
+        public bool HasReceivedMovementDirective => _hasReceivedMovementDirective;
         /// <summary>Gets the independently sampled local sensor.</summary>
         public LidarSensor Lidar => _lidar;
         /// <summary>Gets the current planar transform position without allocating telemetry.</summary>
@@ -47,6 +57,7 @@ namespace OmniTwin.Simulation.Agents
 
         private void Awake()
         {
+            RuntimeNavMeshBootstrap.EnsureBeforeAgentsAwake();
             if (agentId < 0 || !Enum.IsDefined(typeof(AgentRole), role) || maximumSpeed <= 0 || maximumSpeed > 4 ||
                 flightAltitude < 1 || float.IsNaN(flightAltitude) || float.IsInfinity(flightAltitude))
                 throw new InvalidOperationException("Invalid authored swarm agent configuration.");
@@ -72,6 +83,7 @@ namespace OmniTwin.Simulation.Agents
             if (directive == null || directive.AgentId != agentId || directive.DesiredSpeed > maximumSpeed || directive.DesiredSpeed < 0)
                 throw new ArgumentException("Invalid agent directive.", nameof(directive));
             if (directive.DesiredSpeed == 0 || _battery <= 0.1f) { Hold(); return; }
+            _hasReceivedMovementDirective = true;
             _directive = directive; _status = AgentStatus.Navigating;
             if (role == AgentRole.GroundVehicle)
             {
@@ -93,9 +105,26 @@ namespace OmniTwin.Simulation.Agents
             if (trajectory != null) trajectory.positionCount = 0;
         }
 
+        /// <summary>Corrects an authored spawn overlap before an agent has ever moved under policy control.</summary>
+        public bool TryRepositionAtSafeSpawn(Vector2D position)
+        {
+            if (_hasReceivedMovementDirective || !Finite(position.X) || !Finite(position.Z)) return false;
+            Hold();
+            if (role == AgentRole.GroundVehicle)
+            {
+                if (_navigation == null || !_navigation.enabled || !_navigation.isOnNavMesh ||
+                    !NavMesh.SamplePosition(new Vector3(position.X, transform.position.y, position.Z), out var hit, 0.75f, _navigation.areaMask) ||
+                    !_navigation.Warp(hit.position)) return false;
+            }
+            else transform.position = new Vector3(position.X, flightAltitude, position.Z);
+            _previous = transform.position;
+            _velocity = Vector3.zero;
+            return true;
+        }
+
         /// <summary>Samples actual transform/navigation state; battery represents the configured simulation energy model.</summary>
         public AgentTelemetry ReadTelemetry() => new AgentTelemetry(agentId, role, new Vector2D(transform.position.x, transform.position.z),
-            new Vector2D(_velocity.x, _velocity.z), _battery, _status, _lidar != null ? _lidar.ReadTelemetry() : null);
+            new Vector2D(_velocity.x, _velocity.z), _battery, Status, _lidar != null ? _lidar.ReadTelemetry() : null);
 
         private void FixedUpdate()
         {
@@ -159,5 +188,6 @@ namespace OmniTwin.Simulation.Agents
             }
         }
         private void OnDisable() => Hold();
+        private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
     }
 }

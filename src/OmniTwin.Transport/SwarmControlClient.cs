@@ -88,7 +88,8 @@ public sealed class SwarmControlClient : IDisposable
                 {
                     try
                     {
-                        var bytes = await PostAsync(new Uri(origin, "api/swarm/telemetry"), SwarmWireCodec.EncodeTelemetry(telemetry), stop.Token).ConfigureAwait(false);
+                        var bytes = await PostAsync(new Uri(origin, "api/swarm/telemetry"), SwarmWireCodec.EncodeTelemetry(telemetry), stop.Token,
+                            retrySessionConflict: true).ConfigureAwait(false);
                         var control = SwarmWireCodec.DecodeControl(bytes);
                         var delivery = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - control.TimestampUnixMs;
                         if (control.TelemetrySessionId != telemetry.SessionId || control.TelemetrySequenceNumber != telemetry.SequenceNumber ||
@@ -131,7 +132,7 @@ public sealed class SwarmControlClient : IDisposable
 
     private void Fail(string category) { lock (_gate) { _failure = category; _control = null; _received = -1; } }
     private void MissionFail(string category) { lock (_gate) _missionFailure = category; }
-    private async Task<byte[]> PostAsync(Uri uri, byte[] bytes, CancellationToken cancellationToken)
+    private async Task<byte[]> PostAsync(Uri uri, byte[] bytes, CancellationToken cancellationToken, bool retrySessionConflict = false)
     {
         var started = _clock.ElapsedMilliseconds;
         for (var attempt = 0; attempt < 3; attempt++)
@@ -158,7 +159,10 @@ public sealed class SwarmControlClient : IDisposable
                         if (output.Length + count > SwarmWireCodec.MaximumBytes) throw new WorldStreamProtocolException("control_body_size"); output.Write(buffer, 0, count); }
                     return output.ToArray();
                 }
-                if (!(status == 408 || status == 429 || status == 500 || status == 502 || status == 503 || status == 504)) throw new TransportFailure("control_http_" + status);
+                var retryableSessionConflict = status == 409 && retrySessionConflict;
+                if (retryableSessionConflict && attempt == 2) throw new TransportFailure("control_session_in_use");
+                if (!retryableSessionConflict && !(status == 408 || status == 429 || status == 500 || status == 502 || status == 503 || status == 504))
+                    throw new TransportFailure("control_http_" + status);
                 var advised = response.Headers.RetryAfter?.Delta ?? (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow);
                 if (advised.HasValue && advised.Value > delay) delay = advised.Value;
             }

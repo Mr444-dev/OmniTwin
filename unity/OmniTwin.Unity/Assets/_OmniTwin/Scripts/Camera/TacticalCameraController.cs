@@ -14,6 +14,11 @@ namespace OmniTwin.Simulation.CameraControl
         [SerializeField] private float initialDistance = 38.5f;
         [SerializeField] private float initialYaw = -16;
         [SerializeField] private float initialPitch = 53;
+        [SerializeField] private float overviewDistance = 40.5f;
+        [SerializeField] private float overviewPitch = 48f;
+        [SerializeField] private float mapOrthographicSize = 15.3f;
+        [SerializeField] private Vector3 overviewFocusOffset = new Vector3(0f, 0f, -1.4f);
+        [SerializeField] private Vector3 mapFocusOffset = new Vector3(0f, 0f, -1.5f);
         [SerializeField] private float orbitSensitivity = 0.18f;
         [SerializeField] private float zoomSensitivity = 0.12f;
         private float _distance, _yaw, _pitch;
@@ -23,7 +28,7 @@ namespace OmniTwin.Simulation.CameraControl
         private UIDocument _hud;
         private UnityEngine.Camera _camera;
         private int _preset = 1;
-        private float _targetOrthoSize = 12f;
+        private float _targetOrthoSize = 15.3f;
 
         /// <summary>Restores the authored tactical overview.</summary>
         public void ResetView() => SetPreset(1, null);
@@ -33,11 +38,12 @@ namespace OmniTwin.Simulation.CameraControl
             if (preset < 1 || preset > 3) throw new ArgumentOutOfRangeException(nameof(preset));
             _preset = preset;
             _followAgent = preset == 3 ? selectedAgent : null;
-            _targetFocus = preset == 3 && selectedAgent != null ? selectedAgent.transform.position : Vector3.zero;
-            _targetDistance = preset == 2 ? 18 : preset == 3 ? 10 : initialDistance;
+            _targetFocus = preset == 3 && selectedAgent != null ? selectedAgent.transform.position :
+                preset == 2 ? mapFocusOffset : overviewFocusOffset;
+            _targetDistance = preset == 2 ? 18 : preset == 3 ? 10 : Mathf.Max(initialDistance, overviewDistance);
             _targetYaw = preset == 2 ? 0 : preset == 3 ? -42 : initialYaw;
-            _targetPitch = preset == 2 ? 90 : preset == 3 ? 32 : initialPitch;
-            if (preset == 2) _targetOrthoSize = 12f;
+            _targetPitch = preset == 2 ? 90 : preset == 3 ? 32 : Mathf.Min(initialPitch, overviewPitch);
+            if (preset == 2) _targetOrthoSize = mapOrthographicSize;
             if (_camera != null) _camera.orthographic = preset == 2;
         }
         private void OnEnable() { _hud = UnityEngine.Object.FindAnyObjectByType<UIDocument>(); _camera = GetComponent<UnityEngine.Camera>(); ResetView(); }

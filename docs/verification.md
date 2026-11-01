@@ -1,36 +1,39 @@
 # OmniTwin verification
 
-Verified on 2026-11-01 on Windows x64 with domain targets `net10.0` and `netstandard2.1`; the test hosts run on .NET 10.0.14. The final post-stage solution build used the installed .NET SDK 10.0.401 because the repository-pinned 10.0.403 SDK was unavailable to that CLI invocation; the repository pin was left unchanged.
+Verified on 2026-11-01 on Windows x64 with domain targets `net10.0` and `netstandard2.1`; the test hosts run on .NET 10.0.14 with the repository-pinned .NET SDK 10.0.403.
 
 ## Stage 7 synthetic replay and release verification (current)
 
-The .NET 10 Release solution build completed with **zero warnings and zero errors**. The five Microsoft.Testing.Platform test executables passed **435/435 tests**, with zero failures and zero skips. `live-preflight --synthetic-tabletop-replay` confirmed that `META_API_KEY` and `BASETEN_API_KEY` are absent without printing values.
+The .NET 10 Release solution build completed with **zero warnings and zero errors**. The five Microsoft.Testing.Platform test executables passed **438/438 tests**, with zero failures and zero skips, including the deterministic free-spawn recovery case. `live-preflight --synthetic-tabletop-replay` confirmed that `META_API_KEY` and `BASETEN_API_KEY` are absent without printing their values.
 
-Unity **6000.6.3f1 / URP 17.6.0** built a `StandaloneWindows64` player through Unity CLI. The build used an isolated copy of the on-disk Unity project (excluding `Library`, `Temp`, `Logs` and `Obj`) because the open Editor had a dirty scene and a modal save prompt; the original Editor scene was left untouched. Unity returned build success. Its Licensing Client emitted nonfatal entitlement lookup errors (404); the player started and completed the benchmark successfully. Build output is in the local ignored directory `local/stage7/`.
+Unity **6000.6.3f1 / URP 17.6.0** built a `StandaloneWindows64` player through Unity CLI. The build used an isolated copy of the Unity project (excluding `Library`, `Temp`, `Logs` and `Obj`) because the open Editor contained a dirty scene; that scene was left untouched. Unity returned build success. Its Licensing Client emitted nonfatal entitlement lookup errors (404), with no player compilation errors. The build and raw run logs are kept in the ignored `local/stage7-fix/` directory.
 
-The player connected to a separate local backend started with `--synthetic-tabletop-replay` on loopback port 5108. `/health/ready` reported `running`, a current observation and a recent publication; the player report recorded three obstacles, five agents, five 48-ray LiDAR sensors at 6 m, and active PIP plus three same-frame local-CV masks. No SAM response or cloud model result is claimed. The benchmark enforced 1920 × 1080 and verified both Unity `Screen` dimensions before measuring. The URP asset and scene cameras enable 4× MSAA.
+At startup, `RuntimeNavMeshBootstrap` built and registered the tactical desk's NavMesh before enabling agents. The player log records **16 runtime build vertices** and contains **zero** `Failed to create agent because there is no valid NavMesh` warnings, **zero** `control_http_409` responses and **zero** UI Toolkit theme-root exceptions. The final scene triangulation had 72 vertices and all three ground agents were on the NavMesh. The replay's fifth agent began inside an observed obstacle footprint; deterministic safe-spawn recovery moved it to free space before patrol. The final report records all five agents in `Navigating` under `PerimeterPatrolPolicy`, each traveling at least **29.6 m** during measurement.
+
+The player connected to a dedicated synthetic replay backend on loopback port 5110 using `--omnitwin-backend-origin`. It reported three obstacles, five agents, five 48-ray LiDAR sensors at 6 m, active camera PIP and three same-frame local-CV masks. No SAM response or cloud model result is claimed. The HUD dock uses a 132-unit layout at the panel's 1.5× scale (about **198 physical pixels**); all six module cards and the Brain/Voice, Semantics and Scenery tabs are visible. The new capture shows the complete 20 × 12.5 m table and all five units above the dock without panel overlap. The benchmark enforces 1920 × 1080 and verifies the Unity `Screen` dimensions. The URP asset and scene cameras enable 4× MSAA.
 
 ### Standalone sustained benchmark
 
-The final player build (with the restored 1024 × 1024 HUD font atlas) warmed up for 5 seconds, then ran continuously for 45.00 seconds and captured **23,047 frames**. Full machine-readable results are in [stage7-standalone.json](benchmarks/stage7-standalone.json).
+The Standalone player warmed up for 5 seconds, then ran continuously for **30.002 seconds** and captured **14,673 frames**. Full machine-readable results are in [stage7-standalone.json](benchmarks/stage7-standalone.json).
 
 | Measurement | Result |
 |---|---:|
 | Resolution / render API / GPU | 1920 × 1080 / Direct3D 12 / GeForce GTX 1660 SUPER |
-| Average FPS / mean frame time | 512.1 FPS / 1.953 ms |
-| P95 / P99 frame time | 2.766 ms / 3.835 ms |
-| 1% low | 155.2 FPS |
-| Managed heap start / end / peak | 8.32 / 7.59 / 9.59 MB |
-| Managed heap delta | −0.73 MB |
-| Unity allocated memory delta / peak increase | +15.73 / +16.77 MB |
-| Texture memory start / end / delta | 3.74 / 3.74 / 0 MB |
-| GC collections during measurement | Gen 0: 111; Gen 1: 111; Gen 2: 111 |
+| Average FPS / mean frame time | 489.1 FPS / 2.045 ms |
+| P95 / P99 frame time | 3.007 ms / 3.898 ms |
+| 1% low | 218.5 FPS |
+| Managed heap start / end / peak | 7.07 / 7.82 / 8.99 MiB |
+| Managed heap delta | +0.75 MiB |
+| Unity allocated-memory delta / peak increase | +0.69 / +5.53 MiB |
+| Texture memory start / end / delta | 3.57 / 3.57 / 0 MiB |
+| GC collections during measurement | Gen 0: 72; Gen 1: 72; Gen 2: 72 |
+| Navigating agents / ground agents on NavMesh | 5/5 / 3/3 |
+| Minimum distance traveled by one agent | 29.62 m |
+| Backend policy-evaluation samples / mean / P95 / P99 | 298 / 0.034 / 0.094 / 0.217 ms |
 
-Unity's graphics-driver memory counter reported **0 bytes** under this D3D12 run, so that counter did not provide a usable GPU-memory measurement. The unchanged Unity texture-memory counter is the available PIP/mask texture check; it showed no growth during this sample. The performance report has zero `PolicyExecutor` samples because this synthetic session remained on the compiled-in baseline. The [separate AppContainer worker benchmark](benchmarks/stage7-policyworker.json) measured 500 five-agent request/response exchanges: worker startup 528.2 ms, mean 0.320 ms, P95 0.401 ms, P99 0.554 ms, maximum 1.974 ms. This is IPC dispatch/serialization for a locally compiled deterministic hold fixture, not generated-policy execution inside the standalone benchmark.
+Unity's graphics-driver memory counter reported **0 bytes** under this D3D12 run, so that counter did not provide a usable GPU-memory measurement. The unchanged Unity texture-memory counter is the available PIP/mask texture check; it showed no growth. Policy-evaluation measurements above are from the backend coordinator running the compiled-in baseline. The [separate AppContainer worker benchmark](benchmarks/stage7-policyworker.json) measured 500 five-agent request/response exchanges: worker startup 528.2 ms, mean IPC round trip 0.320 ms, P95 0.401 ms, P99 0.554 ms and maximum 1.974 ms. That fixture measures worker dispatch and serialization; it does not claim generated-policy execution during the standalone replay.
 
-The player log contains three Unity warnings, `Failed to create agent because there is no valid NavMesh`, and warnings that Gaussian/Bokeh depth of field and Panini post-process shaders were stripped. The five agents, sensors, HUD and replay were present, but the standalone run selected `EmergencyHoldPolicy`; this benchmark therefore verifies rendering and sustained replay, not perimeter navigation. The screenshot shows all side controls, all four policy buttons, the central command/model dock and the labeled synthetic PIP at native resolution. [Current 1920 × 1080 standalone capture](images/tactical-desk.png).
-
-The earlier live-Editor checks still apply to the scene's prior navigation fixture and compiler status; this standalone replay is a separate run. The synthetic backend and local CV do not use a physical camera, live SAM, Muse Spark, voice, semantic provider, or Muse Image endpoint. All relevant model-key states are shown as missing in the HUD; no provider credential was used.
+The [current 1920 × 1080 Standalone capture](images/tactical-desk.png) shows the full table, all five navigating agents, enabled LiDAR visualization, and the synthetic PIP with its same-frame mask overlay. The synthetic backend and local CV use no physical camera or live SAM, Muse Spark, voice, semantic-provider, or Muse Image endpoint. The HUD reports the provider keys as missing; no provider credential was used.
 
 ## Stage 6 visual systems acceptance (previous milestone)
 
@@ -161,4 +164,4 @@ Rechecked on **2026-10-31** after implementation commit `53b6a26e8b5ab2cf83eafdd
 
 ## Limits
 
-Geometry/mask/trajectory images and injected test sources are test inputs, not claimed live detections. HTTP provider fixtures and real local server/receiver checks do not establish hosted model access. No physical camera/live provider session, microphone, standalone/IL2CPP run or sustained performance benchmark has been performed. Calibration browser checks, isolated generated-code execution and controlled Unity navigation have been exercised as described above. No model credentials were used. Real tabletop accuracy, live obstacle navigation and complete end-to-end model demonstration remain open acceptance criteria.
+Geometry/mask/trajectory images and injected test sources are test inputs, not claimed live detections. HTTP provider fixtures and real local server/receiver checks do not establish hosted model access. The StandaloneWindows64 replay benchmark is complete as recorded in Stage 7; no physical camera, live provider session, microphone, or IL2CPP build was used for it. Calibration browser checks, isolated generated-code execution and controlled Unity navigation have been exercised as described above. No model credentials were used. Real tabletop accuracy and live end-to-end model behavior remain open acceptance criteria.

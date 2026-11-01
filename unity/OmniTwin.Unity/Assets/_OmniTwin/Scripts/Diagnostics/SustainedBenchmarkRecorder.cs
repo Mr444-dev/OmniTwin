@@ -3,9 +3,11 @@ using System.Globalization;
 using System.IO;
 using System.Threading;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.Profiling;
 using UnityEngine.UIElements;
 using OmniTwin.Contracts;
+using OmniTwin.Policies;
 using OmniTwin.Simulation.Agents;
 using OmniTwin.Simulation.Media;
 using OmniTwin.Simulation.Network;
@@ -29,6 +31,8 @@ namespace OmniTwin.Simulation.Diagnostics
 
         private readonly float[] _frameTimes = new float[MaximumFrames];
         private readonly double[] _policyEvaluationTimes = new double[MaximumPolicySamples];
+        private readonly Vector3[] _lastAgentPositions = new Vector3[5];
+        private readonly float[] _agentTravelMeters = new float[5];
         private int _durationSeconds = 45;
         private string _reportPath;
         private string _screenshotPath;
@@ -69,8 +73,8 @@ namespace OmniTwin.Simulation.Diagnostics
             Application.runInBackground = true;
             Application.targetFrameRate = -1;
             QualitySettings.vSyncCount = 0;
-            Screen.SetResolution(TargetWidth, TargetHeight, FullScreenMode.Windowed, 60);
-            var cameras = UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            Screen.SetResolution(TargetWidth, TargetHeight, FullScreenMode.Windowed, new RefreshRate { numerator = 60, denominator = 1 });
+            var cameras = UnityEngine.Object.FindObjectsByType<Camera>();
             for (var i = 0; i < cameras.Length; i++) cameras[i].allowMSAA = true;
         }
 
@@ -103,8 +107,8 @@ namespace OmniTwin.Simulation.Diagnostics
             Application.runInBackground = true;
             Application.targetFrameRate = -1;
             QualitySettings.vSyncCount = 0;
-            Screen.SetResolution(TargetWidth, TargetHeight, FullScreenMode.Windowed, 60);
-            var cameras = UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            Screen.SetResolution(TargetWidth, TargetHeight, FullScreenMode.Windowed, new RefreshRate { numerator = 60, denominator = 1 });
+            var cameras = UnityEngine.Object.FindObjectsByType<Camera>();
             for (var i = 0; i < cameras.Length; i++) cameras[i].allowMSAA = true;
             _startupTime = Time.realtimeSinceStartupAsDouble;
             SetHudStatus("STANDALONE BENCHMARK · WAITING FOR CURRENT REPLAY AND PIP/MASK TEXTURES");
@@ -143,6 +147,7 @@ namespace OmniTwin.Simulation.Diagnostics
             _frameTimes[_frameCount++] = deltaMs;
             _frameTimeSumMs += deltaMs;
             SamplePolicyEvaluation();
+            SampleAgentTravel();
             if (now >= _lastMemorySample)
             {
                 SampleMemory();
@@ -187,10 +192,16 @@ namespace OmniTwin.Simulation.Diagnostics
             if (!_stream.TryGetCurrentView(out var view) || view.State.Message == null ||
                 view.State.Message.SourceMode != PerceptionSourceMode.SyntheticTabletopReplay || view.State.Message.World.Obstacles.Count == 0) return false;
             if (_executor.Agents.Count != 5 || _media.PreviewTexture == null || _media.MaskTexture == null) return false;
+            var control = _executor.Control;
+            if (control == null || !control.IsSourceCurrent || control.PolicyName != nameof(PerimeterPatrolPolicy) ||
+                _executor.ActivePolicyName != nameof(PerimeterPatrolPolicy) || NavMesh.CalculateTriangulation().vertices.Length < 3) return false;
             for (var i = 0; i < _executor.Agents.Count; i++)
             {
                 var agent = _executor.Agents[i];
                 if (agent == null || agent.Lidar == null || agent.Lidar.BeamCount != 48 || !agent.Lidar.VisualizationEnabled) return false;
+                if (agent.Status != AgentStatus.Navigating) return false;
+                if (agent.Role == AgentRole.GroundVehicle &&
+                    (!agent.TryGetComponent<NavMeshAgent>(out var navigation) || !navigation.enabled || !navigation.isOnNavMesh)) return false;
                 var lidar = agent.Lidar.ReadTelemetry();
                 if (lidar == null || lidar.AgeMilliseconds > 250) return false;
             }
@@ -205,6 +216,8 @@ namespace OmniTwin.Simulation.Diagnostics
             _unityAllocatedStart = _unityAllocatedPeak = Profiler.GetTotalAllocatedMemoryLong();
             _graphicsStart = _graphicsPeak = ToReportBytes(Profiler.GetAllocatedMemoryForGraphicsDriver());
             _textureStart = _texturePeak = ToReportBytes(Texture.currentTextureMemory);
+            for (var i = 0; i < _executor.Agents.Count; i++)
+                _lastAgentPositions[i] = _executor.Agents[i].transform.position;
             _gen0Start = GC.CollectionCount(0); _gen1Start = GC.CollectionCount(1); _gen2Start = GC.CollectionCount(2);
             SetHudStatus("STANDALONE BENCHMARK · CAPTURING " + _durationSeconds.ToString(CultureInfo.InvariantCulture) + " s");
         }
@@ -215,6 +228,17 @@ namespace OmniTwin.Simulation.Diagnostics
             if (control == null || control.TelemetrySequenceNumber == _lastPolicySequence || _policySampleCount >= _policyEvaluationTimes.Length) return;
             _lastPolicySequence = control.TelemetrySequenceNumber;
             _policyEvaluationTimes[_policySampleCount++] = control.EvaluationDurationMilliseconds;
+        }
+
+        private void SampleAgentTravel()
+        {
+            if (_executor == null || _measurementStart <= 0 || _executor.Agents.Count != _lastAgentPositions.Length) return;
+            for (var i = 0; i < _lastAgentPositions.Length; i++)
+            {
+                var position = _executor.Agents[i].transform.position;
+                _agentTravelMeters[i] += Vector3.Distance(position, _lastAgentPositions[i]);
+                _lastAgentPositions[i] = position;
+            }
         }
 
         private void SampleMemory()
@@ -230,15 +254,17 @@ namespace OmniTwin.Simulation.Diagnostics
         {
             if (Interlocked.Exchange(ref _finished, 1) != 0) yield break;
             SampleMemory();
+            SampleAgentTravel();
             var measuredSeconds = Time.realtimeSinceStartupAsDouble - _measurementStart;
             var report = BuildReport(measuredSeconds, null);
-            SetHudStatus("STANDALONE BENCHMARK · COMPLETE · " + report.AverageFps.ToString("F1", CultureInfo.InvariantCulture) + " FPS AVG · " + _frameCount + " frames");
+            SetHudStatus("STANDALONE BENCHMARK · " + report.PolicyName + " · " + report.NavigatingAgentCount + "/5 NAVIGATING · " +
+                report.AverageFps.ToString("F1", CultureInfo.InvariantCulture) + " FPS AVG");
             yield return new WaitForEndOfFrame();
             ScreenCapture.CaptureScreenshot(_screenshotPath);
             yield return new WaitForSecondsRealtime(2);
             report.ScreenshotWritten = File.Exists(_screenshotPath);
-            report.Success = report.ScreenshotWritten;
-            report.FailureCategory = report.Success ? string.Empty : "benchmark_output_write_failed";
+            report.Success = report.ScreenshotWritten && report.NavigationVerified;
+            report.FailureCategory = report.Success ? string.Empty : report.ScreenshotWritten ? "standalone_navigation_not_verified" : "benchmark_output_write_failed";
             try
             {
                 var directory = Path.GetDirectoryName(_reportPath);
@@ -271,6 +297,12 @@ namespace OmniTwin.Simulation.Diagnostics
             if (_policySampleCount > 0) policyMean /= _policySampleCount;
             var view = _stream != null ? _stream.View : default;
             var mode = view.State.Message == null ? "unavailable" : view.State.Message.SourceMode.ToString();
+            var navigating = CountNavigatingAgents();
+            var groundOnNavMesh = CountGroundAgentsOnNavMesh();
+            var minimumTravel = _agentTravelMeters[0];
+            for (var i = 1; i < _agentTravelMeters.Length; i++) minimumTravel = Mathf.Min(minimumTravel, _agentTravelMeters[i]);
+            var policyName = _executor == null ? nameof(EmergencyHoldPolicy) : _executor.ActivePolicyName;
+            var navigationVerified = policyName == nameof(PerimeterPatrolPolicy) && navigating == 5 && groundOnNavMesh == 3 && minimumTravel >= 0.25f;
             return new BenchmarkReport
             {
                 Success = string.IsNullOrEmpty(failure), FailureCategory = failure ?? string.Empty,
@@ -291,6 +323,11 @@ namespace OmniTwin.Simulation.Diagnostics
                 TextureDeltaBytes = _textureEnd - _textureStart,
                 Gen0Collections = _gen0End - _gen0Start, Gen1Collections = _gen1End - _gen1Start, Gen2Collections = _gen2End - _gen2Start,
                 SourceMode = mode, AgentCount = _executor == null ? 0 : _executor.Agents.Count,
+                PolicyName = policyName, NavigatingAgentCount = navigating, GroundAgentsOnNavMesh = groundOnNavMesh,
+                AgentStates = ReadAgentStates(),
+                NavMeshVertexCount = NavMesh.CalculateTriangulation().vertices.Length,
+                AgentTravelMeters = (float[])_agentTravelMeters.Clone(), MinimumAgentTravelMeters = minimumTravel,
+                NavigationVerified = navigationVerified,
                 ObstacleTrackCount = view.State.Message == null ? 0 : view.State.Message.World.Obstacles.Count,
                 LidarSensors = CountLidarSensors(), LidarBeamsPerAgent = 48, LidarRangeMeters = 6,
                 CameraPreviewEnabled = _media != null && _media.PreviewEnabled,
@@ -304,12 +341,61 @@ namespace OmniTwin.Simulation.Diagnostics
             };
         }
 
+        private int CountNavigatingAgents()
+        {
+            if (_executor == null) return 0;
+            var count = 0;
+            for (var i = 0; i < _executor.Agents.Count; i++)
+                if (_executor.Agents[i] != null && _executor.Agents[i].Status == AgentStatus.Navigating) count++;
+            return count;
+        }
+
+        private int CountGroundAgentsOnNavMesh()
+        {
+            if (_executor == null) return 0;
+            var count = 0;
+            for (var i = 0; i < _executor.Agents.Count; i++)
+            {
+                var agent = _executor.Agents[i];
+                if (agent != null && agent.Role == AgentRole.GroundVehicle &&
+                    agent.TryGetComponent<NavMeshAgent>(out var navigation) && navigation.enabled && navigation.isOnNavMesh) count++;
+            }
+            return count;
+        }
+
         private int CountLidarSensors()
         {
             if (_executor == null) return 0;
             var count = 0;
             for (var i = 0; i < _executor.Agents.Count; i++) if (_executor.Agents[i] != null && _executor.Agents[i].Lidar != null) count++;
             return count;
+        }
+
+        private AgentBenchmarkState[] ReadAgentStates()
+        {
+            if (_executor == null) return Array.Empty<AgentBenchmarkState>();
+            var result = new AgentBenchmarkState[_executor.Agents.Count];
+            for (var i = 0; i < result.Length; i++)
+            {
+                var agent = _executor.Agents[i];
+                if (agent == null) { result[i] = new AgentBenchmarkState { Status = "missing" }; continue; }
+                var directive = agent.CurrentDirective;
+                var navMesh = agent.TryGetComponent<NavMeshAgent>(out var navigation) && navigation.enabled && navigation.isOnNavMesh;
+                var lidar = agent.Lidar == null ? null : agent.Lidar.ReadTelemetry();
+                result[i] = new AgentBenchmarkState
+                {
+                    AgentId = agent.AgentId, Role = agent.Role.ToString(), Status = agent.Status.ToString(),
+                    X = agent.transform.position.x, Y = agent.transform.position.y, Z = agent.transform.position.z,
+                    Velocity = agent.MeasuredVelocity.magnitude, Battery = agent.ReadTelemetry().BatteryLevel,
+                    HasNavMesh = navMesh, DirectiveTag = directive?.StatusTag ?? string.Empty,
+                    TargetX = directive?.TargetPosition.X ?? agent.transform.position.x,
+                    TargetZ = directive?.TargetPosition.Z ?? agent.transform.position.z,
+                    DesiredSpeed = directive?.DesiredSpeed ?? 0,
+                    LidarHits = lidar?.HitCount ?? 0, LidarMinimumDistanceMeters = lidar?.MinimumDistanceMeters ?? -1,
+                    LidarAgeMilliseconds = lidar?.AgeMilliseconds ?? -1
+                };
+            }
+            return result;
         }
 
         private void Fail(string category)
@@ -393,6 +479,12 @@ namespace OmniTwin.Simulation.Diagnostics
             public long TextureBytesStart, TextureBytesEnd, TexturePeakBytes, TextureDeltaBytes;
             public int Gen0Collections, Gen1Collections, Gen2Collections;
             public string SourceMode;
+            public string PolicyName;
+            public int NavigatingAgentCount, GroundAgentsOnNavMesh, NavMeshVertexCount;
+            public AgentBenchmarkState[] AgentStates;
+            public float[] AgentTravelMeters;
+            public float MinimumAgentTravelMeters;
+            public bool NavigationVerified;
             public int AgentCount, ObstacleTrackCount, LidarSensors, LidarBeamsPerAgent;
             public float LidarRangeMeters;
             public bool CameraPreviewEnabled, MaskOverlayEnabled;
@@ -401,6 +493,17 @@ namespace OmniTwin.Simulation.Diagnostics
             public double PolicyEvaluationMeanMs, PolicyEvaluationP95Ms, PolicyEvaluationP99Ms;
             public string ReportPath, ScreenshotPath;
             public bool ScreenshotWritten;
+        }
+
+        [Serializable]
+        private sealed class AgentBenchmarkState
+        {
+            public int AgentId;
+            public string Role, Status, DirectiveTag;
+            public float X, Y, Z, Velocity, Battery, TargetX, TargetZ, DesiredSpeed;
+            public bool HasNavMesh;
+            public int LidarHits, LidarAgeMilliseconds;
+            public float LidarMinimumDistanceMeters;
         }
     }
 }

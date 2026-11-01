@@ -75,10 +75,28 @@ namespace OmniTwin.Simulation.Media
 
         private void OnEnable()
         {
+            ApplyCommandLineBackendOrigin();
             if (!Uri.TryCreate(backendOrigin, UriKind.Absolute, out _origin) || _origin.Scheme != "http" || !(_origin.Host == "127.0.0.1" || _origin.Host == "localhost") || _origin.AbsolutePath != "/" || _origin.Query.Length != 0 || _origin.Fragment.Length != 0 || _origin.UserInfo.Length != 0)
                 throw new InvalidOperationException("Assign the local backend HTTP origin.");
             _hud = UnityEngine.Object.FindAnyObjectByType<UIDocument>(); _client = new MediaClient(); _visualClient = new VisualServicesClient(); _stop = new CancellationTokenSource();
             var client = _visualClient; var stop = _stop; _previewTask = Task.Run(() => PreviewLoop(client, stop.Token));
+        }
+
+        private void ApplyCommandLineBackendOrigin()
+        {
+            const string prefix = "--omnitwin-backend-origin=";
+            var arguments = Environment.GetCommandLineArgs();
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                if (!arguments[i].StartsWith(prefix, StringComparison.Ordinal)) continue;
+                var value = arguments[i].Substring(prefix.Length).Trim('"');
+                if (!Uri.TryCreate(value, UriKind.Absolute, out var address) || address.Scheme != "http" ||
+                    !(address.Host == "127.0.0.1" || address.Host == "localhost") || address.AbsolutePath != "/" ||
+                    address.Query.Length != 0 || address.Fragment.Length != 0 || address.UserInfo.Length != 0)
+                    throw new InvalidOperationException("The standalone backend override must be an HTTP loopback origin.");
+                backendOrigin = address.GetLeftPart(UriPartial.Authority);
+                return;
+            }
         }
         /// <summary>Enables/disables preview without opening another device or changing perception trust.</summary>
         public void SetPreviewEnabled(bool value)

@@ -4,7 +4,8 @@ Sets, inspects, or removes one OmniTwin API key in the current PowerShell proces
 .DESCRIPTION
 Set reads a masked prompt. The key is not a command argument, printed result, or saved file.
 Child processes launched from this terminal inherit the variable. Existing processes are unaffected.
-Baseten is reserved for the planned Brain adapter and is not consumed by the current backend.
+The backend uses Meta for perception/voice and Baseten when the operator requests Brain policy synthesis.
+Setting either key alone does not send a provider request.
 .PARAMETER Provider
 Meta selects META_API_KEY; Baseten selects BASETEN_API_KEY.
 .PARAMETER Action
@@ -23,7 +24,7 @@ if ($Action -eq 'Status') {
     [pscustomobject]@{
         Variable = $variableName
         IsSet = -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($variableName, 'Process'))
-        ConsumedByCurrentBackend = $Provider -eq 'Meta'
+        ConsumedByCurrentBackend = $true
         Scope = 'Current PowerShell process and new child processes'
     }
     return
@@ -48,5 +49,5 @@ try {
 }
 Write-Host "$variableName set for this terminal and new child processes. No key file was written."
 if ($Provider -eq 'Baseten') {
-    Write-Host 'The current backend does not implement Baseten planning yet; setting this key does not enable Brain.'
+    Write-Host 'BASETEN_API_KEY is used when you explicitly request Brain policy synthesis; setting it alone sends no provider request.'
 }

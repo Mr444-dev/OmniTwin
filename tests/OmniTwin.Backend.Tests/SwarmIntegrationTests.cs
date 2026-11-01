@@ -40,6 +40,43 @@ public sealed class SwarmIntegrationTests
     }
 
     [Fact]
+    public async Task ControlClientRecoversWhenThePreviousReplaySessionExpires()
+    {
+        await using var server = await Server.StartAsync();
+        using var incumbent = await server.PostAsync("/api/swarm/telemetry", SwarmWireCodec.EncodeTelemetry(Telemetry()));
+        Assert.Equal(HttpStatusCode.OK, incumbent.StatusCode);
+
+        using var client = new SwarmControlClient();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        stop.CancelAfter(TimeSpan.FromSeconds(8));
+        var challengeSession = Guid.NewGuid();
+        long sequence = 1;
+        client.PublishTelemetry(Telemetry(challengeSession));
+        var running = client.RunAsync(server.Http.BaseAddress!, stop.Token);
+        try
+        {
+            var sawControlledConflict = false;
+            var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(6);
+            while (DateTimeOffset.UtcNow < deadline && !client.GetView().HasFreshReply)
+            {
+                if (client.GetView().FailureCategory == "control_session_in_use") sawControlledConflict = true;
+                client.PublishTelemetry(Telemetry(challengeSession, Interlocked.Increment(ref sequence)));
+                await Task.Delay(100, TestContext.Current.CancellationToken);
+            }
+
+            Assert.True(client.GetView().HasFreshReply, "The telemetry loop did not recover after the old session expired.");
+            Assert.True(sawControlledConflict, "The initial 409 was not classified as a recoverable session conflict.");
+            Assert.True(client.GetView().Control!.IsSourceCurrent is false);
+            Assert.Equal(challengeSession, client.GetView().Control!.TelemetrySessionId);
+        }
+        finally
+        {
+            stop.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running);
+        }
+    }
+
+    [Fact]
     public async Task RealControlClientReceivesExplicitAuthFailureWithoutFabricatedWorld()
     {
         await using var server = await Server.StartAsync();

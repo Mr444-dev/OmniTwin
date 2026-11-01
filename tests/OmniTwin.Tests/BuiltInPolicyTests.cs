@@ -88,6 +88,19 @@ public sealed class BuiltInPolicyTests
     }
 
     [Fact]
+    public void SpawnRecoveryFindsNearestFreePointDeterministically()
+    {
+        var obstacle = new[] { new SegmentedObstacle(1, "container", new Vector2D(-2.91f, 0.339f), 0.744f, 0.72f, false) };
+        var blockedSpawn = new Vector2D(-3, 1);
+        Assert.False(SafeNavigation.IsFree(blockedSpawn, Bounds, obstacle));
+        Assert.True(SafeNavigation.TryFindNearestFreePoint(blockedSpawn, Bounds, obstacle, out var first));
+        Assert.True(SafeNavigation.TryFindNearestFreePoint(blockedSpawn, Bounds, obstacle, out var second));
+        Assert.Equal(first, second);
+        Assert.True(SafeNavigation.IsFree(first, Bounds, obstacle));
+        Assert.InRange(blockedSpawn.DistanceTo(first), 0.5f, 1.25f);
+    }
+
+    [Fact]
     public void IngestionClampsTargetsButRejectsInvalidRecipientsAndObstacleTargets()
     {
         var world = World(agents: new[] { Agent(1, 0, 0) });
