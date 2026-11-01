@@ -25,11 +25,11 @@
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement class="body" picking-mode="Ignore">
-            <ui:ScrollView class="sidebar observation-panel" mode="Vertical">
+            <ui:VisualElement class="sidebar observation-panel" picking-mode="Position">
                 <ui:Label text="WORLD OBSERVATION" class="section-title" />
                 <ui:Button name="previewToggleButton" text="SHOW CAMERA PREVIEW" class="mission-button preview-toggle" />
                 <ui:Label name="previewStatus" text="Camera preview off" class="media-status" />
-                <ui:Button name="maskToggleButton" text="HIDE SAM MASKS" class="mission-button preview-toggle" />
+                <ui:Button name="maskToggleButton" text="SHOW SAM MASKS" class="mission-button preview-toggle" />
                 <ui:Label name="maskStatus" text="Masks unavailable · no current image" class="media-status" />
                 <ui:Label name="trackCount" text="--" class="big-value" />
                 <ui:Label text="CURRENT OBSTACLE TRACKS" class="value-caption" />
@@ -54,51 +54,88 @@
                     <ui:Image name="maskPreview" class="preview-image" picking-mode="Ignore" />
                     <ui:Label name="previewReplayBadge" text="SYNTHETIC REPLAY · LOCAL CV" class="preview-replay-badge preview-hidden" picking-mode="Ignore" />
                 </ui:VisualElement>
-                <ui:VisualElement class="divider" />
-                <ui:Label text="MODEL / SANDBOX MATRIX" class="section-title" />
-                <ui:Label name="modelMatrix" text="Waiting for backend diagnostics" class="model-matrix" />
-                <ui:Label text="CONFIGURATION ONLY · RUN live-preflight --probe-models FOR HTTP STATUS" class="matrix-caption" />
-                <ui:VisualElement class="divider" />
                 <ui:Label name="sourceNotice" text="Waiting for a calibrated camera observation." class="notice" />
-                <ui:Button name="reconnectButton" text="RECONNECT STREAM" class="action" />
-                <ui:VisualElement class="divider" />
-                <ui:Label text="OBJECT SEMANTICS" class="section-title" />
-                <ui:Label name="semanticStatus" text="No active perception session" class="media-status" />
-                <ui:DropdownField name="semanticTrack" label="TRACK ID" class="semantic-field" />
-                <ui:Label name="semanticSelected" text="Select a confirmed object" class="media-status" />
-                <ui:Button name="loadSemanticButton" text="LOAD CURRENT TAG" class="mission-button" />
-                <ui:TextField name="semanticLabel" label="LABEL" max-length="96" class="semantic-field" />
-                <ui:DropdownField name="semanticRole" label="SIMULATION ROLE" class="semantic-field" />
-                <ui:DropdownField name="semanticHazard" label="HAZARD TAG" class="semantic-field" />
-                <ui:Button name="applySemanticButton" text="APPLY OPERATOR TAG" class="mission-button" />
-                <ui:Button name="clearSemanticButton" text="USE REMEMBERED MODEL TAG" class="mission-button" />
-                <ui:VisualElement class="divider" />
-                <ui:Label text="MUSE IMAGE SURFACE" class="section-title" />
-                <ui:TextField name="sceneryPrompt" label="SURFACE DESCRIPTION" value="Dark industrial warehouse floor" max-length="1000" class="semantic-field" />
-                <ui:Button name="generateSceneryButton" text="GENERATE SURFACE (META API)" class="mission-button" />
-                <ui:Button name="resetSceneryButton" text="RESTORE DEFAULT SURFACE" class="mission-button" />
-                <ui:Label name="sceneryStatus" text="Default tactical surface" class="media-status" />
-            </ui:ScrollView>
-            <ui:VisualElement class="world-spacer" picking-mode="Ignore" />
-            <ui:ScrollView class="swarm-panel" mode="Vertical">
+                <ui:Button name="reconnectButton" text="RECONNECT STREAM" class="action reconnect" />
+            </ui:VisualElement>
+            <ui:VisualElement class="world-column" picking-mode="Ignore">
+                <ui:VisualElement class="world-stage" picking-mode="Ignore" />
+                <ui:VisualElement class="command-dock" picking-mode="Position">
+                    <ui:Label text="AI COMMAND &amp; MODEL MATRIX DOCK" class="dock-title" />
+                    <ui:VisualElement class="model-matrix">
+                        <ui:Label name="modelSam" text="SAM 3.1&#10;WAITING FOR STATUS" class="model-card" />
+                        <ui:Label name="modelSparkOpen" text="MUSE SPARK OPEN&#10;WAITING FOR STATUS" class="model-card" />
+                        <ui:Label name="modelSemantic" text="MUSE SPARK 1.3&#10;WAITING FOR STATUS" class="model-card" />
+                        <ui:Label name="modelVoice" text="MUSE VOICE&#10;WAITING FOR STATUS" class="model-card" />
+                        <ui:Label name="modelImage" text="MUSE IMAGE&#10;WAITING FOR STATUS" class="model-card" />
+                        <ui:Label name="modelSandbox" text="ROSLYN + APPCONTAINER&#10;WAITING FOR STATUS" class="model-card sandbox-card" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="command-primary-row">
+                        <ui:VisualElement class="voice-column">
+                            <ui:Button name="recordVoiceButton" text="RECORD VOICE" class="mission-button voice-record" />
+                            <ui:VisualElement class="mission-row voice-actions">
+                                <ui:Button name="cancelVoiceButton" text="CANCEL" class="mission-button" />
+                                <ui:Button name="useTranscriptButton" text="USE TRANSCRIPT" class="mission-button" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:TextField name="missionInstruction" label="MISSION INSTRUCTION" multiline="true" max-length="4096" class="mission-input" />
+                        <ui:VisualElement class="synthesis-column">
+                            <ui:Button name="generateButton" text="SYNTHESIZE POLICY (BRAIN)" class="action synthesize" />
+                            <ui:Label name="brainState" text="Brain / baseline" class="brain-status" />
+                            <ui:Label name="modelIdentity" text="Model / none" class="model-name" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement class="operator-status-row">
+                        <ui:Label name="voiceStatus" text="Voice ready · 5 s maximum" class="media-status" />
+                        <ui:Label name="voiceDraft" text="" class="voice-draft" />
+                        <ui:Label name="compilerDiagnostics" text="" class="diagnostic-text" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="command-details-row">
+                        <ui:VisualElement class="operator-card semantic-console">
+                            <ui:Label text="OBJECT SEMANTICS / OPERATOR OVERRIDE" class="section-title" />
+                            <ui:Label name="semanticStatus" text="No active perception session" class="media-status" />
+                            <ui:VisualElement class="semantic-selection-row">
+                                <ui:Label text="TRACK" class="section-title semantic-track-caption" />
+                                <ui:DropdownField name="semanticTrack" label="" class="semantic-field semantic-track" />
+                                <ui:Button name="loadSemanticButton" text="LOAD TAG" class="mission-button compact-action" />
+                            </ui:VisualElement>
+                            <ui:Label name="semanticSelected" text="Select a confirmed object" class="media-status semantic-selected" />
+                            <ui:VisualElement class="semantic-edit-row">
+                                <ui:TextField name="semanticLabel" label="LABEL" max-length="96" class="semantic-field semantic-label" />
+                                <ui:DropdownField name="semanticRole" label="ROLE" class="semantic-field semantic-choice" />
+                                <ui:DropdownField name="semanticHazard" label="HAZARD" class="semantic-field semantic-choice" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="mission-row semantic-actions">
+                                <ui:Button name="applySemanticButton" text="APPLY OPERATOR TAG" class="mission-button" />
+                                <ui:Button name="clearSemanticButton" text="USE MODEL TAG" class="mission-button" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="operator-card scenery-console">
+                            <ui:Label text="MUSE IMAGE / TACTICAL SURFACE" class="section-title" />
+                            <ui:TextField name="sceneryPrompt" label="SURFACE DESCRIPTION" value="Dark industrial warehouse floor" max-length="1000" class="semantic-field scenery-prompt" />
+                            <ui:VisualElement class="mission-row scenery-actions">
+                                <ui:Button name="generateSceneryButton" text="GENERATE SURFACE" class="mission-button" />
+                                <ui:Button name="resetSceneryButton" text="RESTORE DEFAULT" class="mission-button" />
+                            </ui:VisualElement>
+                            <ui:Label name="sceneryStatus" text="Default tactical surface" class="media-status" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="swarm-panel" picking-mode="Position">
                 <ui:Label text="SWARM CONTROL" class="section-title" />
                 <ui:Label name="activePolicy" text="EmergencyHoldPolicy" class="policy-name" />
                 <ui:Label name="agentTelemetry" text="Awaiting measured agent telemetry" class="telemetry-text" />
-                <ui:Button name="lidarToggleButton" text="SHOW LIDAR BEAMS" class="mission-button" />
-                <ui:Label name="controlReason" text="Waiting for trustworthy source" class="notice" />
-                <ui:VisualElement class="divider" />
-                <ui:VisualElement class="mission-row"><ui:Button name="patrolButton" text="PATROL" class="mission-button" /><ui:Button name="cordonButton" text="CORDON" class="mission-button" /></ui:VisualElement>
-                <ui:VisualElement class="mission-row"><ui:Button name="searchButton" text="GRID SEARCH" class="mission-button" /><ui:Button name="holdButton" text="HOLD" class="mission-button" /></ui:VisualElement>
-                <ui:Button name="recordVoiceButton" text="RECORD VOICE (META API)" class="mission-button voice-record" />
-                <ui:VisualElement class="mission-row"><ui:Button name="cancelVoiceButton" text="CANCEL VOICE" class="mission-button" /><ui:Button name="useTranscriptButton" text="USE TRANSCRIPT" class="mission-button" /></ui:VisualElement>
-                <ui:Label name="voiceStatus" text="Hold Space outside controls to record · 5 s maximum" class="media-status" />
-                <ui:Label name="voiceDraft" text="" class="voice-draft" />
-                <ui:TextField name="missionInstruction" label="MISSION INSTRUCTION" multiline="true" max-length="4096" class="mission-input" />
-                <ui:Button name="generateButton" text="SYNTHESIZE POLICY (API)" class="action synthesize" />
-                <ui:Label name="brainState" text="Brain / baseline" class="notice" />
-                <ui:Label name="modelIdentity" text="Model / none" class="model-name" />
-                <ui:Label name="compilerDiagnostics" text="" class="diagnostic-text" />
-            </ui:ScrollView>
+                <ui:Button name="lidarToggleButton" text="SHOW LIDAR BEAMS" class="mission-button lidar-toggle" />
+                <ui:Label name="controlReason" text="Waiting for trustworthy source" class="notice control-reason" />
+                <ui:VisualElement class="mission-row policy-actions">
+                    <ui:Button name="patrolButton" text="PATROL" class="mission-button" />
+                    <ui:Button name="cordonButton" text="CORDON" class="mission-button" />
+                </ui:VisualElement>
+                <ui:VisualElement class="mission-row policy-actions">
+                    <ui:Button name="searchButton" text="GRID SEARCH" class="mission-button" />
+                    <ui:Button name="holdButton" text="HOLD" class="mission-button" />
+                </ui:VisualElement>
+            </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement class="footer" picking-mode="Ignore">
             <ui:Label name="performanceMetrics" text="FPS --  /  FRAME -- ms  /  SOURCE AGE -- ms  /  SANDBOX -- ms" class="footer-text" />

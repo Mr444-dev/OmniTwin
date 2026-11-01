@@ -1,16 +1,36 @@
 # OmniTwin verification
 
-Verified on 2026-11-01 on Windows x64 using .NET SDK 10.0.403 with domain targets `net10.0` and `netstandard2.1`; the test hosts run on .NET 10.
+Verified on 2026-11-01 on Windows x64 with domain targets `net10.0` and `netstandard2.1`; the test hosts run on .NET 10.0.14. The final post-stage solution build used the installed .NET SDK 10.0.401 because the repository-pinned 10.0.403 SDK was unavailable to that CLI invocation; the repository pin was left unchanged.
 
 ## Stage 7 synthetic replay and release verification (current)
 
-The Release solution build completed with **zero warnings and zero errors** (14.11 seconds). The full .NET suite was rerun after the visual changes and passed **435/435 tests**, zero failures and zero skips, in 19.133 seconds. `live-preflight --synthetic-tabletop-replay` completed without opening a camera or contacting any model: `META_API_KEY` and `BASETEN_API_KEY` were both reported missing, with no values printed.
+The .NET 10 Release solution build completed with **zero warnings and zero errors**. The five Microsoft.Testing.Platform test executables passed **435/435 tests**, with zero failures and zero skips. `live-preflight --synthetic-tabletop-replay` confirmed that `META_API_KEY` and `BASETEN_API_KEY` are absent without printing values.
 
-The Unity 6000.6.3f1 / URP 17.6.0 project imported **19 files** through its live AssetDatabase (nine portable DLLs and ten runtime scripts). The portable importer builds completed with zero warnings/errors; Unity's current ground-truth compiler status is `compilationFailed=false`, `compiling=false`, with zero console errors and warnings. Play Mode connected one Unity client to the separate local backend process started with `--synthetic-tabletop-replay`. `/health/ready` returned 200; `/api/status` reported a running current source; `/api/world/latest` reported protocol v3, `sourceMode=1`, 20-second retention, and three synthetic tracks. The Unity HUD displayed `SOURCE: SYNTHETIC TABLETOP REPLAY (NON-LIVE)`.
+Unity **6000.6.3f1 / URP 17.6.0** built a `StandaloneWindows64` player through Unity CLI. The build used an isolated copy of the on-disk Unity project (excluding `Library`, `Temp`, `Logs` and `Obj`) because the open Editor had a dirty scene and a modal save prompt; the original Editor scene was left untouched. Unity returned build success. Its Licensing Client emitted nonfatal entitlement lookup errors (404); the player started and completed the benchmark successfully. Build output is in the local ignored directory `local/stage7/`.
 
-The scene ran `PerimeterPatrolPolicy` with three NavMesh ground agents and two aerial agents. All five had 48-ray LiDAR sampling and telemetry; the three ground sensors reported 2, 2, and 3 hits in a prior sample, while the two planar aerial scans reported no hits within range. The final 1280 × 720 Game View capture has LiDAR visualization enabled: every hit beam ends at its measured hit point with a marker, while one in eight empty beams is drawn to a subtle 1.1 m visual limit; all 48 rays still scan the full 6 m for sensing and telemetry. Agent and obstacle labels use 256 px glyphs at reduced world size, concise single-line text, and separated vertical offsets. Visible agent paths and camera preview/mask layers are enabled. The PIP contains the same-frame synthetic tabletop image and local CV mask overlay, marked `SYNTHETIC REPLAY · LOCAL CV`; it does not claim a SAM response. The camera presets and `CHASE AGENT` selector are in the header, leaving the table and perimeter agents clear of HUD controls. HUD performance and source-age readouts are visible in the capture; a single Editor frame is not a sustained-load or standalone/IL2CPP benchmark. Sandbox evaluation was 0.0 ms because this baseline replay did not request model-generated policy execution.
+The player connected to a separate local backend started with `--synthetic-tabletop-replay` on loopback port 5108. `/health/ready` reported `running`, a current observation and a recent publication; the player report recorded three obstacles, five agents, five 48-ray LiDAR sensors at 6 m, and active PIP plus three same-frame local-CV masks. No SAM response or cloud model result is claimed. The benchmark enforced 1920 × 1080 and verified both Unity `Screen` dimensions before measuring. The URP asset and scene cameras enable 4× MSAA.
 
-The final Play Mode console ground truth reported **zero errors and zero warnings**. A prior in-Play asset hot reload exposed stale nonserialized `NavMeshPath` and `MaterialPropertyBlock` caches. The Unity components now restore these runtime-only objects after enable/reload; the 19-file reimport, fresh Play run, and compiler/console checks verified the correction. [Current 1280 × 720 Game-view capture](images/tactical-desk.png) shows the synthetic PIP, masks, hit and clear LiDAR visualization, brighter agents, safe framing, camera controls, and non-live source banner. The backend and camera are synthetic/local: no physical camera, live SAM, Baseten, voice, semantic classification, Muse Image generation, or paid provider request was used.
+### Standalone sustained benchmark
+
+The final player build (with the restored 1024 × 1024 HUD font atlas) warmed up for 5 seconds, then ran continuously for 45.00 seconds and captured **23,047 frames**. Full machine-readable results are in [stage7-standalone.json](benchmarks/stage7-standalone.json).
+
+| Measurement | Result |
+|---|---:|
+| Resolution / render API / GPU | 1920 × 1080 / Direct3D 12 / GeForce GTX 1660 SUPER |
+| Average FPS / mean frame time | 512.1 FPS / 1.953 ms |
+| P95 / P99 frame time | 2.766 ms / 3.835 ms |
+| 1% low | 155.2 FPS |
+| Managed heap start / end / peak | 8.32 / 7.59 / 9.59 MB |
+| Managed heap delta | −0.73 MB |
+| Unity allocated memory delta / peak increase | +15.73 / +16.77 MB |
+| Texture memory start / end / delta | 3.74 / 3.74 / 0 MB |
+| GC collections during measurement | Gen 0: 111; Gen 1: 111; Gen 2: 111 |
+
+Unity's graphics-driver memory counter reported **0 bytes** under this D3D12 run, so that counter did not provide a usable GPU-memory measurement. The unchanged Unity texture-memory counter is the available PIP/mask texture check; it showed no growth during this sample. The performance report has zero `PolicyExecutor` samples because this synthetic session remained on the compiled-in baseline. The [separate AppContainer worker benchmark](benchmarks/stage7-policyworker.json) measured 500 five-agent request/response exchanges: worker startup 528.2 ms, mean 0.320 ms, P95 0.401 ms, P99 0.554 ms, maximum 1.974 ms. This is IPC dispatch/serialization for a locally compiled deterministic hold fixture, not generated-policy execution inside the standalone benchmark.
+
+The player log contains three Unity warnings, `Failed to create agent because there is no valid NavMesh`, and warnings that Gaussian/Bokeh depth of field and Panini post-process shaders were stripped. The five agents, sensors, HUD and replay were present, but the standalone run selected `EmergencyHoldPolicy`; this benchmark therefore verifies rendering and sustained replay, not perimeter navigation. The screenshot shows all side controls, all four policy buttons, the central command/model dock and the labeled synthetic PIP at native resolution. [Current 1920 × 1080 standalone capture](images/tactical-desk.png).
+
+The earlier live-Editor checks still apply to the scene's prior navigation fixture and compiler status; this standalone replay is a separate run. The synthetic backend and local CV do not use a physical camera, live SAM, Muse Spark, voice, semantic provider, or Muse Image endpoint. All relevant model-key states are shown as missing in the HUD; no provider credential was used.
 
 ## Stage 6 visual systems acceptance (previous milestone)
 

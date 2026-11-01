@@ -175,3 +175,184 @@
     flex-shrink: 0;
     white-space: nowrap;
 }
+
+/* The operator console owns the empty lower-center area; neither side panel scrolls. */
+.body { align-items: stretch; }
+.observation-panel {
+    width: 286px;
+    height: auto;
+    max-height: 100%;
+    align-self: flex-start;
+    overflow: visible;
+    padding: 14px;
+}
+.swarm-panel {
+    width: 300px;
+    height: auto;
+    max-height: 100%;
+    align-self: flex-start;
+    overflow: visible;
+    padding: 14px;
+}
+.world-column {
+    flex-grow: 1;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+.world-stage { flex-grow: 1; min-height: 0; }
+.command-dock {
+    flex-shrink: 0;
+    padding: 9px 10px 10px;
+    background-color: rgba(5, 14, 21, 0.94);
+    border-top-width: 2px;
+    border-top-color: rgb(33, 211, 191);
+    border-left-width: 1px;
+    border-left-color: rgba(49, 116, 126, 0.8);
+    border-right-width: 1px;
+    border-right-color: rgba(49, 116, 126, 0.8);
+}
+.dock-title {
+    min-height: 20px;
+    line-height: 18px;
+    margin-bottom: 6px;
+    color: rgb(90, 237, 211);
+    font-size: 11px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    flex-shrink: 0;
+}
+.model-matrix {
+    flex-direction: row;
+    flex-shrink: 0;
+    margin-bottom: 7px;
+}
+.model-card {
+    flex-grow: 1;
+    flex-basis: 0;
+    min-width: 0;
+    min-height: 38px;
+    margin-right: 4px;
+    padding: 5px 6px;
+    color: rgb(180, 214, 218);
+    background-color: rgba(11, 32, 41, 0.96);
+    border-left-width: 2px;
+    border-left-color: rgb(42, 117, 119);
+    font-size: 9px;
+    line-height: 13px;
+    white-space: normal;
+    flex-shrink: 0;
+}
+.sandbox-card { margin-right: 0; border-left-color: rgb(234, 184, 99); }
+.command-primary-row {
+    flex-direction: row;
+    align-items: stretch;
+    min-height: 58px;
+    flex-shrink: 0;
+}
+.voice-column {
+    width: 140px;
+    flex-shrink: 0;
+    margin-right: 6px;
+}
+.voice-record { width: 100%; min-height: 34px; margin: 0 0 3px; }
+.voice-actions { min-height: 28px; }
+.voice-actions .mission-button { min-height: 27px; margin: 1px; padding: 4px 2px; font-size: 9px; }
+.mission-input {
+    flex-grow: 1;
+    flex-basis: 0;
+    min-width: 0;
+    height: 58px;
+    min-height: 58px;
+    margin: 0 7px 0 0;
+    padding: 3px 6px;
+    background-color: rgba(10, 29, 38, 0.98);
+    border-left-width: 1px;
+    border-left-color: rgb(38, 99, 109);
+}
+.mission-input .unity-text-field__label { margin-bottom: 2px; font-size: 9px; }
+.mission-input .unity-text-field__input { min-height: 34px; padding: 3px 5px; font-size: 11px; }
+.synthesis-column { width: 190px; flex-shrink: 0; }
+.synthesize { min-height: 36px; margin: 0; padding: 6px 4px; font-size: 10px; }
+.brain-status, .model-name { min-height: 16px; line-height: 14px; margin-top: 3px; font-size: 9px; white-space: nowrap; overflow: hidden; }
+.brain-status { color: rgb(108, 238, 210); }
+.model-name { color: rgb(239, 191, 114); }
+.operator-status-row {
+    flex-direction: row;
+    align-items: center;
+    min-height: 19px;
+    max-height: 24px;
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+.operator-status-row > * { min-width: 0; margin: 0 6px 0 0; }
+.operator-status-row .media-status { flex-basis: 150px; flex-grow: 1; }
+.operator-status-row .voice-draft { flex-basis: 160px; flex-grow: 1; max-height: 20px; white-space: nowrap; overflow: hidden; }
+.operator-status-row .diagnostic-text { flex-basis: 210px; flex-grow: 2; max-height: 22px; margin: 0; font-size: 9px; white-space: nowrap; overflow: hidden; }
+.command-details-row { flex-direction: row; min-width: 0; margin-top: 5px; }
+.operator-card {
+    min-width: 0;
+    flex-basis: 0;
+    flex-grow: 1;
+    padding: 6px;
+    background-color: rgba(8, 24, 32, 0.94);
+    border-top-width: 1px;
+    border-top-color: rgb(31, 71, 81);
+}
+.semantic-console { margin-right: 5px; }
+.operator-card .section-title { min-height: 16px; margin: 0 0 2px; font-size: 9px; letter-spacing: 1px; }
+.operator-card .media-status { min-height: 15px; line-height: 14px; margin: 0 0 2px; font-size: 9px; }
+.semantic-selection-row, .semantic-edit-row { flex-direction: row; align-items: flex-end; min-height: 36px; }
+.semantic-field { min-width: 0; margin: 0 4px 0 0; font-size: 9px; }
+.semantic-field .unity-base-field__label { margin-bottom: 1px; font-size: 8px; }
+.semantic-field .unity-base-field__input { min-height: 24px; padding: 2px 4px; font-size: 10px; }
+.semantic-track { width: 78px; flex-shrink: 0; }
+.semantic-label { flex-grow: 1; flex-basis: 0; }
+.semantic-choice { width: 100px; flex-shrink: 0; }
+.compact-action { width: 76px; min-height: 25px; flex-grow: 0; flex-shrink: 0; margin: 1px 4px 1px 0; padding: 3px; font-size: 9px; }
+.semantic-selected { flex-grow: 1; min-width: 0; margin: 0 0 2px 3px !important; white-space: nowrap; overflow: hidden; }
+.semantic-actions, .scenery-actions { min-height: 27px; }
+.semantic-actions .mission-button, .scenery-actions .mission-button { min-height: 25px; margin: 1px 4px 1px 0; padding: 3px; font-size: 9px; }
+.scenery-prompt { min-height: 38px; margin: 0 0 3px; }
+.scenery-prompt .unity-base-field__label { margin-bottom: 1px; }
+.scenery-prompt .unity-base-field__input { min-height: 24px; }
+.reconnect { min-height: 32px; margin: 5px 0 0; padding: 5px; font-size: 10px; }
+.control-reason { min-height: 34px; max-height: 48px; margin: 3px 0 6px; overflow: hidden; }
+.lidar-toggle { min-height: 34px; margin: 0 0 5px; }
+.policy-actions { min-height: 34px; }
+.policy-actions .mission-button { min-height: 31px; margin: 2px; padding: 5px 3px; }
+.camera-preview { width: 192px; height: 112px; min-height: 112px; margin: 7px 0; align-self: center; flex-shrink: 0; }
+
+/* Keep the dock usable on narrower editor and laptop windows without bringing back scrollbars. */
+.compact .observation-panel { width: 240px; padding: 10px; }
+.compact .swarm-panel { width: 250px; padding: 10px; }
+.compact .voice-column { width: 112px; }
+.compact .synthesis-column { width: 155px; }
+.compact .command-dock { padding: 6px; }
+.compact .model-card { font-size: 8px; padding: 3px; }
+.compact .semantic-choice { width: 80px; }
+.compact .camera-preview { width: 160px; height: 96px; min-height: 96px; }
+
+/* Keep all five live telemetry rows and the full four-button policy pad above the footer. */
+.swarm-panel .section-title { margin-bottom: 5px; }
+.swarm-panel .policy-name { margin-bottom: 5px; font-size: 13px; line-height: 16px; }
+.swarm-panel .telemetry-text { margin-bottom: 7px; font-size: 11px; line-height: 12px; }
+.swarm-panel .control-reason { min-height: 24px; max-height: 30px; margin: 2px 0 4px; font-size: 10px; line-height: 12px; }
+.swarm-panel .lidar-toggle { min-height: 30px; margin-bottom: 3px; padding: 5px 3px; font-size: 10px; }
+.swarm-panel .policy-actions { min-height: 29px; }
+.swarm-panel .policy-actions .mission-button { min-height: 27px; margin: 1px; padding: 4px 3px; font-size: 10px; }
+.semantic-selection-row { flex-direction: row; align-items: center; height: 30px; min-height: 30px; max-height: 30px; }
+.semantic-track-caption { width: 38px; min-width: 38px; max-height: 16px; margin: 0; font-size: 7px; letter-spacing: 0; flex-shrink: 0; }
+.semantic-selection-row .semantic-track { width: 94px; min-width: 94px; max-width: 94px; height: 27px; min-height: 27px; max-height: 27px; flex-basis: 94px; flex-grow: 0; }
+.semantic-selection-row .compact-action { width: 75px; min-width: 75px; max-width: 75px; min-height: 25px; margin: 0 0 0 4px; padding: 2px; flex-grow: 0; }
+.semantic-selected { min-height: 15px; max-height: 17px; line-height: 13px; margin: 0 0 2px !important; }
+.semantic-edit-row { min-height: 31px; }
+.semantic-label { min-width: 78px; }
+.semantic-choice { width: 78px; }
+.semantic-actions, .scenery-actions { min-height: 24px; }
+.semantic-actions .mission-button, .scenery-actions .mission-button { min-height: 23px; padding: 2px; font-size: 8px; }
+.semantic-field .unity-base-field__input { min-height: 21px; padding: 1px 3px; font-size: 9px; }
+.semantic-field .unity-base-field__label { font-size: 7px; }
+.scenery-prompt { min-height: 33px; }
+.scenery-prompt .unity-base-field__input { min-height: 21px; }

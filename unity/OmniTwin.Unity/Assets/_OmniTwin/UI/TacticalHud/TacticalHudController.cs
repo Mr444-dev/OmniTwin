@@ -11,6 +11,7 @@ using OmniTwin.Simulation.Runtime;
 using OmniTwin.Simulation.Media;
 using OmniTwin.Simulation.CameraControl;
 using OmniTwin.Simulation.Agents;
+using OmniTwin.Simulation.Diagnostics;
 
 namespace OmniTwin.Simulation.UI
 {
@@ -24,7 +25,8 @@ namespace OmniTwin.Simulation.UI
         [SerializeField] private VisualServicesController visuals = null;
         private VisualElement _screen;
         private Label _badge, _connection, _tracks, _hazards, _age, _publication, _calibration, _notice;
-        private Label _sourceMode, _modelMatrix, _performance;
+        private Label _sourceMode, _performance;
+        private Label _modelSam, _modelSparkOpen, _modelSemantic, _modelVoice, _modelImage, _modelSandbox;
         private Button _reconnect;
         private IVisualElementScheduledItem _refresh;
         private Label _policy, _telemetry, _reason, _brain, _model, _compiler;
@@ -68,9 +70,13 @@ namespace OmniTwin.Simulation.UI
             _publication = Required<Label>(root, "publication");
             _calibration = Required<Label>(root, "calibration");
             _notice = Required<Label>(root, "sourceNotice");
-            _sourceMode = Required<Label>(root, "sourceModeBanner"); _modelMatrix = Required<Label>(root, "modelMatrix");
+            _sourceMode = Required<Label>(root, "sourceModeBanner");
+            _modelSam = Required<Label>(root, "modelSam"); _modelSparkOpen = Required<Label>(root, "modelSparkOpen");
+            _modelSemantic = Required<Label>(root, "modelSemantic"); _modelVoice = Required<Label>(root, "modelVoice");
+            _modelImage = Required<Label>(root, "modelImage"); _modelSandbox = Required<Label>(root, "modelSandbox");
             _performance = Required<Label>(root, "performanceMetrics");
-            _sourceMode.enableRichText = false; _modelMatrix.enableRichText = false; _performance.enableRichText = false;
+            _sourceMode.enableRichText = false; _performance.enableRichText = false;
+            foreach (var label in new[] { _modelSam, _modelSparkOpen, _modelSemantic, _modelVoice, _modelImage, _modelSandbox }) label.enableRichText = false;
             _reconnect = Required<Button>(root, "reconnectButton");
             _reconnect.clicked += Reconnect;
             _policy = Required<Label>(root, "activePolicy"); _telemetry = Required<Label>(root, "agentTelemetry");
@@ -112,6 +118,12 @@ namespace OmniTwin.Simulation.UI
             _recordVoice.clicked += RecordVoice; _cancelVoice.clicked += CancelVoice; _useTranscript.clicked += UseTranscript; _previewToggle.clicked += TogglePreview;
             media.RecordingStarted += VoiceStarted;
             _patrol.clicked += Patrol; _cordon.clicked += Cordon; _search.clicked += Search; _hold.clicked += Hold; _generate.clicked += Generate;
+            if (SustainedBenchmarkRecorder.IsRequested)
+            {
+                media.SetMasksEnabled(true);
+                media.SetPreviewEnabled(true);
+                SetLidarVisibility(true);
+            }
             _screen.RegisterCallback<GeometryChangedEvent>(Resize);
             _refresh = root.schedule.Execute(Refresh).Every(100);
             Refresh();
@@ -148,13 +160,15 @@ namespace OmniTwin.Simulation.UI
             foreach (var agent in executor.Agents)
             {
                 var telemetry = agent.ReadTelemetry();
-                measured.Append(telemetry.AgentId).Append(telemetry.Role == AgentRole.GroundVehicle ? " AGV_GROUND  " : " DRONE_AERIAL  ")
-                    .Append(telemetry.Status).Append("\n  (").Append(telemetry.CurrentPosition.X.ToString("F1", CultureInfo.InvariantCulture)).Append(", ")
-                    .Append(telemetry.CurrentPosition.Z.ToString("F1", CultureInfo.InvariantCulture)).Append(")  ")
-                    .Append((telemetry.BatteryLevel * 100).ToString("F0", CultureInfo.InvariantCulture)).Append("%\n");
+                measured.Append('#').Append(telemetry.AgentId)
+                    .Append(telemetry.Role == AgentRole.GroundVehicle ? " AGV  " : " DRONE  ")
+                    .Append(telemetry.Status).Append("  ")
+                    .Append((telemetry.BatteryLevel * 100).ToString("F0", CultureInfo.InvariantCulture)).Append("%\n  ")
+                    .Append(telemetry.CurrentPosition.X.ToString("F1", CultureInfo.InvariantCulture)).Append(',')
+                    .Append(telemetry.CurrentPosition.Z.ToString("F1", CultureInfo.InvariantCulture)).Append("  ·  ");
                 var lidar = telemetry.Lidar;
-                measured.Append("  LiDAR ").Append(lidar == null ? "unavailable" : lidar.AgeMilliseconds > 250 ? "stale" :
-                    (lidar.MinimumDistanceMeters.HasValue ? lidar.MinimumDistanceMeters.Value.ToString("F2", CultureInfo.InvariantCulture) + " m" : "clear to " + lidar.RangeMeters.ToString("F1", CultureInfo.InvariantCulture) + " m") + " / " + lidar.HitCount + " hits").Append("\n");
+                measured.Append("LiDAR ").Append(lidar == null ? "unavailable" : lidar.AgeMilliseconds > 250 ? "stale" :
+                    (lidar.MinimumDistanceMeters.HasValue ? lidar.MinimumDistanceMeters.Value.ToString("F2", CultureInfo.InvariantCulture) + "m" : "clear " + lidar.RangeMeters.ToString("F1", CultureInfo.InvariantCulture) + "m") + "/" + lidar.HitCount).Append("\n");
             }
             _telemetry.text = measured.ToString();
             _reason.text = Time.unscaledTime < _feedbackUntil ? _feedback : executor.FailureCategory ?? "Validated controls and current observations";
@@ -162,14 +176,17 @@ namespace OmniTwin.Simulation.UI
             _brain.text = "Brain / " + (control?.BrainStatus ?? "awaiting backend") + (control == null ? "" : " / attempt " + control.GenerationAttempts);
             _model.text = "Model / " + (control?.ModelIdUsed ?? "none") + (control?.UsedModelFallback == true ? " / 404 fallback" : "");
             var readiness = visuals.Readiness;
-            _modelMatrix.text = readiness == null ? "Backend diagnostics unavailable\n" + visuals.ReadinessStatus :
-                "SAM 3.1 / " + (readiness.MetaApiKeyConfigured ? "credential configured" : "credential missing") + "\n" +
-                "MUSE SPARK OPEN / " + readiness.BasetenRequiredModelId + "\n  " + (readiness.BasetenApiKeyConfigured ? "credential configured" : "credential missing") +
-                (control?.ModelIdUsed == null ? "" : " · active " + control.ModelIdUsed) + "\n" +
-                "MUSE SPARK 1.3 / " + readiness.MuseSemanticModelId + "\n" +
-                "MUSE VOICE / " + readiness.MuseVoiceModelId + "\n" +
-                "MUSE IMAGE / " + readiness.MuseImageModelId + "\n" +
-                "ROSLYN + APPCONTAINER / worker " + (readiness.PolicyWorkerPresent ? "present" : "missing") + " · Windows isolation " + (readiness.WindowsAppContainerSupported ? "supported" : "unavailable");
+            _modelSam.text = readiness == null ? "SAM 3.1\nSTATUS UNAVAILABLE" : "SAM 3.1\n" +
+                (readiness.MetaApiKeyConfigured ? "META KEY SET" : "META KEY MISSING");
+            _modelSparkOpen.text = readiness == null ? "MUSE SPARK OPEN\nSTATUS UNAVAILABLE" : "MUSE SPARK OPEN\n" +
+                (readiness.BasetenApiKeyConfigured ? "BASETEN KEY SET" : "BASETEN KEY MISSING") +
+                (control?.ModelIdUsed == null ? "" : " · " + (control.UsedModelFallback ? "FALLBACK ID" : "MODEL ACTIVE"));
+            _modelSemantic.text = readiness == null ? "MUSE SPARK 1.3\nSTATUS UNAVAILABLE" : "MUSE SPARK 1.3\n" + readiness.MuseSemanticModelId;
+            _modelVoice.text = readiness == null ? "MUSE VOICE\nSTATUS UNAVAILABLE" : "MUSE VOICE\n" + readiness.MuseVoiceModelId;
+            _modelImage.text = readiness == null ? "MUSE IMAGE\nSTATUS UNAVAILABLE" : "MUSE IMAGE\n" + readiness.MuseImageModelId;
+            _modelSandbox.text = readiness == null ? "ROSLYN + APPCONTAINER\nSTATUS UNAVAILABLE" : "ROSLYN + APPCONTAINER\n" +
+                "WORKER " + (readiness.PolicyWorkerPresent ? "READY" : "MISSING") + " · " +
+                (readiness.WindowsAppContainerSupported ? "ISOLATION READY" : "ISOLATION N/A");
             var fps = 1f / Mathf.Max(_frameTimeEma, 0.0001f);
             var evaluation = control == null ? "--" : control.EvaluationDurationMilliseconds.ToString("F1", CultureInfo.InvariantCulture);
             var observedAge = current && state.Message.World.SourceAgeMilliseconds.HasValue

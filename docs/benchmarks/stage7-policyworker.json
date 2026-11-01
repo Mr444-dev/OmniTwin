@@ -1,0 +1,19 @@
+{
+  "CapturedAtUtc": "2026-11-01T12:49:21.6948635\u002B00:00",
+  "OperatingSystem": "Microsoft Windows NT 10.0.26200.0",
+  "Runtime": "10.0.14",
+  "Isolation": "Windows AppContainer with zero capabilities and kill-on-close resource job",
+  "Policy": "Locally compiled deterministic hold fixture; no model or provider call",
+  "WorkerStartupMilliseconds": 528.164,
+  "WarmupExchanges": 30,
+  "MeasuredExchanges": 500,
+  "AgentsPerRequest": 5,
+  "MeanRoundTripMilliseconds": 0.31955500000000003,
+  "P50RoundTripMilliseconds": 0.3074,
+  "P95RoundTripMilliseconds": 0.4005,
+  "P99RoundTripMilliseconds": 0.5537,
+  "MaximumRoundTripMilliseconds": 1.9742,
+  "MinimumRoundTripMilliseconds": 0.2273,
+  "ExecutionTimeoutMilliseconds": 100,
+  "MeasurementBoundary": "Parent wall time around Policy.ComputeAsync request/response IPC. Includes AppContainer worker dispatch and protocol serialization; excludes policy compilation and worker startup from steady-state percentiles."
+}

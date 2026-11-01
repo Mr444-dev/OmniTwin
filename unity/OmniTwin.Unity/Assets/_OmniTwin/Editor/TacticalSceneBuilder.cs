@@ -111,6 +111,7 @@ namespace OmniTwin.Simulation.Editor
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 150;
             camera.allowHDR = true;
+            camera.allowMSAA = true;
             cameraObject.AddComponent<AudioListener>();
             cameraObject.AddComponent<TacticalCameraController>().ResetView();
             var cameraData = cameraObject.AddComponent<UniversalAdditionalCameraData>();
@@ -192,8 +193,8 @@ namespace OmniTwin.Simulation.Editor
 
             PlayerSettings.companyName = "OmniTwin";
             PlayerSettings.productName = "OmniTwin";
-            PlayerSettings.defaultScreenWidth = 1280;
-            PlayerSettings.defaultScreenHeight = 720;
+            PlayerSettings.defaultScreenWidth = 1920;
+            PlayerSettings.defaultScreenHeight = 1080;
             PlayerSettings.runInBackground = true;
             EditorSettings.serializationMode = SerializationMode.ForceText;
             if (!EditorSceneManager.SaveScene(scene, ScenePath)) throw new IOException("Tactical scene could not be saved.");
