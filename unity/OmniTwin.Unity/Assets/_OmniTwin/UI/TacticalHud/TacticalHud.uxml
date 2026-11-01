@@ -27,15 +27,28 @@
         <ui:VisualElement class="body" picking-mode="Ignore">
             <ui:VisualElement class="sidebar observation-panel" picking-mode="Position">
                 <ui:Label text="WORLD OBSERVATION" class="section-title" />
-                <ui:Button name="previewToggleButton" text="SHOW CAMERA PREVIEW" class="mission-button preview-toggle" />
-                <ui:Label name="previewStatus" text="Camera preview off" class="media-status" />
-                <ui:Button name="maskToggleButton" text="SHOW SAM MASKS" class="mission-button preview-toggle" />
-                <ui:Label name="maskStatus" text="Masks unavailable · no current image" class="media-status" />
-                <ui:Label name="trackCount" text="--" class="big-value" />
-                <ui:Label text="CURRENT OBSTACLE TRACKS" class="value-caption" />
-                <ui:VisualElement class="metric">
-                    <ui:Label text="Hazard tracks" class="metric-name" />
-                    <ui:Label name="hazardCount" text="--" class="metric-value" />
+                <ui:VisualElement name="previewFrame" class="camera-preview preview-hidden" picking-mode="Ignore">
+                    <ui:Image name="cameraPreview" class="preview-image" picking-mode="Ignore" />
+                    <ui:Image name="maskPreview" class="preview-image" picking-mode="Ignore" />
+                    <ui:Label name="previewReplayBadge" text="SYNTHETIC REPLAY · LOCAL CV" class="preview-replay-badge preview-hidden" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement class="preview-controls">
+                    <ui:Button name="previewToggleButton" text="SHOW CAMERA PREVIEW" class="mission-button preview-toggle" />
+                    <ui:Button name="maskToggleButton" text="SHOW SAM MASKS" class="mission-button preview-toggle" />
+                </ui:VisualElement>
+                <ui:VisualElement class="preview-status-row">
+                    <ui:Label name="previewStatus" text="Camera preview off" class="media-status" />
+                    <ui:Label name="maskStatus" text="Masks unavailable · no current image" class="media-status" />
+                </ui:VisualElement>
+                <ui:VisualElement class="track-summary">
+                    <ui:VisualElement class="summary-card">
+                        <ui:Label name="trackCount" text="--" class="summary-value" />
+                        <ui:Label text="ACTIVE TRACKS" class="summary-caption" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="summary-card hazard-summary">
+                        <ui:Label name="hazardCount" text="--" class="summary-value" />
+                        <ui:Label text="HAZARDS" class="summary-caption" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:VisualElement class="metric">
                     <ui:Label text="Observation age" class="metric-name" />
@@ -49,15 +62,19 @@
                     <ui:Label text="Calibration" class="metric-name" />
                     <ui:Label name="calibration" text="--" class="metric-value" />
                 </ui:VisualElement>
-                <ui:VisualElement name="previewFrame" class="camera-preview preview-hidden" picking-mode="Ignore">
-                    <ui:Image name="cameraPreview" class="preview-image" picking-mode="Ignore" />
-                    <ui:Image name="maskPreview" class="preview-image" picking-mode="Ignore" />
-                    <ui:Label name="previewReplayBadge" text="SYNTHETIC REPLAY · LOCAL CV" class="preview-replay-badge preview-hidden" picking-mode="Ignore" />
-                </ui:VisualElement>
                 <ui:Label name="sourceNotice" text="Waiting for a calibrated camera observation." class="notice" />
                 <ui:Button name="reconnectButton" text="RECONNECT STREAM" class="action reconnect" />
             </ui:VisualElement>
             <ui:VisualElement class="world-column" picking-mode="Ignore">
+                <ui:VisualElement class="pipeline-strip" picking-mode="Ignore">
+                    <ui:Label text="1 · CAMERA + SAM 3.1" class="pipeline-stage" />
+                    <ui:Label text="›" class="pipeline-arrow" />
+                    <ui:Label text="2 · 3D DIGITAL TWIN" class="pipeline-stage" />
+                    <ui:Label text="›" class="pipeline-arrow" />
+                    <ui:Label text="3 · MUSE SPARK + ROSLYN" class="pipeline-stage" />
+                    <ui:Label text="›" class="pipeline-arrow" />
+                    <ui:Label text="4 · 5-UNIT LIDAR SWARM" class="pipeline-stage" />
+                </ui:VisualElement>
                 <ui:VisualElement class="world-stage" picking-mode="Ignore" />
                 <ui:VisualElement class="command-dock" picking-mode="Position">
                     <ui:Label text="AI COMMAND &amp; MODEL MATRIX DOCK" class="dock-title" />
@@ -83,7 +100,7 @@
                                     <ui:Button name="useTranscriptButton" text="USE TRANSCRIPT" class="mission-button" />
                                 </ui:VisualElement>
                             </ui:VisualElement>
-                            <ui:TextField name="missionInstruction" label="MISSION INSTRUCTION" multiline="true" max-length="4096" class="mission-input" />
+                            <ui:TextField name="missionInstruction" label="MISSION INSTRUCTION" value="Establish a 2.8m safety cordon around hazard object #3; use ground AGVs at the cordon and patrol the outer perimeter with aerial drones." multiline="true" max-length="4096" class="mission-input" />
                             <ui:VisualElement class="synthesis-column">
                                 <ui:Button name="generateButton" text="SYNTHESIZE POLICY (BRAIN)" class="action synthesize" />
                                 <ui:Label name="brainState" text="Brain / baseline" class="brain-status" />
@@ -129,7 +146,7 @@
             <ui:VisualElement class="swarm-panel" picking-mode="Position">
                 <ui:Label text="SWARM CONTROL" class="section-title" />
                 <ui:Label name="activePolicy" text="EmergencyHoldPolicy" class="policy-name" />
-                <ui:Label name="agentTelemetry" text="Awaiting measured agent telemetry" class="telemetry-text" />
+                <ui:VisualElement name="agentCards" class="unit-cards" />
                 <ui:Button name="lidarToggleButton" text="SHOW LIDAR BEAMS" class="mission-button lidar-toggle" />
                 <ui:Label name="controlReason" text="Waiting for trustworthy source" class="notice control-reason" />
                 <ui:VisualElement class="mission-row policy-actions">

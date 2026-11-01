@@ -14,11 +14,11 @@ namespace OmniTwin.Simulation.CameraControl
         [SerializeField] private float initialDistance = 38.5f;
         [SerializeField] private float initialYaw = -16;
         [SerializeField] private float initialPitch = 53;
-        [SerializeField] private float overviewDistance = 40.5f;
+        [SerializeField] private float overviewDistance = 41f;
         [SerializeField] private float overviewPitch = 48f;
-        [SerializeField] private float mapOrthographicSize = 15.3f;
+        [SerializeField] private float mapOrthographicSize = 16.8f;
         [SerializeField] private Vector3 overviewFocusOffset = new Vector3(0f, 0f, -1.4f);
-        [SerializeField] private Vector3 mapFocusOffset = new Vector3(0f, 0f, -1.5f);
+        [SerializeField] private Vector3 mapFocusOffset = new Vector3(0f, 0f, -1.8f);
         [SerializeField] private float orbitSensitivity = 0.18f;
         [SerializeField] private float zoomSensitivity = 0.12f;
         private float _distance, _yaw, _pitch;

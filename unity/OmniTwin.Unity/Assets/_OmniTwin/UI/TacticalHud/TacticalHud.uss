@@ -301,3 +301,100 @@
 .swarm-panel .policy-name { margin-bottom: 5px; font-size: 13px; }
 .swarm-panel .telemetry-text { margin-bottom: 7px; font-size: 11px; }
 .swarm-panel .control-reason { font-size: 10px; }
+
+/* Stage 8 product presentation: camera-first observation, readable unit cards, and a compact flow strip. */
+.observation-panel { padding: 12px; }
+.observation-panel > .section-title { margin-bottom: 5px; }
+.camera-preview {
+    width: 100%;
+    height: 154px;
+    min-height: 154px;
+    margin: 3px 0 7px;
+    align-self: stretch;
+    background-color: rgb(8, 19, 26);
+    border-width: 1px;
+    border-color: rgb(38, 101, 110);
+}
+.preview-controls { flex-direction: row; min-height: 31px; flex-shrink: 0; }
+.preview-controls .preview-toggle { flex-basis: 0; width: 50%; min-width: 0; min-height: 29px; margin: 1px 2px; font-size: 9px; }
+.preview-status-row { flex-direction: row; min-height: 20px; margin-bottom: 4px; }
+.preview-status-row .media-status { flex-basis: 0; flex-grow: 1; min-width: 0; margin: 0 3px; font-size: 8px; }
+.track-summary { flex-direction: row; margin: 3px 0 6px; }
+.summary-card {
+    flex-grow: 1;
+    flex-basis: 0;
+    min-width: 0;
+    min-height: 54px;
+    margin-right: 5px;
+    padding: 4px 8px;
+    background-color: rgba(10, 32, 41, 0.96);
+    border-left-width: 2px;
+    border-left-color: rgb(38, 207, 184);
+}
+.summary-card.hazard-summary { margin-right: 0; border-left-color: rgb(250, 104, 73); }
+.summary-value { color: rgb(228, 246, 244); font-size: 25px; -unity-font-style: bold; }
+.hazard-summary .summary-value { color: rgb(255, 147, 111); }
+.summary-caption { color: rgb(131, 170, 178); font-size: 8px; letter-spacing: 1px; }
+.observation-panel .metric { min-height: 19px; height: 19px; margin-bottom: 2px; padding: 0 4px; background-color: rgba(11, 24, 31, 0.82); }
+.observation-panel .metric-name, .observation-panel .metric-value { font-size: 10px; }
+.observation-panel .metric-value { min-width: 80px; }
+.observation-panel .notice { min-height: 34px; max-height: 47px; margin-top: 5px; font-size: 9px; overflow: hidden; }
+.observation-panel .reconnect { min-height: 29px; margin-top: 4px; }
+.pipeline-strip {
+    height: 34px;
+    min-height: 34px;
+    max-height: 34px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin: 0 5px 3px;
+    padding: 2px 7px;
+    background-color: rgba(7, 16, 23, 0.94);
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(47, 123, 132, 0.7);
+    flex-shrink: 0;
+}
+.pipeline-stage { flex-grow: 1; min-width: 0; color: rgb(156, 205, 207); font-size: 8px; -unity-font-style: bold; letter-spacing: 0.5px; white-space: nowrap; -unity-text-align: middle-center; }
+.pipeline-arrow { width: 16px; color: rgb(50, 223, 190); font-size: 17px; -unity-text-align: middle-center; }
+.unit-cards { flex-grow: 1; min-height: 0; flex-direction: column; margin-bottom: 4px; }
+.unit-card {
+    min-height: 51px;
+    flex-basis: 51px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    margin: 1px 0 3px;
+    padding: 4px 6px 3px;
+    background-color: rgba(10, 27, 36, 0.95);
+    border-left-width: 3px;
+    border-left-color: rgb(50, 211, 197);
+}
+.unit-card.aerial-card { border-left-color: rgb(255, 183, 87); }
+.unit-card-header { flex-direction: row; justify-content: space-between; align-items: center; min-height: 16px; }
+.unit-card-title { color: rgb(218, 236, 238); font-size: 9px; -unity-font-style: bold; letter-spacing: 0.4px; white-space: nowrap; }
+.unit-status { min-width: 68px; padding: 2px 4px; color: rgb(167, 184, 187); background-color: rgba(70, 85, 89, 0.55); font-size: 7px; -unity-font-style: bold; -unity-text-align: middle-center; white-space: nowrap; }
+.unit-status.status-navigating { color: rgb(72, 247, 201); background-color: rgba(7, 80, 68, 0.8); }
+.unit-status.status-holding { color: rgb(255, 197, 111); background-color: rgba(82, 55, 20, 0.82); }
+.unit-status.status-idle { color: rgb(166, 207, 220); background-color: rgba(25, 54, 66, 0.84); }
+.unit-status.status-lowbattery, .unit-status.status-offline { color: rgb(255, 130, 112); background-color: rgba(94, 30, 27, 0.86); }
+.unit-card-detail { color: rgb(153, 183, 192); font-size: 8px; white-space: nowrap; overflow: hidden; margin-top: 2px; }
+.policy-actions .policy-active {
+    color: rgb(117, 255, 221);
+    background-color: rgb(13, 75, 70);
+    border-color: rgb(64, 245, 204);
+    -unity-font-style: bold;
+}
+.voice-column { width: 128px; }
+.voice-actions .mission-button { min-width: 0; }
+.voice-actions #useTranscriptButton { flex-grow: 1.35; font-size: 6px; }
+.mission-input .unity-text-field__input { -unity-text-align: middle-left; }
+.compact .pipeline-strip { margin-left: 2px; margin-right: 2px; }
+.compact .pipeline-stage { font-size: 7px; }
+.compact .pipeline-arrow { width: 10px; }
+.compact .observation-panel { padding: 8px; }
+.compact .camera-preview { height: 126px; min-height: 126px; }
+.compact .summary-card { min-height: 47px; padding: 3px 5px; }
+.compact .summary-value { font-size: 22px; }
+.compact .unit-card { padding-left: 4px; padding-right: 4px; }
+.compact .unit-card-title { font-size: 8px; }
+.compact .unit-card-detail { font-size: 7px; }
+.compact .voice-column { width: 118px; }

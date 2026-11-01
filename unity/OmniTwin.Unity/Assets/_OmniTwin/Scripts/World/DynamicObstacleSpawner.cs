@@ -80,7 +80,7 @@ namespace OmniTwin.Simulation.World
                 visual.Body.localScale = new Vector3(2 * obstacle.RadiusMeters, proxyHeightMeters / 2, 2 * obstacle.RadiusMeters);
                 visual.Obstacle.radius = obstacle.RadiusMeters;
                 visual.Obstacle.carving = track.Lifecycle == ObstacleLifecycleState.SettledObstacle;
-                visual.Tint.SetColor(BaseColor, RenderColor(track));
+                visual.Tint.SetColor(BaseColor, CoreColor(track));
                 visual.Renderer.SetPropertyBlock(visual.Tint);
                 var label = FormatCallout(track);
                 visual.Callout.UpdateDetails(label, RenderColor(track), obstacle.RadiusMeters, proxyHeightMeters);
@@ -108,7 +108,7 @@ namespace OmniTwin.Simulation.World
             var pipeline = GraphicsSettings.currentRenderPipeline;
             if (hologramMaterial != null) renderer.sharedMaterial = hologramMaterial;
             else if (pipeline != null && pipeline.defaultMaterial != null) renderer.sharedMaterial = pipeline.defaultMaterial;
-            var tint = new MaterialPropertyBlock(); tint.SetColor(BaseColor, RenderColor(track)); renderer.SetPropertyBlock(tint);
+            var tint = new MaterialPropertyBlock(); tint.SetColor(BaseColor, CoreColor(track)); renderer.SetPropertyBlock(tint);
             var nav = root.AddComponent<NavMeshObstacle>();
             nav.shape = NavMeshObstacleShape.Capsule;
             nav.center = new Vector3(0, proxyHeightMeters / 2, 0);
@@ -133,10 +133,19 @@ namespace OmniTwin.Simulation.World
             return obstacleColor;
         }
 
+        private static Color CoreColor(TrackedObstacleState track)
+        {
+            return track.Obstacle.IsHazardZone
+                ? new Color(0.16f, 0.035f, 0.025f, 0.20f)
+                : new Color(0.025f, 0.105f, 0.14f, 0.20f);
+        }
+
         private static string FormatCallout(TrackedObstacleState track)
         {
-            return "OBJ-" + track.Obstacle.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " +
-                (track.Obstacle.IsHazardZone ? "HAZ" : track.Obstacle.Confidence.ToString("P0", System.Globalization.CultureInfo.InvariantCulture));
+            var id = track.Obstacle.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return track.Obstacle.IsHazardZone
+                ? "TRACK #" + id + " · HAZARD ZONE"
+                : "TRACK #" + id + " · OBSTACLE (" + track.Obstacle.Confidence.ToString("P0", System.Globalization.CultureInfo.InvariantCulture) + ")";
         }
 
         private void OnDisable() { IsWorldCurrent = false; Clear(); }

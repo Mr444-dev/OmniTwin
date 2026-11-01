@@ -10,10 +10,12 @@ namespace OmniTwin.Simulation.World
     {
         private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
         private readonly Vector3[] _ringPoints = new Vector3[49];
-        private readonly Vector3[] _bracketVertices = new Vector3[24];
-        private readonly int[] _bracketIndices = new int[24];
+        private readonly Vector3[] _bracketVertices = new Vector3[48];
+        private readonly int[] _bracketIndices = new int[48];
         private MaterialPropertyBlock _block;
         private LineRenderer _ring;
+        private LineRenderer _baseRing;
+        private LineRenderer _topRing;
         private Mesh _bracketMesh;
         private MeshRenderer _bracketRenderer;
         private TextMesh _label;
@@ -36,7 +38,7 @@ namespace OmniTwin.Simulation.World
             _camera = Camera.main;
             var labelObject = new GameObject("World-space callout"); labelObject.transform.SetParent(transform, false);
             labelObject.transform.localPosition = new Vector3(_labelLateralOffset, height + _labelHeightOffset, 0);
-            _label = labelObject.AddComponent<TextMesh>(); _label.text = label; _label.fontSize = 256; _label.characterSize = 0.020f;
+            _label = labelObject.AddComponent<TextMesh>(); _label.text = label; _label.fontSize = 72; _label.characterSize = 0.034f;
             _label.anchor = TextAnchor.LowerCenter; _label.alignment = TextAlignment.Center; _label.color = color;
             _label.richText = false;
 
@@ -44,6 +46,16 @@ namespace OmniTwin.Simulation.World
             _ring = ringObject.AddComponent<LineRenderer>(); _ring.useWorldSpace = false; _ring.loop = false; _ring.positionCount = 49;
             _ring.sharedMaterial = sharedUnlit; _ring.startWidth = 0.025f; _ring.endWidth = 0.025f;
             _ring.shadowCastingMode = ShadowCastingMode.Off; _ring.receiveShadows = false;
+
+            var baseRingObject = new GameObject("Obstacle base scan ring"); baseRingObject.transform.SetParent(transform, false);
+            _baseRing = baseRingObject.AddComponent<LineRenderer>(); _baseRing.useWorldSpace = false; _baseRing.loop = false;
+            _baseRing.positionCount = 49; _baseRing.sharedMaterial = sharedUnlit; _baseRing.startWidth = 0.035f; _baseRing.endWidth = 0.035f;
+            _baseRing.shadowCastingMode = ShadowCastingMode.Off; _baseRing.receiveShadows = false;
+
+            var topRingObject = new GameObject("Obstacle top scan ring"); topRingObject.transform.SetParent(transform, false);
+            _topRing = topRingObject.AddComponent<LineRenderer>(); _topRing.useWorldSpace = false; _topRing.loop = false;
+            _topRing.positionCount = 49; _topRing.sharedMaterial = sharedUnlit; _topRing.startWidth = 0.035f; _topRing.endWidth = 0.035f;
+            _topRing.shadowCastingMode = ShadowCastingMode.Off; _topRing.receiveShadows = false;
 
             var bracketObject = new GameObject("Tactical frame brackets"); bracketObject.transform.SetParent(transform, false); _bracketRoot = bracketObject.transform;
             var filter = bracketObject.AddComponent<MeshFilter>(); _bracketRenderer = bracketObject.AddComponent<MeshRenderer>();
@@ -68,8 +80,16 @@ namespace OmniTwin.Simulation.World
             }
             _ringPoints[48] = _ringPoints[0];
             _ring.SetPositions(_ringPoints);
+            _baseRing.SetPositions(_ringPoints); _topRing.SetPositions(_ringPoints);
+            _baseRing.transform.localPosition = new Vector3(0, 0.045f, 0);
+            _topRing.transform.localPosition = new Vector3(0, Mathf.Max(0.045f, height - 0.08f), 0);
+            _baseRing.transform.localScale = new Vector3(diameter, 1, diameter);
+            _topRing.transform.localScale = new Vector3(diameter, 1, diameter);
             _ring.startColor = color; _ring.endColor = color;
-            _block.SetColor(BaseColor, color); _ring.SetPropertyBlock(_block); _bracketRenderer.SetPropertyBlock(_block);
+            _baseRing.startColor = color; _baseRing.endColor = color;
+            _topRing.startColor = color; _topRing.endColor = color;
+            _block.SetColor(BaseColor, color); _ring.SetPropertyBlock(_block); _baseRing.SetPropertyBlock(_block);
+            _topRing.SetPropertyBlock(_block); _bracketRenderer.SetPropertyBlock(_block);
             _bracketRoot.localScale = new Vector3(diameter, height, diameter);
             BuildBracketMesh();
             _label.transform.localPosition = new Vector3(_labelLateralOffset, height + _labelHeightOffset, 0);
@@ -97,14 +117,14 @@ namespace OmniTwin.Simulation.World
         {
             var cursor = 0;
             for (var xSign = -1; xSign <= 1; xSign += 2)
-                for (var zSign = -1; zSign <= 1; zSign += 2)
-                {
-                    var corner = new Vector3(xSign * 0.5f, 0, zSign * 0.5f);
-                    var xTick = corner + new Vector3(-xSign * 0.22f, 0, 0);
-                    var zTick = corner + new Vector3(0, 0, -zSign * 0.22f);
-                    var top = corner + Vector3.up;
-                    PutLine(corner, xTick, ref cursor); PutLine(corner, zTick, ref cursor); PutLine(corner, top, ref cursor);
-                }
+                for (var ySign = -1; ySign <= 1; ySign += 2)
+                    for (var zSign = -1; zSign <= 1; zSign += 2)
+                    {
+                        var corner = new Vector3(xSign * 0.5f, ySign * 0.5f, zSign * 0.5f);
+                        PutLine(corner, corner + new Vector3(-xSign * 0.18f, 0, 0), ref cursor);
+                        PutLine(corner, corner + new Vector3(0, -ySign * 0.18f, 0), ref cursor);
+                        PutLine(corner, corner + new Vector3(0, 0, -zSign * 0.18f), ref cursor);
+                    }
             _bracketMesh.Clear(); _bracketMesh.vertices = _bracketVertices; _bracketMesh.SetIndices(_bracketIndices, MeshTopology.Lines, 0); _bracketMesh.RecalculateBounds();
         }
 

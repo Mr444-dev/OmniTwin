@@ -2,7 +2,33 @@
 
 Verified on 2026-11-01 on Windows x64 with domain targets `net10.0` and `netstandard2.1`; the test hosts run on .NET 10.0.14 with the repository-pinned .NET SDK 10.0.403.
 
-## Stage 7 synthetic replay and release verification (current)
+## Stage 8 visual acceptance and sustained Standalone replay (current)
+
+The Unity HUD and tactical scene update were verified in Unity **6000.6.3f1 / URP 17.6.0**. The central view now frames the complete 20 × 12.5 m table above the compact AI dock; the facility floor/grid, calibrated dimensions, obstacle proxies with track callouts, mission geometry, and five agent paths/telemetry cards are visible. The left panel places the synthetic camera PIP and same-frame mask overlay above compact observation metrics. The center dock shows six model/sandbox statuses, voice and policy controls, a populated tactical instruction, semantics and scenery tabs. These are synthetic replay visuals; provider cards correctly remain offline.
+
+Unity built a fresh **StandaloneWindows64** player from the isolated project copy and ran the replay for 5 seconds of warm-up plus **30.002 seconds** of measurement at **1920 × 1080**. The player verified the display dimensions, three obstacle tracks, five 48-ray LiDAR sensors, PIP/mask overlay, and active navigation for all five agents under `PerimeterPatrolPolicy`. All three ground agents had NavMesh, the runtime triangulation had 72 vertices, and every agent traveled at least **29.97 m**. The capture below is from this run.
+
+| Measurement | Stage 8 result |
+|---|---:|
+| Frames / average FPS / mean frame time | 7,021 / 234.02 FPS / 4.274 ms |
+| P95 / P99 frame time | 8.121 / 10.331 ms |
+| 1% low | 76.97 FPS |
+| Managed heap start / end / peak | 8.82 / 8.83 / 9.26 MiB |
+| Managed heap delta | +0.004 MiB |
+| Unity allocated-memory delta | +7.26 MiB |
+| Texture memory start / end / delta | 2.70 / 2.70 / 0 MiB |
+| GC collections during measurement | Gen 0: 62; Gen 1: 62; Gen 2: 62 |
+| Navigating agents / ground agents on NavMesh | 5/5 / 3/3 |
+| Minimum distance traveled by one agent | 29.97 m |
+| Backend coordinator baseline policy evaluation / mean / P95 / P99 | 293 / 0.069 / 0.275 / 0.630 ms |
+
+The process connected to the local synthetic replay backend; no live camera, SAM, Muse, microphone, semantic provider, or Muse Image call was made. The policy timing is from the backend coordinator evaluating its compiled-in baseline. It does not represent an isolated generated-policy `AppContainer` execution; the separate [Stage 7 PolicyWorker benchmark](benchmarks/stage7-policyworker.json) measures worker startup and IPC exchange. The D3D12 graphics-driver memory counter is not available from this run; Unity's texture counter remained unchanged. Optional URP post-processing shader variants are stripped in this player and can emit nonfatal missing-variant warnings when the unused effects initialize.
+
+The `.NET 10` Release test suite passed **438/438 tests**, zero failed and zero skipped. The Unity player build completed successfully. Unity's Licensing Client emitted a nonfatal entitlement lookup 404; this did not prevent the build or player run.
+
+[Current 1920 × 1080 Stage 8 capture](images/tactical-desk.png) · [Machine-readable sustained benchmark](benchmarks/stage8-standalone.json)
+
+## Stage 7 synthetic replay and release verification (previous milestone)
 
 The .NET 10 Release solution build completed with **zero warnings and zero errors**. The five Microsoft.Testing.Platform test executables passed **438/438 tests**, with zero failures and zero skips, including the deterministic free-spawn recovery case. `live-preflight --synthetic-tabletop-replay` confirmed that `META_API_KEY` and `BASETEN_API_KEY` are absent without printing their values.
 
@@ -33,7 +59,7 @@ The Standalone player warmed up for 5 seconds, then ran continuously for **30.00
 
 Unity's graphics-driver memory counter reported **0 bytes** under this D3D12 run, so that counter did not provide a usable GPU-memory measurement. The unchanged Unity texture-memory counter is the available PIP/mask texture check; it showed no growth. Policy-evaluation measurements above are from the backend coordinator running the compiled-in baseline. The [separate AppContainer worker benchmark](benchmarks/stage7-policyworker.json) measured 500 five-agent request/response exchanges: worker startup 528.2 ms, mean IPC round trip 0.320 ms, P95 0.401 ms, P99 0.554 ms and maximum 1.974 ms. That fixture measures worker dispatch and serialization; it does not claim generated-policy execution during the standalone replay.
 
-The [current 1920 × 1080 Standalone capture](images/tactical-desk.png) shows the full table, all five navigating agents, enabled LiDAR visualization, and the synthetic PIP with its same-frame mask overlay. The synthetic backend and local CV use no physical camera or live SAM, Muse Spark, voice, semantic-provider, or Muse Image endpoint. The HUD reports the provider keys as missing; no provider credential was used.
+The [Stage 7 1920 × 1080 Standalone capture](images/tactical-desk-stage7.png) is retained as the previous milestone image. The synthetic backend and local CV use no physical camera or live SAM, Muse Spark, voice, semantic-provider, or Muse Image endpoint. The HUD reports the provider keys as missing; no provider credential was used.
 
 ## Stage 6 visual systems acceptance (previous milestone)
 
@@ -164,4 +190,4 @@ Rechecked on **2026-10-31** after implementation commit `53b6a26e8b5ab2cf83eafdd
 
 ## Limits
 
-Geometry/mask/trajectory images and injected test sources are test inputs, not claimed live detections. HTTP provider fixtures and real local server/receiver checks do not establish hosted model access. The StandaloneWindows64 replay benchmark is complete as recorded in Stage 7; no physical camera, live provider session, microphone, or IL2CPP build was used for it. Calibration browser checks, isolated generated-code execution and controlled Unity navigation have been exercised as described above. No model credentials were used. Real tabletop accuracy and live end-to-end model behavior remain open acceptance criteria.
+Geometry/mask/trajectory images and injected test sources are test inputs, not claimed live detections. HTTP provider fixtures and real local server/receiver checks do not establish hosted model access. The StandaloneWindows64 replay benchmark is complete as recorded in Stage 8; no physical camera, live provider session, microphone, or IL2CPP build was used for it. Calibration browser checks, isolated generated-code execution and controlled Unity navigation have been exercised as described above. No model credentials were used. Real tabletop accuracy and live end-to-end model behavior remain open acceptance criteria.

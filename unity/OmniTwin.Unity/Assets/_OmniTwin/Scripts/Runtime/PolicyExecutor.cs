@@ -25,6 +25,7 @@ namespace OmniTwin.Simulation.Runtime
         private long _sequence;
         private float _publishAt;
         private SwarmControlSnapshot _applied;
+        private SwarmMissionCommand _currentMission;
         private IReadOnlyList<SwarmAgentController> _agentView;
         private bool _holding = true;
         private string _localFailure;
@@ -35,6 +36,8 @@ namespace OmniTwin.Simulation.Runtime
         public string ActivePolicyName => _holding ? nameof(EmergencyHoldPolicy) : _applied?.PolicyName ?? nameof(EmergencyHoldPolicy);
         /// <summary>Gets latest bounded server diagnostics, even before a perception snapshot is available.</summary>
         public SwarmControlSnapshot Control => _client?.GetView().Control;
+        /// <summary>Gets the latest operator mission used to annotate tactical geometry.</summary>
+        public SwarmMissionCommand CurrentMission => _currentMission;
         /// <summary>Gets a safe reason for the current local hold.</summary>
         public string FailureCategory => _localFailure ?? _client?.GetView().FailureCategory ?? Control?.PerceptionFailureCategory;
         /// <summary>Gets the configured real simulation entities.</summary>
@@ -51,7 +54,7 @@ namespace OmniTwin.Simulation.Runtime
             if (stream == null || agents.Length == 0 || agents.Length > 128 || !Uri.TryCreate(backendOrigin, UriKind.Absolute, out var origin))
                 throw new InvalidOperationException("Assign a world stream, local origin, and bounded authored agent set.");
             var ids = new HashSet<int>(); foreach (var agent in agents) if (agent == null || !ids.Add(agent.AgentId)) throw new InvalidOperationException("Agent IDs must be unique.");
-            _session = Guid.NewGuid(); _sequence = 0; _publishAt = 0; _applied = null; _holding = true;
+            _session = Guid.NewGuid(); _sequence = 0; _publishAt = 0; _applied = null; _currentMission = null; _holding = true;
             _spawnRecoveryAttempted.Clear();
             _client = new SwarmControlClient(); _stop = new CancellationTokenSource();
             var client = _client; var stop = _stop;
@@ -62,8 +65,10 @@ namespace OmniTwin.Simulation.Runtime
         public void RequestMission(SwarmMissionKind kind, string instruction, bool useBrain = false, float radiusMeters = 3)
         {
             if (!isActiveAndEnabled || _client == null) throw new InvalidOperationException("Swarm control is inactive.");
-            _client.QueueMission(new SwarmMissionRequest(new SwarmMissionCommand(Guid.NewGuid(), kind, instruction,
-                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), null, radiusMeters), useBrain));
+            var command = new SwarmMissionCommand(Guid.NewGuid(), kind, instruction,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), null, radiusMeters);
+            _client.QueueMission(new SwarmMissionRequest(command, useBrain));
+            _currentMission = command;
         }
 
         private void Update()

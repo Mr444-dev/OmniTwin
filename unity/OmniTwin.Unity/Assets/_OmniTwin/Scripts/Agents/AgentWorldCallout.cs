@@ -22,11 +22,11 @@ namespace OmniTwin.Simulation.Agents
             var label = new GameObject("Agent tactical callout"); label.transform.SetParent(transform, false);
             var id = agent.ReadTelemetry().AgentId;
             var aerial = agent.Role == AgentRole.AerialDrone;
-            var roleOffset = aerial ? verticalOffset + 1.0f : Mathf.Max(0.95f, verticalOffset - 0.35f);
+            var roleOffset = aerial ? 0.35f : Mathf.Max(0.95f, verticalOffset - 0.35f);
             var rowStagger = id % 2 == 0 ? 0.55f : 0f;
             label.transform.localPosition = Vector3.up * (roleOffset + rowStagger);
             _text = label.AddComponent<TextMesh>(); _text.anchor = TextAnchor.LowerCenter; _text.alignment = TextAlignment.Center;
-            _text.fontSize = 256; _text.characterSize = 0.020f; _text.richText = false;
+            _text.fontSize = 72; _text.characterSize = 0.034f; _text.richText = false;
             _text.color = agent.Role == AgentRole.GroundVehicle ? new Color(0.35f, 0.91f, 1f) : new Color(1f, 0.74f, 0.35f);
             _text.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }

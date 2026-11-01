@@ -154,6 +154,6 @@
   "PolicyEvaluationP95Ms": 0.0941,
   "PolicyEvaluationP99Ms": 0.2165,
   "ReportPath": "docs/benchmarks/stage7-standalone.json",
-  "ScreenshotPath": "docs/images/tactical-desk.png",
+  "ScreenshotPath": "docs/images/tactical-desk-stage7.png",
   "ScreenshotWritten": true
 }

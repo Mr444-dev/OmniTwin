@@ -12,6 +12,7 @@ using OmniTwin.Simulation.Media;
 using OmniTwin.Simulation.CameraControl;
 using OmniTwin.Simulation.Agents;
 using OmniTwin.Simulation.Diagnostics;
+using OmniTwin.Policies;
 
 namespace OmniTwin.Simulation.UI
 {
@@ -31,10 +32,12 @@ namespace OmniTwin.Simulation.UI
         private Button _brainTab, _semanticsTab, _sceneryTab;
         private Button _reconnect;
         private IVisualElementScheduledItem _refresh;
-        private Label _policy, _telemetry, _reason, _brain, _model, _compiler;
+        private Label _policy, _reason, _brain, _model, _compiler;
+        private VisualElement _unitCardsRoot;
+        private readonly List<UnitCardView> _unitCards = new List<UnitCardView>(5);
         private Button _patrol, _cordon, _search, _hold, _generate;
         private TextField _instruction;
-        private SwarmMissionKind _selectedMission = SwarmMissionKind.PatrolPerimeter;
+        private SwarmMissionKind _selectedMission = SwarmMissionKind.HazardQuarantine;
         private string _feedback;
         private float _feedbackUntil;
         private Button _recordVoice, _cancelVoice, _useTranscript, _previewToggle;
@@ -89,13 +92,16 @@ namespace OmniTwin.Simulation.UI
             foreach (var label in new[] { _modelSam, _modelSparkOpen, _modelSemantic, _modelVoice, _modelImage, _modelSandbox }) label.enableRichText = false;
             _reconnect = Required<Button>(root, "reconnectButton");
             _reconnect.clicked += Reconnect;
-            _policy = Required<Label>(root, "activePolicy"); _telemetry = Required<Label>(root, "agentTelemetry");
+            _policy = Required<Label>(root, "activePolicy"); _unitCardsRoot = Required<VisualElement>(root, "agentCards");
+            BuildUnitCards();
             _reason = Required<Label>(root, "controlReason"); _brain = Required<Label>(root, "brainState");
             _model = Required<Label>(root, "modelIdentity"); _compiler = Required<Label>(root, "compilerDiagnostics");
-            foreach (var label in new[] { _policy, _telemetry, _reason, _brain, _model, _compiler }) label.enableRichText = false;
+            foreach (var label in new[] { _policy, _reason, _brain, _model, _compiler }) label.enableRichText = false;
             _patrol = Required<Button>(root, "patrolButton"); _cordon = Required<Button>(root, "cordonButton");
             _search = Required<Button>(root, "searchButton"); _hold = Required<Button>(root, "holdButton"); _generate = Required<Button>(root, "generateButton");
             _instruction = Required<TextField>(root, "missionInstruction");
+            if (string.IsNullOrWhiteSpace(_instruction.value))
+                _instruction.value = "Establish a 2.8m safety cordon around hazard object #3; use ground AGVs at the cordon and patrol the outer perimeter with aerial drones.";
             _view1 = Required<Button>(root, "view1Button"); _view2 = Required<Button>(root, "view2Button"); _view3 = Required<Button>(root, "view3Button");
             _cameraAgent = Required<DropdownField>(root, "cameraAgent"); _cameraController = UnityEngine.Object.FindAnyObjectByType<TacticalCameraController>();
             if (_cameraController == null) throw new InvalidOperationException("Tactical camera controller is missing from the scene.");
@@ -166,21 +172,12 @@ namespace OmniTwin.Simulation.UI
                 : state.FailureCategory != null ? "Stream status: " + state.FailureCategory + ". Configure calibrated perception, then reconnect."
                 : "Waiting for a calibrated camera observation. An empty view does not mean the workspace is clear.";
             _policy.text = executor.ActivePolicyName;
-            var measured = new StringBuilder();
-            foreach (var agent in executor.Agents)
-            {
-                var telemetry = agent.ReadTelemetry();
-                measured.Append('#').Append(telemetry.AgentId)
-                    .Append(telemetry.Role == AgentRole.GroundVehicle ? " AGV  " : " DRONE  ")
-                    .Append(telemetry.Status).Append("  ")
-                    .Append((telemetry.BatteryLevel * 100).ToString("F0", CultureInfo.InvariantCulture)).Append("%\n  ")
-                    .Append(telemetry.CurrentPosition.X.ToString("F1", CultureInfo.InvariantCulture)).Append(',')
-                    .Append(telemetry.CurrentPosition.Z.ToString("F1", CultureInfo.InvariantCulture)).Append("  ·  ");
-                var lidar = telemetry.Lidar;
-                measured.Append("LiDAR ").Append(lidar == null ? "unavailable" : lidar.AgeMilliseconds > 250 ? "stale" :
-                    (lidar.MinimumDistanceMeters.HasValue ? lidar.MinimumDistanceMeters.Value.ToString("F2", CultureInfo.InvariantCulture) + "m" : "clear " + lidar.RangeMeters.ToString("F1", CultureInfo.InvariantCulture) + "m") + "/" + lidar.HitCount).Append("\n");
-            }
-            _telemetry.text = measured.ToString();
+            RefreshUnitCards();
+            var activePolicy = executor.ActivePolicyName;
+            _patrol.EnableInClassList("policy-active", activePolicy == nameof(PerimeterPatrolPolicy));
+            _cordon.EnableInClassList("policy-active", activePolicy == nameof(HazardQuarantinePolicy));
+            _search.EnableInClassList("policy-active", activePolicy == nameof(GridSearchAndRescuePolicy));
+            _hold.EnableInClassList("policy-active", activePolicy == nameof(EmergencyHoldPolicy));
             _reason.text = Time.unscaledTime < _feedbackUntil ? _feedback : executor.FailureCategory ?? "Validated controls and current observations";
             var control = executor.Control;
             _brain.text = "Brain / " + (control?.BrainStatus ?? "awaiting backend") + (control == null ? "" : " / attempt " + control.GenerationAttempts);
@@ -278,18 +275,84 @@ namespace OmniTwin.Simulation.UI
         }
         private void ResetScenery() => visuals.RestoreDefault();
 
-        private void Mission(SwarmMissionKind kind, string instruction, bool brain = false)
+        private void Mission(SwarmMissionKind kind, string instruction, bool brain = false, float radiusMeters = 3f)
         {
             _selectedMission = kind;
-            try { executor.RequestMission(kind, instruction, brain); _feedback = brain ? "Synthesis requested; baseline remains supervised." : "Mission submitted: " + kind; }
+            try { executor.RequestMission(kind, instruction, brain, radiusMeters); _feedback = brain ? "Synthesis requested; baseline remains supervised." : "Mission submitted: " + kind; }
             catch (Exception error) when (error is ArgumentException || error is InvalidOperationException) { _feedback = "Mission rejected: check instruction and active control."; }
             _feedbackUntil = Time.unscaledTime + 4;
         }
         private void Patrol() => Mission(SwarmMissionKind.PatrolPerimeter, "Patrol the workspace perimeter with all available agents.");
-        private void Cordon() => Mission(SwarmMissionKind.HazardQuarantine, "Create a three-meter cordon around the largest hazard or obstacle.");
+        private void Cordon() => Mission(SwarmMissionKind.HazardQuarantine, "Establish a 2.8m safety cordon around the highest-priority hazard.", false, 2.8f);
         private void Search() => Mission(SwarmMissionKind.GridSearchAndRescue, "Systematically search the free workspace cells.");
         private void Hold() => Mission(SwarmMissionKind.HoldPosition, "Immediately hold every agent at its current measured position.");
-        private void Generate() => Mission(_selectedMission, _instruction.value, true);
+        private void Generate() => Mission(_selectedMission, _instruction.value, true,
+            _selectedMission == SwarmMissionKind.HazardQuarantine ? 2.8f : 3f);
+
+        private void BuildUnitCards()
+        {
+            _unitCards.Clear();
+            _unitCardsRoot.Clear();
+            foreach (var agent in executor.Agents)
+            {
+                var telemetry = agent.ReadTelemetry();
+                var card = new VisualElement();
+                card.AddToClassList("unit-card");
+                if (telemetry.Role == AgentRole.AerialDrone) card.AddToClassList("aerial-card");
+                var header = new VisualElement(); header.AddToClassList("unit-card-header");
+                var title = new Label("UNIT #" + telemetry.AgentId.ToString("D2", CultureInfo.InvariantCulture) +
+                    (telemetry.Role == AgentRole.GroundVehicle ? " · GROUND AGV" : " · AERIAL UAV"));
+                title.AddToClassList("unit-card-title"); title.enableRichText = false;
+                var status = new Label(); status.AddToClassList("unit-status"); status.enableRichText = false;
+                var movement = new Label(); movement.AddToClassList("unit-card-detail"); movement.enableRichText = false;
+                var lidar = new Label(); lidar.AddToClassList("unit-card-detail"); lidar.enableRichText = false;
+                header.Add(title); header.Add(status); card.Add(header); card.Add(movement); card.Add(lidar); _unitCardsRoot.Add(card);
+                _unitCards.Add(new UnitCardView(agent, status, movement, lidar));
+            }
+        }
+
+        private void RefreshUnitCards()
+        {
+            for (var i = 0; i < _unitCards.Count; i++)
+            {
+                var item = _unitCards[i];
+                var telemetry = item.Agent.ReadTelemetry();
+                var speed = Mathf.Sqrt(telemetry.CurrentVelocity.X * telemetry.CurrentVelocity.X +
+                    telemetry.CurrentVelocity.Z * telemetry.CurrentVelocity.Z);
+                item.Movement.text = "Speed " + speed.ToString("F1", CultureInfo.InvariantCulture) + " m/s   ·   Battery " +
+                    (telemetry.BatteryLevel * 100).ToString("F0", CultureInfo.InvariantCulture) + "%";
+                var sensor = telemetry.Lidar;
+                item.Lidar.text = sensor == null ? "LiDAR unavailable" : sensor.AgeMilliseconds > 250 ? "LiDAR stale · " +
+                    sensor.AgeMilliseconds.ToString(CultureInfo.InvariantCulture) + " ms" : sensor.MinimumDistanceMeters.HasValue ?
+                    "LiDAR " + sensor.MinimumDistanceMeters.Value.ToString("F1", CultureInfo.InvariantCulture) + " m · " +
+                    sensor.HitCount.ToString(CultureInfo.InvariantCulture) + " hits" : "LiDAR clear to " +
+                    sensor.RangeMeters.ToString("F0", CultureInfo.InvariantCulture) + " m · 0 hits";
+                var label = StatusLabel(telemetry.Status);
+                item.Status.text = label;
+                item.Status.EnableInClassList("status-navigating", telemetry.Status == AgentStatus.Navigating);
+                item.Status.EnableInClassList("status-holding", telemetry.Status == AgentStatus.Holding);
+                item.Status.EnableInClassList("status-idle", telemetry.Status == AgentStatus.Idle);
+                item.Status.EnableInClassList("status-lowbattery", telemetry.Status == AgentStatus.LowBattery);
+                item.Status.EnableInClassList("status-offline", telemetry.Status == AgentStatus.Offline);
+            }
+        }
+
+        private static string StatusLabel(AgentStatus status) => status switch
+        {
+            AgentStatus.Navigating => "NAVIGATING",
+            AgentStatus.Holding => "HOLDING",
+            AgentStatus.Idle => "IDLE",
+            AgentStatus.LowBattery => "LOW BATTERY",
+            _ => "OFFLINE"
+        };
+
+        private sealed class UnitCardView
+        {
+            internal UnitCardView(SwarmAgentController agent, Label status, Label movement, Label lidar)
+            { Agent = agent; Status = status; Movement = movement; Lidar = lidar; }
+            internal readonly SwarmAgentController Agent;
+            internal readonly Label Status, Movement, Lidar;
+        }
 
         private void Reconnect() { stream.Reconnect(); Refresh(); }
         private void ShowBrainTab() => ShowDockTab(_brainTab, _brainView);
