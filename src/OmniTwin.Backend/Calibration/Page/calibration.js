@@ -3,7 +3,8 @@
   const byId = id => document.getElementById(id);
   const canvas = byId("image"), context = canvas.getContext("2d");
   const viewport = byId("image-viewport");
-  const points = [], labels = ["Top left", "Top right", "Bottom right", "Bottom left"];
+  const points = [], boundary = [], outlineHistory = [], labels = ["Top left", "Top right", "Bottom right", "Bottom left"];
+  let addOutlinePoint = false;
   let image = null, revision = 0, loading = 0, activeRequest = null, downloadUrl = null, zoom = 1, fitScale = 1;
   const status = (text, error = false) => { byId("status").textContent = text; byId("status").dataset.error = String(error); };
   const changed = () => {
@@ -13,6 +14,13 @@
 
   function draw() {
     byId("undo").disabled = byId("reset").disabled = points.length === 0;
+    byId("outline-toggle").disabled = points.length !== 4;
+    byId("outline-toggle").textContent = addOutlinePoint ? "Finish outline" : "Add outline point";
+    byId("outline-toggle").classList.toggle("selected", addOutlinePoint);
+    byId("outline-undo").disabled = outlineHistory.length === 0;
+    byId("outline-count").textContent = boundary.length > 4
+      ? `${boundary.length} outline vertices (${boundary.length - 4} added).`
+      : "Using the four corner points as the outline.";
     byId("export").disabled = points.length !== 4 || activeRequest !== null;
     if (!image) return;
     context.drawImage(image, 0, 0);
@@ -21,14 +29,21 @@
     context.strokeStyle = "#62fff0";
     context.fillStyle = "#07151a";
     context.beginPath();
-    points.forEach((point, i) => { if (i === 0) context.moveTo(point.u, point.v); else context.lineTo(point.u, point.v); });
+    const outline = points.length === 4 ? boundary : points;
+    outline.forEach((point, i) => { if (i === 0) context.moveTo(point.u, point.v); else context.lineTo(point.u, point.v); });
     if (points.length === 4) context.closePath();
     context.stroke();
-    points.forEach((point, i) => {
-      context.beginPath(); context.arc(point.u, point.v, 11 * scale, 0, 2 * Math.PI); context.fill(); context.stroke();
-      context.font = `bold ${13 * scale}px system-ui`; context.textAlign = "center"; context.textBaseline = "middle";
-      context.fillStyle = "#ffffff"; context.fillText(String(i + 1), point.u, point.v); context.fillStyle = "#07151a";
+    outline.forEach((point, i) => {
+      const isExtra = points.length === 4 && point.anchorIndex === null;
+      context.beginPath(); context.arc(point.u, point.v, (isExtra ? 7 : 11) * scale, 0, 2 * Math.PI);
+      context.fillStyle = isExtra ? "#ffcf70" : "#07151a"; context.fill();
+      context.strokeStyle = isExtra ? "#ffcf70" : "#62fff0"; context.stroke();
+      context.font = `bold ${12 * scale}px system-ui`; context.textAlign = "center"; context.textBaseline = "middle";
+      context.fillStyle = isExtra ? "#07151a" : "#ffffff";
+      context.fillText(isExtra ? "+" : String((point.anchorIndex ?? i) + 1), point.u, point.v);
     });
+    context.strokeStyle = "#62fff0";
+    canvas.style.cursor = addOutlinePoint ? "copy" : "crosshair";
   }
 
   function fitImage() {
@@ -70,7 +85,10 @@
         input.addEventListener("input", () => { changed(); draw(); status("Coordinates changed. Commit a valid value before validating the profile."); });
         input.addEventListener("change", () => {
           if (!input.checkValidity() || !Number.isFinite(input.valueAsNumber)) { input.reportValidity(); return; }
-          point[axis] = input.valueAsNumber; changed(); draw(); status("Point updated. Validate the geometry before downloading.");
+          point[axis] = input.valueAsNumber;
+          const boundaryAnchor = boundary.find(candidate => candidate.anchorIndex === i);
+          if (boundaryAnchor) boundaryAnchor[axis] = point[axis];
+          changed(); draw(); status("Point updated. Validate the geometry before downloading.");
         });
         label.append(input); fields.append(label);
       }
@@ -110,7 +128,7 @@
   byId("file").addEventListener("change", async event => {
     const ticket = ++loading, file = event.target.files[0];
     changed(); image = null; points.length = 0; viewport.hidden = true; byId("image-tools").hidden = true; byId("empty").hidden = false;
-    byId("dimensions").textContent = "No image loaded"; pointList();
+    byId("dimensions").textContent = "No image loaded"; boundary.length = 0; outlineHistory.length = 0; addOutlinePoint = false; pointList();
     if (!file) { status("Open an image to begin."); return; }
     let url = null;
     try {
@@ -130,15 +148,51 @@
   });
 
   canvas.addEventListener("click", event => {
-    if (!image || points.length === 4) return;
+    if (!image) return;
     const box = canvas.getBoundingClientRect();
     if (box.width <= 0 || box.height <= 0) return;
-    points.push({u: Math.round(Math.max(0, Math.min(image.width - 1, (event.clientX - box.left) / box.width * image.width)) * 10) / 10,
-      v: Math.round(Math.max(0, Math.min(image.height - 1, (event.clientY - box.top) / box.height * image.height)) * 10) / 10});
+    const clicked = {u: Math.round(Math.max(0, Math.min(image.width - 1, (event.clientX - box.left) / box.width * image.width)) * 10) / 10,
+      v: Math.round(Math.max(0, Math.min(image.height - 1, (event.clientY - box.top) / box.height * image.height)) * 10) / 10};
+    if (points.length === 4) {
+      if (!addOutlinePoint) return;
+      if (boundary.length >= 64) { status("The outline limit is 64 vertices. Finish the outline or undo a point.", true); return; }
+      if (boundary.some(point => point.u === clicked.u && point.v === clicked.v)) {
+        status("That pixel is already a boundary point. Click a different spot along the edge.", true); return;
+      }
+      let nearestIndex = 0, nearestDistance = Infinity;
+      for (let i = 0; i < boundary.length; i++) {
+        const start = boundary[i], end = boundary[(i + 1) % boundary.length];
+        const dx = end.u - start.u, dy = end.v - start.v, lengthSquared = dx * dx + dy * dy;
+        const t = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((clicked.u - start.u) * dx + (clicked.v - start.v) * dy) / lengthSquared));
+        const offsetU = clicked.u - (start.u + t * dx), offsetV = clicked.v - (start.v + t * dy);
+        const distance = offsetU * offsetU + offsetV * offsetV;
+        if (distance < nearestDistance) { nearestIndex = i; nearestDistance = distance; }
+      }
+      const inserted = {...clicked, anchorIndex: null};
+      boundary.splice(nearestIndex + 1, 0, inserted); outlineHistory.push(inserted);
+      changed(); draw(); status("Outline point added between the nearest boundary vertices. Add more points or finish the outline.");
+      return;
+    }
+    points.push(clicked);
+    if (points.length === 4) {
+      boundary.splice(0, boundary.length, ...points.map((point, anchorIndex) => ({...point, anchorIndex})));
+      outlineHistory.length = 0; addOutlinePoint = false;
+    }
     changed(); pointList(); status(points.length === 4 ? "Four points selected. Validate the profile, then download it." : `Select point ${points.length + 1}: ${labels[points.length].toLowerCase()}.`);
   });
-  byId("undo").addEventListener("click", () => { points.pop(); changed(); pointList(); status("Last point removed."); });
-  byId("reset").addEventListener("click", () => { points.length = 0; changed(); pointList(); status("Select the four corners again."); });
+  byId("undo").addEventListener("click", () => { points.pop(); boundary.length = 0; outlineHistory.length = 0; addOutlinePoint = false; changed(); pointList(); status("Last corner removed. Select the four corners again."); });
+  byId("reset").addEventListener("click", () => { points.length = 0; boundary.length = 0; outlineHistory.length = 0; addOutlinePoint = false; changed(); pointList(); status("Select the four corners again."); });
+  byId("outline-toggle").addEventListener("click", () => {
+    if (points.length !== 4) return;
+    addOutlinePoint = !addOutlinePoint; draw();
+    status(addOutlinePoint ? "Outline editing is on. Click near an edge to insert a point on its nearest segment." : "Outline editing is finished. Validate the profile to download it.");
+  });
+  byId("outline-undo").addEventListener("click", () => {
+    const last = outlineHistory.pop();
+    if (!last) return;
+    const index = boundary.indexOf(last); if (index >= 0) boundary.splice(index, 1);
+    changed(); draw(); status("Last added outline point removed.");
+  });
   byId("zoom-out").addEventListener("click", () => { zoom = Math.max(0.5, zoom / 1.25); applyZoom(true); });
   byId("zoom-in").addEventListener("click", () => { zoom = Math.min(4, zoom * 1.25); applyZoom(true); });
   byId("zoom-fit").addEventListener("click", () => { zoom = 1; viewport.scrollLeft = viewport.scrollTop = 0; fitImage(); });
@@ -174,7 +228,7 @@
           if (JSON.stringify(JSON.parse(text)) !== JSON.stringify(profile)) throw new Error("The server response does not match the submitted profile.");
           return text;
         }
-        if (response.status === 400) throw new Error("The geometry was rejected. Check the order, spacing, and placement of the four corners.");
+        if (response.status === 400) throw new Error("The geometry was rejected. Check the order and placement of the four corners and the tabletop outline.");
         if (![408,429,500,502,503,504].includes(response.status)) throw new Error(`Validation rejected (HTTP ${response.status}). Refresh the page from the local backend.`);
         const retry = response.headers.get("retry-after");
         if (retry) { const seconds = Number(retry); const wait = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(retry) - Date.now(); if (Number.isFinite(wait)) delay = Math.max(delay, wait); }
@@ -200,6 +254,7 @@
     if (![width, depth].every(x => Number.isFinite(x) && x >= .01 && x <= 10000)) return;
     const profile = {schemaVersion: 1, calibrationId: crypto.randomUUID(), imageWidth: image.width, imageHeight: image.height,
       cameraCorners: points.map(point => ({...point})), worldCorners: [{x: -width/2, z: -depth/2}, {x: width/2, z: -depth/2}, {x: width/2, z: depth/2}, {x: -width/2, z: depth/2}],
+      workspaceBoundary: boundary.map(({u, v}) => ({u, v})),
       minimumRadiusMeters: .05, maximumRadiusMeters: 3, safetyMarginMeters: .1, minimumConfidence: .3};
     const ticket = revision, controller = new AbortController(); activeRequest = controller; draw(); status("Validating the schema and geometry…");
     try {

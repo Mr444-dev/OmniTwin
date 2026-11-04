@@ -77,7 +77,7 @@ public sealed class MaskObstacleProjector
         var uLeft = span.Left; var uRight = span.Right; var v = span.V;
         var u = (uLeft + uRight) / 2;
         var workspace = _profile.Workspace;
-        if (!workspace.ContainsPixel(uLeft, v) || !workspace.ContainsPixel(uRight, v))
+        if (!workspace.ContainsPixelSpan(uLeft, uRight, v))
             return ProjectionRejectionReason.OutsideCameraWorkspace;
         if (!workspace.Mapper.TryPixelToWorld(u, v, out var center) || !workspace.Mapper.TryPixelToWorld(uLeft, v, out var edgeLeft) ||
             !workspace.Mapper.TryPixelToWorld(uRight, v, out var edgeRight)) return ProjectionRejectionReason.InvalidProjection;

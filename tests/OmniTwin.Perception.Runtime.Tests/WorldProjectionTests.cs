@@ -117,6 +117,40 @@ public sealed class WorldProjectionTests
         Assert.Equal(101, profile.ImageHeight);
         Assert.True(profile.Workspace.ContainsCircle(default, 1));
         Assert.Equal(0.3f, profile.MinimumConfidence);
+        Assert.Equal(CameraCorners, profile.WorkspaceBoundary);
+    }
+
+    [Fact]
+    public void AcceptsConcaveIrregularTableBoundaryAndKeepsLegacyProfilesCompatible()
+    {
+        var polygon = "\"workspaceBoundary\":[{" +
+            "\"u\":0,\"v\":0},{\"u\":100,\"v\":0},{\"u\":100,\"v\":100},{\"u\":60,\"v\":100}," +
+            "{\"u\":60,\"v\":40},{\"u\":40,\"v\":40},{\"u\":40,\"v\":100},{\"u\":0,\"v\":100}],";
+        var json = Json().Replace("\"worldCorners\":", polygon + "\"worldCorners\":", StringComparison.Ordinal);
+        var profile = CalibrationProfile.Parse(Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(8, profile.WorkspaceBoundary.Count);
+        Assert.True(profile.Workspace.ContainsPixel(20, 80));
+        Assert.True(profile.Workspace.ContainsPixel(50, 20));
+        Assert.False(profile.Workspace.ContainsPixel(50, 80));
+        Assert.True(profile.Workspace.ContainsPixel(40, 80));
+        Assert.False(profile.Workspace.ContainsPixelSpan(39.5, 59.5, 99.5));
+        var spanRejection = Assert.Single(new MaskObstacleProjector(profile).Project(
+            Result(box: new PixelBox(40, 80, 60, 99)), "cup").Rejections);
+        Assert.Equal(ProjectionRejectionReason.OutsideCameraWorkspace, spanRejection.Reason);
+        Assert.Equal(CameraCorners, CalibrationProfile.Parse(Encoding.UTF8.GetBytes(Json())).WorkspaceBoundary);
+    }
+
+    [Fact]
+    public void RejectsSelfIntersectingOrOutOfImageWorkspaceBoundary()
+    {
+        var crossed = "\"workspaceBoundary\":[{\"u\":0,\"v\":0},{\"u\":100,\"v\":100},{\"u\":100,\"v\":0},{\"u\":0,\"v\":100}],";
+        var crossedJson = Json().Replace("\"worldCorners\":", crossed + "\"worldCorners\":", StringComparison.Ordinal);
+        Assert.Throws<ArgumentException>(() => CalibrationProfile.Parse(Encoding.UTF8.GetBytes(crossedJson)));
+
+        var outside = "\"workspaceBoundary\":[{\"u\":0,\"v\":0},{\"u\":100,\"v\":0},{\"u\":110,\"v\":100},{\"u\":0,\"v\":100}],";
+        var outsideJson = Json().Replace("\"worldCorners\":", outside + "\"worldCorners\":", StringComparison.Ordinal);
+        Assert.Throws<ArgumentException>(() => CalibrationProfile.Parse(Encoding.UTF8.GetBytes(outsideJson)));
     }
 
     [Fact]

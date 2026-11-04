@@ -33,9 +33,10 @@ Open the [calibration page](http://127.0.0.1:5108/calibration). No Meta key is r
 1. Open the captured JPEG. The image stays in the browser. Do not crop, rotate, or resize it.
 2. Keep the workspace at 20 × 12.5 m for the current scene. A different profile scale requires matching floor and navigation dimensions in Unity.
 3. Click the top-surface corners in order: top left, top right, bottom right, bottom left. Exclude the vertical front lip and the floor. Use **+ / −** to zoom and the viewport scrollbars to inspect corners; zoom keeps coordinates in the original image pixels. For a rotated workspace, keep perimeter order and choose the axes deliberately: +X runs from point 1 to 2, and +Z from point 1 to 4.
-4. Undo a point, clear all points, or edit U/V coordinates numerically. Coordinates are pixels in the original image and are independent of the displayed size.
-5. Click **Validate profile**. The server checks the schema and geometry. Correct the points if validation fails.
-6. Click **Download calibration.json** and save the file as `local/calibration.json`. Changing points, scale, or image invalidates the previous download link. Each validation creates a new calibration ID.
+4. For a non-rectangular or curved tabletop edge, click **Add outline point**, then click near each edge location that needs a bend. The nearest boundary segment is split at the clicked pixel; points stay ordered around the perimeter. Use several short segments to approximate a curve, then click **Finish outline**. **Undo outline point** removes the most recently added point. This boundary limits which camera pixels are accepted as tabletop; the four corners still define the perspective mapping.
+5. Undo a corner, clear all points, or edit the four corner U/V coordinates numerically. Extra outline vertices are adjusted by zooming and clicking. Coordinates are pixels in the original image and are independent of the displayed size.
+6. Click **Validate profile**. The server checks the schema, image bounds, and that the outline is a simple, non-self-intersecting polygon. Correct the points if validation fails.
+7. Click **Download calibration.json** and save the file as `local/calibration.json`. Changing points, scale, or image invalidates the previous download link. Each validation creates a new calibration ID.
 
 ![Calibration page checked in a browser with a marked synthetic image](images/calibration-browser.png)
 
@@ -45,7 +46,7 @@ The page accepts JPEG images up to 8 MiB and 4,194,304 pixels. It checks dimensi
 
 Default profile parameters are a 0.05–3 m radius, a 0.1 m additional margin, and a 0.3 minimum confidence. They apply to estimated obstacles in the simulation and do not represent a physical safety measurement.
 
-Four-corner homography corrects perspective for a flat tabletop, including an oblique camera angle. It does not correct curved edges caused by a wide-angle lens. If straight tabletop edges visibly bow, calibrate and undistort the camera with a checkerboard before taking the snapshot; do not draw curved workspace boundaries.
+Four-corner homography corrects perspective for a flat tabletop, including an oblique camera angle. Optional boundary vertices let the accepted tabletop region follow an irregular physical outline; the straight segments approximate curves. They do not correct lens distortion. If a straight tabletop edge visibly bows because of the lens, calibrate and undistort the camera with a checkerboard before taking the snapshot.
 
 ## Check the profile and mapping accuracy
 

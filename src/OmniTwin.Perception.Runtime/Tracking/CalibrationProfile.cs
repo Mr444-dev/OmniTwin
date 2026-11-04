@@ -16,7 +16,7 @@ public sealed class CalibrationProfile
     public CalibrationProfile(Guid calibrationId, int imageWidth, int imageHeight,
         IReadOnlyList<PixelPoint> cameraCorners, IReadOnlyList<Vector2D> worldCorners,
         float minimumRadiusMeters = 0.05f, float maximumRadiusMeters = 3, float safetyMarginMeters = 0.1f,
-        float minimumConfidence = 0.3f)
+        float minimumConfidence = 0.3f, IReadOnlyList<PixelPoint>? workspaceBoundary = null)
     {
         if (calibrationId == Guid.Empty) throw new ArgumentException("Calibration ID cannot be empty.", nameof(calibrationId));
         if (imageWidth <= 0 || imageHeight <= 0 || (long)imageWidth * imageHeight > 4_194_304)
@@ -30,7 +30,11 @@ public sealed class CalibrationProfile
         foreach (var point in cameraCorners)
             if (point.U < 0 || point.V < 0 || point.U > imageWidth - 1 || point.V > imageHeight - 1)
                 throw new ArgumentException("Calibration corners must be pixel centers inside the configured image.", nameof(cameraCorners));
-        Workspace = new CalibratedWorkspace(cameraCorners, worldCorners);
+        if (workspaceBoundary is not null)
+            foreach (var point in workspaceBoundary)
+                if (point.U < 0 || point.V < 0 || point.U > imageWidth - 1 || point.V > imageHeight - 1)
+                    throw new ArgumentException("Workspace boundary points must be pixel centers inside the configured image.", nameof(workspaceBoundary));
+        Workspace = new CalibratedWorkspace(cameraCorners, worldCorners, workspaceBoundary);
         CalibrationId = calibrationId; ImageWidth = imageWidth; ImageHeight = imageHeight;
         MinimumRadiusMeters = minimumRadiusMeters; MaximumRadiusMeters = maximumRadiusMeters;
         SafetyMarginMeters = safetyMarginMeters; MinimumConfidence = minimumConfidence;
@@ -51,6 +55,8 @@ public sealed class CalibrationProfile
     public float SafetyMarginMeters { get; }
     /// <summary>Gets the minimum accepted detector confidence.</summary>
     public float MinimumConfidence { get; }
+    /// <summary>Gets the perimeter-ordered pixel boundary, including optional extra vertices used for irregular tabletops.</summary>
+    public IReadOnlyList<PixelPoint> WorkspaceBoundary => Workspace.CameraBoundary;
 
     /// <summary>Loads a closed-schema calibration JSON file with a 16 KiB read limit.</summary>
     public static async Task<CalibrationProfile> LoadAsync(string path, CancellationToken cancellationToken = default)
@@ -74,8 +80,7 @@ public sealed class CalibrationProfile
         if (json.Length > 16_384) throw new InvalidDataException("Calibration JSON exceeds 16 KiB.");
         using var document = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 8 });
         var root = document.RootElement;
-        CheckKeys(root, "schemaVersion", "calibrationId", "imageWidth", "imageHeight", "cameraCorners", "worldCorners",
-            "minimumRadiusMeters", "maximumRadiusMeters", "safetyMarginMeters", "minimumConfidence");
+        CheckRootKeys(root);
         if (Integer(root, "schemaVersion") != 1) throw new FormatException("Unsupported calibration schema version.");
         var id = root.GetProperty("calibrationId");
         if (id.ValueKind != JsonValueKind.String || !Guid.TryParse(id.GetString(), out var calibrationId))
@@ -88,9 +93,35 @@ public sealed class CalibrationProfile
             pixels[i] = new PixelPoint(Number(camera[i], "u"), Number(camera[i], "v"));
             meters[i] = new Vector2D(Scalar(world[i], "x"), Scalar(world[i], "z"));
         }
+        PixelPoint[]? boundary = null;
+        if (root.TryGetProperty("workspaceBoundary", out var boundaryElement))
+        {
+            if (boundaryElement.ValueKind != JsonValueKind.Array || boundaryElement.GetArrayLength() is < 4 or > 64)
+                throw new FormatException("Workspace boundary must contain 4 to 64 points.");
+            boundary = new PixelPoint[boundaryElement.GetArrayLength()];
+            var index = 0;
+            foreach (var point in boundaryElement.EnumerateArray())
+            {
+                CheckKeys(point, "u", "v");
+                boundary[index++] = new PixelPoint(Number(point, "u"), Number(point, "v"));
+            }
+        }
         return new CalibrationProfile(calibrationId, Integer(root, "imageWidth"), Integer(root, "imageHeight"), pixels, meters,
             Scalar(root, "minimumRadiusMeters"), Scalar(root, "maximumRadiusMeters"), Scalar(root, "safetyMarginMeters"),
-            Scalar(root, "minimumConfidence"));
+            Scalar(root, "minimumConfidence"), boundary);
+    }
+
+    private static void CheckRootKeys(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object) throw new FormatException("Expected a calibration object.");
+        string[] required = { "schemaVersion", "calibrationId", "imageWidth", "imageHeight", "cameraCorners", "worldCorners",
+            "minimumRadiusMeters", "maximumRadiusMeters", "safetyMarginMeters", "minimumConfidence" };
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var property in root.EnumerateObject())
+            if ((!Array.Exists(required, key => key == property.Name) && property.Name != "workspaceBoundary") || !seen.Add(property.Name))
+                throw new FormatException("Unknown or duplicate calibration property.");
+        foreach (var key in required)
+            if (!seen.Contains(key)) throw new FormatException("Missing calibration property.");
     }
 
     private static JsonElement Corners(JsonElement root, string key)
