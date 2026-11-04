@@ -13,7 +13,13 @@ section { background: #111e2a; border: 1px solid #2a3c4c; border-radius: 14px; p
 .panel-heading span, .hint { font-size: .78rem; color: #93a8ba; }
 #empty { min-height: 300px; display: grid; align-content: center; justify-items: center; padding: 20px; text-align: center; background: #0a141d; border: 1px dashed #365366; border-radius: 8px; margin-bottom: 24px; }
 #empty[hidden], canvas[hidden] { display: none; }
-canvas { display: block; width: 100%; height: auto; background: #081018; cursor: crosshair; border-radius: 6px; margin-bottom: 24px; }
+#image-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
+#image-tools[hidden], #image-viewport[hidden] { display: none; }
+#image-tools button { min-width: 42px; padding: 7px 10px; }
+#zoom-level { min-width: 4ch; color: #8cfff1; font-size: .8rem; font-variant-numeric: tabular-nums; }
+#image-tools span { flex: 1 1 220px; color: #93a8ba; font-size: .75rem; }
+.image-viewport { max-height: min(65vh, 760px); overflow: auto; overscroll-behavior: contain; background: #081018; border: 1px solid #2a3c4c; border-radius: 6px; margin-bottom: 24px; }
+canvas { display: block; width: auto; max-width: none; height: auto; max-height: none; background: #081018; cursor: crosshair; }
 code { font-family: ui-monospace, monospace; color: #82e0d6; overflow-wrap: anywhere; }
 input, button, .file-label { font: inherit; border-radius: 6px; }
 input[type=file] { display: block; max-width: 100%; margin-top: 12px; font-size: .82rem; }

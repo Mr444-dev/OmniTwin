@@ -32,7 +32,7 @@ Open the [calibration page](http://127.0.0.1:5108/calibration). No Meta key is r
 
 1. Open the captured JPEG. The image stays in the browser. Do not crop, rotate, or resize it.
 2. Keep the workspace at 20 × 12.5 m for the current scene. A different profile scale requires matching floor and navigation dimensions in Unity.
-3. Click the corners in order: top left, top right, bottom right, bottom left. For a rotated workspace, keep perimeter order and choose the axes deliberately: +X runs from point 1 to 2, and +Z from point 1 to 4.
+3. Click the top-surface corners in order: top left, top right, bottom right, bottom left. Exclude the vertical front lip and the floor. Use **+ / −** to zoom and the viewport scrollbars to inspect corners; zoom keeps coordinates in the original image pixels. For a rotated workspace, keep perimeter order and choose the axes deliberately: +X runs from point 1 to 2, and +Z from point 1 to 4.
 4. Undo a point, clear all points, or edit U/V coordinates numerically. Coordinates are pixels in the original image and are independent of the displayed size.
 5. Click **Validate profile**. The server checks the schema and geometry. Correct the points if validation fails.
 6. Click **Download calibration.json** and save the file as `local/calibration.json`. Changing points, scale, or image invalidates the previous download link. Each validation creates a new calibration ID.
@@ -44,6 +44,8 @@ The screenshot shows the actual interface with a marked synthetic test image; it
 The page accepts JPEG images up to 8 MiB and 4,194,304 pixels. It checks dimensions before decoding and rejects EXIF to avoid ambiguous rotation. It sends only profile JSON to the server. The backend does not save the image or profile and does not switch a running perception session.
 
 Default profile parameters are a 0.05–3 m radius, a 0.1 m additional margin, and a 0.3 minimum confidence. They apply to estimated obstacles in the simulation and do not represent a physical safety measurement.
+
+Four-corner homography corrects perspective for a flat tabletop, including an oblique camera angle. It does not correct curved edges caused by a wide-angle lens. If straight tabletop edges visibly bow, calibrate and undistort the camera with a checkerboard before taking the snapshot; do not draw curved workspace boundaries.
 
 ## Check the profile and mapping accuracy
 

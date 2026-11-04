@@ -2,8 +2,9 @@
 (() => {
   const byId = id => document.getElementById(id);
   const canvas = byId("image"), context = canvas.getContext("2d");
+  const viewport = byId("image-viewport");
   const points = [], labels = ["Top left", "Top right", "Bottom right", "Bottom left"];
-  let image = null, revision = 0, loading = 0, activeRequest = null, downloadUrl = null;
+  let image = null, revision = 0, loading = 0, activeRequest = null, downloadUrl = null, zoom = 1, fitScale = 1;
   const status = (text, error = false) => { byId("status").textContent = text; byId("status").dataset.error = String(error); };
   const changed = () => {
     revision++; activeRequest?.abort(); byId("download").hidden = true; byId("download").removeAttribute("href");
@@ -28,6 +29,32 @@
       context.font = `bold ${13 * scale}px system-ui`; context.textAlign = "center"; context.textBaseline = "middle";
       context.fillStyle = "#ffffff"; context.fillText(String(i + 1), point.u, point.v); context.fillStyle = "#07151a";
     });
+  }
+
+  function fitImage() {
+    if (!image) return;
+    const maxHeight = Math.min(window.innerHeight * 0.65, 760);
+    fitScale = Math.min(1, viewport.clientWidth / image.width, maxHeight / image.height);
+    applyZoom();
+  }
+
+  function applyZoom(keepCenter = false) {
+    if (!image) return;
+    const oldWidth = Number.parseFloat(canvas.style.width) || image.width * fitScale * zoom;
+    const oldHeight = Number.parseFloat(canvas.style.height) || image.height * fitScale * zoom;
+    const centerX = viewport.scrollLeft + viewport.clientWidth / 2;
+    const centerY = viewport.scrollTop + viewport.clientHeight / 2;
+    const width = Math.max(1, Math.round(image.width * fitScale * zoom));
+    const height = Math.max(1, Math.round(image.height * fitScale * zoom));
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    byId("zoom-level").textContent = `${Math.round(zoom * 100)}% of fit`;
+    byId("zoom-out").disabled = zoom <= 0.5;
+    byId("zoom-in").disabled = zoom >= 4;
+    if (keepCenter && oldWidth > 0 && oldHeight > 0) {
+      viewport.scrollLeft = Math.max(0, centerX * width / oldWidth - viewport.clientWidth / 2);
+      viewport.scrollTop = Math.max(0, centerY * height / oldHeight - viewport.clientHeight / 2);
+    }
   }
 
   function pointList() {
@@ -82,7 +109,7 @@
 
   byId("file").addEventListener("change", async event => {
     const ticket = ++loading, file = event.target.files[0];
-    changed(); image = null; points.length = 0; canvas.hidden = true; byId("empty").hidden = false;
+    changed(); image = null; points.length = 0; viewport.hidden = true; byId("image-tools").hidden = true; byId("empty").hidden = false;
     byId("dimensions").textContent = "No image loaded"; pointList();
     if (!file) { status("Open an image to begin."); return; }
     let url = null;
@@ -95,7 +122,9 @@
       if (decoded.naturalWidth !== size.width || decoded.naturalHeight !== size.height) throw new Error("Decoded dimensions do not match the JPEG header.");
       image = decoded; canvas.width = size.width; canvas.height = size.height;
       byId("dimensions").textContent = `${size.width} × ${size.height} px`;
-      canvas.hidden = false; byId("empty").hidden = true; draw(); status("Select point 1: the top-left workspace corner.");
+      viewport.hidden = false; byId("image-tools").hidden = false; byId("empty").hidden = true;
+      zoom = 1; viewport.scrollLeft = viewport.scrollTop = 0; fitImage(); draw();
+      status("Zoom in if needed. Select point 1 at the top-left corner of the tabletop surface.");
     } catch (error) { if (ticket === loading) status(error.message, true); }
     finally { if (url) URL.revokeObjectURL(url); }
   });
@@ -103,12 +132,17 @@
   canvas.addEventListener("click", event => {
     if (!image || points.length === 4) return;
     const box = canvas.getBoundingClientRect();
+    if (box.width <= 0 || box.height <= 0) return;
     points.push({u: Math.round(Math.max(0, Math.min(image.width - 1, (event.clientX - box.left) / box.width * image.width)) * 10) / 10,
       v: Math.round(Math.max(0, Math.min(image.height - 1, (event.clientY - box.top) / box.height * image.height)) * 10) / 10});
     changed(); pointList(); status(points.length === 4 ? "Four points selected. Validate the profile, then download it." : `Select point ${points.length + 1}: ${labels[points.length].toLowerCase()}.`);
   });
   byId("undo").addEventListener("click", () => { points.pop(); changed(); pointList(); status("Last point removed."); });
   byId("reset").addEventListener("click", () => { points.length = 0; changed(); pointList(); status("Select the four corners again."); });
+  byId("zoom-out").addEventListener("click", () => { zoom = Math.max(0.5, zoom / 1.25); applyZoom(true); });
+  byId("zoom-in").addEventListener("click", () => { zoom = Math.min(4, zoom * 1.25); applyZoom(true); });
+  byId("zoom-fit").addEventListener("click", () => { zoom = 1; viewport.scrollLeft = viewport.scrollTop = 0; fitImage(); });
+  window.addEventListener("resize", () => { if (image) fitImage(); });
   for (const id of ["width", "depth"]) byId(id).addEventListener("input", () => { changed(); status("Scale changed. Validate the profile again."); });
 
   async function boundedText(response) {

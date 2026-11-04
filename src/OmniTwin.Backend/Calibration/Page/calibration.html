@@ -10,12 +10,21 @@
 <body>
   <main>
     <header><span class="eyebrow">OMNITWIN / PERCEPTION</span><h1>Map the camera to the world.</h1>
-      <p>Select the four corners of the flat workspace in an image from the camera used by the backend.</p></header>
+      <p>Select the four corners of the flat tabletop in an image from the camera used by the backend. Perspective is expected; keep the camera fixed after capture.</p></header>
     <div class="workspace">
       <section class="image-panel" aria-label="Calibration image">
         <div class="panel-heading"><h2>01 / Camera image</h2><span id="dimensions">No image loaded</span></div>
         <div id="empty"><p>Capture a frame with the CLI:</p><code>snapshot 0 local/table.jpg</code><p>Then open it below. The image stays in this browser.</p></div>
-        <canvas id="image" hidden aria-label="Click the four corners in order. You can also edit their coordinates in the points panel."></canvas>
+        <div id="image-tools" class="image-tools" hidden aria-label="Image zoom controls">
+          <button id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+          <button id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+          <button id="zoom-fit" type="button">Fit image</button>
+          <output id="zoom-level" aria-live="polite">100%</output>
+          <span>Scroll to inspect the image. Zoom does not change pixel coordinates.</span>
+        </div>
+        <div id="image-viewport" class="image-viewport" hidden>
+          <canvas id="image" aria-label="Click the tabletop corners in order. Select points on the top surface, not the vertical side. You can also edit pixel coordinates in the points panel."></canvas>
+        </div>
         <label class="file-label" for="file">Open JPEG image</label><input id="file" type="file" accept="image/jpeg,.jpg,.jpeg">
         <p class="hint">Maximum 8 MiB and 4,194,304 pixels. Use the CLI frame without rotation, cropping, or EXIF metadata.</p>
       </section>
@@ -25,7 +34,7 @@
           <label>Depth Z (m)<input id="depth" type="number" min="0.01" max="10000" step="0.01" value="12.5" required></label></div>
         <p class="hint">The TacticalDesk scene uses a 20 × 12.5 m floor. Changing the profile scale requires matching scene dimensions.</p>
         <h2>03 / Four corners</h2>
-        <p>Click in this order: top left → top right → bottom right → bottom left. Axis +X runs from point 1 to 2; +Z runs from point 1 to 4.</p>
+        <p>Click the top-surface corners in this order: top left → top right → bottom right → bottom left. Do not include the vertical front edge. Axis +X runs from point 1 to 2; +Z runs from point 1 to 4.</p>
         <ol id="points" aria-label="Points in pixels"></ol>
         <div class="actions"><button id="undo" type="button" disabled>Undo point</button><button id="reset" type="button" disabled>Clear points</button></div>
         <button id="export" class="primary" type="button" disabled>Validate profile</button>
@@ -33,7 +42,7 @@
         <p id="status" role="status" aria-live="polite">Open an image to begin.</p>
       </section>
     </div>
-    <footer><strong>Before enabling perception</strong><p>Save the downloaded file as <code>local/calibration.json</code>. Check the mapping against independent points at known positions. Validation checks geometry; accuracy requires measurement.</p><p>Keep the same camera, resolution, and position. Moving the camera requires recalibration. A homography maps one plane; elevated objects and lens distortion introduce errors.</p></footer>
+    <footer><strong>Before enabling perception</strong><p>Save the downloaded file as <code>local/calibration.json</code>. Check the mapping against independent points at known positions. Validation checks geometry; accuracy requires measurement.</p><p>Keep the same camera, resolution, and position. Moving the camera requires recalibration. Homography handles an angled view of a flat plane. If straight edges visibly bow from lens distortion, undistort the camera with a checkerboard first; do not draw curved workspace boundaries.</p></footer>
   </main>
 </body>
 </html>
