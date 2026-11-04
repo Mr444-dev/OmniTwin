@@ -285,7 +285,7 @@ namespace OmniTwin.Simulation.Editor
                 if (!aerial)
                 {
                     var navigation = entity.AddComponent<NavMeshAgent>();
-                    navigation.radius = 0.35f; navigation.height = 0.7f; navigation.speed = 1.5f; navigation.acceleration = 8;
+                    navigation.radius = 0.62f; navigation.height = 0.7f; navigation.speed = 1.5f; navigation.acceleration = 8;
                     navigation.angularSpeed = 180; navigation.stoppingDistance = 0.12f; navigation.autoBraking = true;
                     navigation.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
                     navigation.avoidancePriority = 20 + index * 10;

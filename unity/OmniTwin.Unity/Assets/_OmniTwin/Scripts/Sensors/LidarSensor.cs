@@ -22,7 +22,7 @@ namespace OmniTwin.Simulation.Sensors
         private readonly RaycastHit[] _hits = new RaycastHit[128];
         private readonly Collider[] _overlaps = new Collider[128];
         private Vector3[] _directions, _hitVertices;
-        private float[] _distances;
+        private float[] _distances, _blockingDistances;
         private bool[] _renderedBeams;
         private int[] _hitIndices;
         private int _hitCount;
@@ -49,7 +49,7 @@ namespace OmniTwin.Simulation.Sensors
                 throw new InvalidOperationException("Invalid LiDAR configuration.");
             _owner = GetComponent<SwarmAgentController>();
             if (_owner == null) throw new InvalidOperationException("LiDAR requires its owning agent.");
-            _directions = new Vector3[beamCount]; _distances = new float[beamCount]; _renderedBeams = new bool[beamCount];
+            _directions = new Vector3[beamCount]; _distances = new float[beamCount]; _blockingDistances = new float[beamCount]; _renderedBeams = new bool[beamCount];
             _hitVertices = new Vector3[beamCount * 6]; _hitIndices = new int[_hitVertices.Length];
             for (var i = 0; i < _hitIndices.Length; i++) _hitIndices[i] = i;
             CreateRayLines();
@@ -119,10 +119,18 @@ namespace OmniTwin.Simulation.Sensors
                 var fraction = fieldOfView >= 359.9f ? (float)i / beamCount : (float)i / (beamCount - 1);
                 var direction = Quaternion.AngleAxis(-fieldOfView / 2 + fraction * fieldOfView, Vector3.up) * transform.forward;
                 var count = Physics.RaycastNonAlloc(origin, direction, _hits, rangeMeters, collisionMask, QueryTriggerInteraction.Ignore);
-                var nearest = rangeMeters; var hit = false;
-                if (count == _hits.Length) { nearest = 0; hit = true; }
-                for (var j = 0; j < count; j++) if (Relevant(_hits[j].collider) && _hits[j].distance < nearest) { nearest = _hits[j].distance; hit = true; }
+                var nearest = rangeMeters; var nearestBlocker = rangeMeters; var hit = false; var blockingHit = false;
+                if (count == _hits.Length) { nearest = nearestBlocker = 0; hit = blockingHit = true; }
+                for (var j = 0; j < count; j++)
+                {
+                    var candidate = _hits[j];
+                    if (!Relevant(candidate.collider)) continue;
+                    if (candidate.distance < nearest) { nearest = candidate.distance; hit = true; }
+                    if (BlocksTravelCollider(candidate.collider) && candidate.distance < nearestBlocker)
+                    { nearestBlocker = candidate.distance; blockingHit = true; }
+                }
                 _directions[i] = direction; _distances[i] = hit ? nearest : -1;
+                _blockingDistances[i] = blockingHit ? nearestBlocker : -1;
                 if (hit) { _hitCount++; _minimum = Mathf.Min(_minimum, nearest); }
                 var renderBeam = hit || i % RenderedBeamStride == 0;
                 _renderedBeams[i] = renderBeam;
@@ -155,15 +163,23 @@ namespace OmniTwin.Simulation.Sensors
             if (_sampledAt < 0 || Time.unscaledTime - _sampledAt > 0.25f) return true;
             var direction = advance / distance;
             for (var i = 0; i < beamCount; i++)
-                if (_distances[i] >= 0 && Vector3.Dot(direction, _directions[i]) > 0.5f && _distances[i] <= radius + distance + 0.15f) return true;
+                if (_blockingDistances[i] >= 0 && Vector3.Dot(direction, _directions[i]) > 0.5f && _blockingDistances[i] <= radius + distance + 0.15f) return true;
             var count = Physics.OverlapCapsuleNonAlloc(Origin, Origin + advance + direction * 0.12f, radius, _overlaps, collisionMask, QueryTriggerInteraction.Ignore);
             if (count == _overlaps.Length) return true;
-            for (var i = 0; i < count; i++) if (Relevant(_overlaps[i])) return true;
+            for (var i = 0; i < count; i++) if (BlocksTravelCollider(_overlaps[i])) return true;
             return false;
         }
         private bool Relevant(Collider collider) => collider != null && !collider.transform.IsChildOf(transform) &&
             (collider.GetComponentInParent<NavMeshObstacle>() != null || collider.GetComponentInParent<SwarmAgentController>() != null ||
              (collider.gameObject.isStatic && Mathf.Abs(collider.bounds.center.y - Origin.y) < collider.bounds.extents.y));
+        private bool BlocksTravelCollider(Collider collider)
+        {
+            if (collider == null || collider.transform.IsChildOf(transform)) return false;
+            if (collider.GetComponentInParent<NavMeshObstacle>() != null) return true;
+            var otherAgent = collider.GetComponentInParent<SwarmAgentController>();
+            if (otherAgent != null && _owner.Role == AgentRole.GroundVehicle && otherAgent.Role == AgentRole.GroundVehicle) return false;
+            return collider.gameObject.isStatic && Mathf.Abs(collider.bounds.center.y - Origin.y) < collider.bounds.extents.y;
+        }
         private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
         private void OnDisable() { _sampledAt = -1; SetVisualizationEnabled(false); }
         private void OnDestroy()

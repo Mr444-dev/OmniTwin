@@ -62,6 +62,12 @@ namespace OmniTwin.Simulation.Agents
         private void EnsureRuntimeState()
         {
             if (_navigation == null) _navigation = GetComponent<NavMeshAgent>();
+            if (_navigation != null && role == AgentRole.GroundVehicle)
+            {
+                // Match the avoidance disc to the visible chassis footprint (about 0.98 m long).
+                _navigation.radius = Mathf.Max(_navigation.radius, 0.62f);
+                _navigation.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
+            }
             if (_navigation != null && _navigationPath == null) _navigationPath = new NavMeshPath();
             if (_lidar == null) _lidar = GetComponent<LidarSensor>();
         }

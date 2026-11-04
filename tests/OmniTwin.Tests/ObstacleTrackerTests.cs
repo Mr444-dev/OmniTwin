@@ -140,15 +140,15 @@ public sealed class ObstacleTrackerTests
     }
 
     [Fact]
-    public void HandRegionsAreTransientAndExpireWithoutBlockingAStationaryTable()
+    public void HandRegionsAreTransientAndExpireAfterSevenSecondsWithoutBlockingAStationaryTable()
     {
         var tracker = new ObstacleTracker(Session, Calibration, retentionMilliseconds: 20_000);
         tracker.Update(Batch(0, 0, Observation(0, 1, label: "hand")), 0);
         var hand = Assert.Single(tracker.Snapshot(0, 1000).Obstacles);
         Assert.Equal(ObstacleLifecycleState.TransientManipulator, hand.Lifecycle);
         tracker.Update(Batch(1, 1000), 1000);
-        Assert.Single(tracker.Snapshot(1499, 2000).Obstacles);
-        Assert.Empty(tracker.Snapshot(1500, 2000).Obstacles);
+        Assert.Single(tracker.Snapshot(6999, 2000).Obstacles);
+        Assert.Empty(tracker.Snapshot(7000, 2000).Obstacles);
     }
 
     [Fact]
@@ -161,6 +161,25 @@ public sealed class ObstacleTrackerTests
         Assert.Equal(ObstacleLifecycleState.SettledObstacle, track.Lifecycle);
         Assert.True(tracker.ApplyLocalMotion(track.Obstacle.Id, new Vector2D(2, 0), 1200, 2200, 0.9f, 1200));
         Assert.Equal(ObstacleLifecycleState.TransientManipulator, Assert.Single(tracker.Snapshot(1200, 2200).Obstacles).Lifecycle);
+    }
+
+    [Fact]
+    public void LocallyMovedObjectRemainsAvailableForLateSamReassociation()
+    {
+        var tracker = new ObstacleTracker(Session, Calibration, retentionMilliseconds: 20_000);
+        tracker.Update(Batch(0, 0, Observation(0, 1, label: "cup")), 0);
+        tracker.Update(Batch(1, 1000, Observation(0, 1, label: "cup")), 1000);
+        var original = Assert.Single(tracker.Snapshot(1000, 2000).Obstacles);
+
+        Assert.True(tracker.ApplyLocalMotion(original.Obstacle.Id, new Vector2D(0.8f, 1), 1200, 2200, 0.9f, 1200));
+        var moved = Assert.Single(tracker.Snapshot(1200, 2200).Obstacles);
+        Assert.Equal(original.Obstacle.Id, moved.Obstacle.Id);
+        Assert.Equal(ObservationSource.LocalMotionEstimate, moved.ObservationSource);
+        Assert.Equal(ObstacleLifecycleState.TransientManipulator, moved.Lifecycle);
+
+        // Inference latency can be several seconds; keep the moved track for a late SAM update.
+        Assert.Single(tracker.Snapshot(7999, 9000).Obstacles);
+        Assert.Empty(tracker.Snapshot(8000, 9001).Obstacles);
     }
 
     [Fact]

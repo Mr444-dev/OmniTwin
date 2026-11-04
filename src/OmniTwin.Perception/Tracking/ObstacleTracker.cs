@@ -30,7 +30,9 @@ public sealed class ObstacleTracker
     private readonly double _matchDistance;
     private readonly double _maximumSpeed;
     private readonly int _capacity;
-    private const long TransientRetentionMilliseconds = 1500;
+    // A moved tabletop object may need several seconds for the next SAM response to arrive.
+    // Keep its last geometry available long enough for that response to reassociate the track.
+    private const long TransientRetentionMilliseconds = 7000;
     private const long SettlingConfirmationMilliseconds = 750;
     private const double MotionDeadbandMeters = 0.025;
     private const double PositionEmaMaximumStepMeters = 0.15;
