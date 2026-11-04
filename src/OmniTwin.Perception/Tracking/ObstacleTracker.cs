@@ -81,6 +81,7 @@ public sealed class ObstacleTracker
                 costs[row, column] = column < observations.Count ? Cost(active[row], observations[column], batch.CapturedElapsedMs) : active.Count + 1;
             var assignment = MinimumCostAssignment.Solve(costs);
             var matched = new bool[observations.Count];
+            var matchedTracks = new bool[active.Count];
             var next = new List<Track>();
             for (var row = 0; row < active.Count; row++)
             {
@@ -88,10 +89,42 @@ public sealed class ObstacleTracker
                 if (column < observations.Count && costs[row, column] < 1_000_000)
                 {
                     matched[column] = true;
+                    matchedTracks[row] = true;
                     next.Add(Refresh(active[row], observations[column], batch, observationSource));
                 }
-                else next.Add(active[row].Retain());
             }
+
+            // A single moved object can exceed the normal association gate after tabletop-to-world scaling.
+            // Preserve its identity only when the unmatched semantic/radius-compatible pair is unambiguous.
+            var reassociation = new int[active.Count];
+            Array.Fill(reassociation, -1);
+            for (var row = 0; row < active.Count; row++)
+            {
+                if (matchedTracks[row]) continue;
+                var candidate = -1;
+                var candidateCount = 0;
+                for (var column = 0; column < observations.Count; column++)
+                {
+                    if (matched[column] || !CanReassociate(active[row], observations[column], batch.CapturedElapsedMs)) continue;
+                    candidate = column;
+                    candidateCount++;
+                    if (candidateCount > 1) break;
+                }
+                if (candidateCount == 1) reassociation[row] = candidate;
+            }
+            for (var row = 0; row < active.Count; row++)
+            {
+                var column = reassociation[row];
+                if (matchedTracks[row] || column < 0 || matched[column]) continue;
+                var competingTracks = 0;
+                for (var other = 0; other < active.Count; other++)
+                    if (!matchedTracks[other] && reassociation[other] == column) competingTracks++;
+                if (competingTracks != 1) continue;
+                matched[column] = true;
+                matchedTracks[row] = true;
+                next.Add(Refresh(active[row], observations[column], batch, observationSource));
+            }
+            for (var row = 0; row < active.Count; row++) if (!matchedTracks[row]) next.Add(active[row].Retain());
             var newCount = 0;
             foreach (var used in matched) if (!used) newCount++;
             if (next.Count + newCount > _capacity) return TrackingUpdateStatus.CapacityExceeded;
@@ -196,6 +229,20 @@ public sealed class ObstacleTracker
         var distance = Math.Sqrt(dx * dx + dz * dz);
         if (distance > _matchDistance) return 1_000_000;
         return 0.8 * distance / _matchDistance + 0.2 * Math.Abs(Math.Log(ratio)) / Math.Log(2.5);
+    }
+
+    private bool CanReassociate(Track track, ObstacleObservation observation, long capturedMs)
+    {
+        if (!string.Equals(track.Observation.Label, observation.Label, StringComparison.Ordinal) ||
+            track.Observation.IsHazardZone != observation.IsHazardZone) return false;
+        var ratio = (double)observation.RadiusMeters / track.SmoothedRadius;
+        if (ratio < 0.4 || ratio > 2.5) return false;
+        var useLocal = track.LocalCapture.HasValue && track.LocalCapture.Value <= capturedMs;
+        var referenceTime = useLocal ? track.LocalCapture!.Value : track.CapturedElapsedMs;
+        var referencePosition = useLocal ? track.LocalPosition!.Value : track.SmoothedPosition;
+        var elapsedSeconds = Math.Max(0, capturedMs - referenceTime) / 1000.0;
+        var maximumTravel = _matchDistance + _maximumSpeed * elapsedSeconds;
+        return referencePosition.DistanceTo(observation.Position) <= maximumTravel;
     }
 
     private Track Refresh(Track previous, ObstacleObservation observation, ObstacleObservationBatch batch, ObservationSource observationSource)

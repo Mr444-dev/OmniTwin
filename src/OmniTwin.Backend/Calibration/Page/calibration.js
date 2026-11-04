@@ -2,7 +2,7 @@
 (() => {
   const byId = id => document.getElementById(id);
   const canvas = byId("image"), context = canvas.getContext("2d");
-  const points = [], labels = ["Lewy górny", "Prawy górny", "Prawy dolny", "Lewy dolny"];
+  const points = [], labels = ["Top left", "Top right", "Bottom right", "Bottom left"];
   let image = null, revision = 0, loading = 0, activeRequest = null, downloadUrl = null;
   const status = (text, error = false) => { byId("status").textContent = text; byId("status").dataset.error = String(error); };
   const changed = () => {
@@ -39,11 +39,11 @@
         const label = document.createElement("label"), input = document.createElement("input");
         label.textContent = axis.toUpperCase(); input.type = "number"; input.step = "0.1"; input.min = "0"; input.required = true;
         input.max = String((axis === "u" ? image.width : image.height) - 1); input.value = String(point[axis]);
-        input.setAttribute("aria-label", `Punkt ${i + 1}, ${axis}`);
-        input.addEventListener("input", () => { changed(); draw(); status("Współrzędne zmienione. Zatwierdź poprawną wartość przed sprawdzeniem profilu."); });
+        input.setAttribute("aria-label", `Point ${i + 1}, ${axis}`);
+        input.addEventListener("input", () => { changed(); draw(); status("Coordinates changed. Commit a valid value before validating the profile."); });
         input.addEventListener("change", () => {
           if (!input.checkValidity() || !Number.isFinite(input.valueAsNumber)) { input.reportValidity(); return; }
-          point[axis] = input.valueAsNumber; changed(); draw(); status("Punkt zmieniony. Sprawdź geometrię przed pobraniem.");
+          point[axis] = input.valueAsNumber; changed(); draw(); status("Point updated. Validate the geometry before downloading.");
         });
         label.append(input); fields.append(label);
       }
@@ -55,7 +55,7 @@
   // Read dimensions before decode, and reject EXIF to keep pixel orientation unambiguous.
   function jpegSize(buffer) {
     const data = new Uint8Array(buffer), view = new DataView(buffer);
-    if (data.length < 4 || data[0] !== 255 || data[1] !== 216) throw new Error("Wybierz poprawny plik JPEG z polecenia snapshot.");
+    if (data.length < 4 || data[0] !== 255 || data[1] !== 216) throw new Error("Choose a valid JPEG created by the snapshot command.");
     let offset = 2, size = null;
     while (offset < data.length) {
       if (data[offset++] !== 255) break;
@@ -67,35 +67,35 @@
       const length = view.getUint16(offset);
       if (length < 2 || offset + length > data.length) break;
       if (marker === 225 && length >= 8 && data.subarray(offset + 2, offset + 8).every((x, i) => x === [69,120,105,102,0,0][i]))
-        throw new Error("Zdjęcie zawiera EXIF. Zapisz klatkę poleceniem snapshot, aby zachować zgodne współrzędne.");
+        throw new Error("This image contains EXIF metadata. Capture a frame with the snapshot command to keep pixel coordinates aligned.");
       if ([192,193,194].includes(marker) && length >= 8) {
         const height = view.getUint16(offset + 3), width = view.getUint16(offset + 5);
         if (data[offset + 2] !== 8 || width < 2 || height < 2 || width * height > 4194304)
-          throw new Error("JPEG musi mieć 8 bitów na kanał i najwyżej 4 194 304 piksele.");
+          throw new Error("The JPEG must use 8 bits per channel and contain no more than 4,194,304 pixels.");
         size = {width, height};
       }
       offset += length;
     }
-    if (!size) throw new Error("Nie można odczytać wymiarów JPEG.");
+    if (!size) throw new Error("Could not read the JPEG dimensions.");
     return size;
   }
 
   byId("file").addEventListener("change", async event => {
     const ticket = ++loading, file = event.target.files[0];
     changed(); image = null; points.length = 0; canvas.hidden = true; byId("empty").hidden = false;
-    byId("dimensions").textContent = "Brak zdjęcia"; pointList();
-    if (!file) { status("Otwórz zdjęcie, aby rozpocząć."); return; }
+    byId("dimensions").textContent = "No image loaded"; pointList();
+    if (!file) { status("Open an image to begin."); return; }
     let url = null;
     try {
-      if (file.size > 8388608) throw new Error("JPEG przekracza limit 8 MiB.");
+      if (file.size > 8388608) throw new Error("The JPEG exceeds the 8 MiB limit.");
       const size = jpegSize(await file.arrayBuffer());
       url = URL.createObjectURL(file);
       const decoded = new Image(); decoded.src = url; await decoded.decode();
       if (ticket !== loading) return;
-      if (decoded.naturalWidth !== size.width || decoded.naturalHeight !== size.height) throw new Error("Wymiary po dekodowaniu nie zgadzają się z nagłówkiem JPEG.");
+      if (decoded.naturalWidth !== size.width || decoded.naturalHeight !== size.height) throw new Error("Decoded dimensions do not match the JPEG header.");
       image = decoded; canvas.width = size.width; canvas.height = size.height;
       byId("dimensions").textContent = `${size.width} × ${size.height} px`;
-      canvas.hidden = false; byId("empty").hidden = true; draw(); status("Wskaż punkt 1: lewy górny narożnik obszaru.");
+      canvas.hidden = false; byId("empty").hidden = true; draw(); status("Select point 1: the top-left workspace corner.");
     } catch (error) { if (ticket === loading) status(error.message, true); }
     finally { if (url) URL.revokeObjectURL(url); }
   });
@@ -105,19 +105,19 @@
     const box = canvas.getBoundingClientRect();
     points.push({u: Math.round(Math.max(0, Math.min(image.width - 1, (event.clientX - box.left) / box.width * image.width)) * 10) / 10,
       v: Math.round(Math.max(0, Math.min(image.height - 1, (event.clientY - box.top) / box.height * image.height)) * 10) / 10});
-    changed(); pointList(); status(points.length === 4 ? "Cztery punkty wybrane. Sprawdź i pobierz profil." : `Wskaż punkt ${points.length + 1}: ${labels[points.length].toLowerCase()}.`);
+    changed(); pointList(); status(points.length === 4 ? "Four points selected. Validate the profile, then download it." : `Select point ${points.length + 1}: ${labels[points.length].toLowerCase()}.`);
   });
-  byId("undo").addEventListener("click", () => { points.pop(); changed(); pointList(); status("Ostatni punkt usunięty."); });
-  byId("reset").addEventListener("click", () => { points.length = 0; changed(); pointList(); status("Wskaż ponownie cztery narożniki."); });
-  for (const id of ["width", "depth"]) byId(id).addEventListener("input", () => { changed(); status("Skala zmieniona. Sprawdź profil ponownie."); });
+  byId("undo").addEventListener("click", () => { points.pop(); changed(); pointList(); status("Last point removed."); });
+  byId("reset").addEventListener("click", () => { points.length = 0; changed(); pointList(); status("Select the four corners again."); });
+  for (const id of ["width", "depth"]) byId(id).addEventListener("input", () => { changed(); status("Scale changed. Validate the profile again."); });
 
   async function boundedText(response) {
-    if (!response.body) throw new Error("Serwer zwrócił pustą odpowiedź.");
+    if (!response.body) throw new Error("The server returned an empty response.");
     const reader = response.body.getReader(), chunks = []; let length = 0;
     try {
       while (true) {
         const {value, done} = await reader.read(); if (done) break;
-        length += value.length; if (length > 16384) throw new Error("Odpowiedź przekracza limit profilu."); chunks.push(value);
+        length += value.length; if (length > 16384) throw new Error("The response exceeds the profile size limit."); chunks.push(value);
       }
     } finally { await reader.cancel(); reader.releaseLock(); }
     const bytes = new Uint8Array(length); let offset = 0;
@@ -135,13 +135,13 @@
         const response = await fetch("/api/calibration/validate", {method: "POST", credentials: "same-origin", cache: "no-store",
           headers: {"Content-Type": "application/json", "X-OmniTwin-Calibration": "1"}, body: JSON.stringify(profile), signal: AbortSignal.any([signal, timeout])});
         if (response.ok) {
-          if (!(response.headers.get("content-type") || "").startsWith("application/json")) throw new Error("Nieprawidłowy format odpowiedzi serwera.");
+          if (!(response.headers.get("content-type") || "").startsWith("application/json")) throw new Error("The server returned an invalid response format.");
           const text = await boundedText(response);
-          if (JSON.stringify(JSON.parse(text)) !== JSON.stringify(profile)) throw new Error("Odpowiedź nie odpowiada wysłanemu profilowi.");
+          if (JSON.stringify(JSON.parse(text)) !== JSON.stringify(profile)) throw new Error("The server response does not match the submitted profile.");
           return text;
         }
-        if (response.status === 400) throw new Error("Geometria odrzucona. Sprawdź kolejność, odstępy i położenie czterech narożników.");
-        if (![408,429,500,502,503,504].includes(response.status)) throw new Error(`Walidacja odrzucona (HTTP ${response.status}). Odśwież stronę na lokalnym backendzie.`);
+        if (response.status === 400) throw new Error("The geometry was rejected. Check the order, spacing, and placement of the four corners.");
+        if (![408,429,500,502,503,504].includes(response.status)) throw new Error(`Validation rejected (HTTP ${response.status}). Refresh the page from the local backend.`);
         const retry = response.headers.get("retry-after");
         if (retry) { const seconds = Number(retry); const wait = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(retry) - Date.now(); if (Number.isFinite(wait)) delay = Math.max(delay, wait); }
         await response.body?.cancel();
@@ -156,7 +156,7 @@
         signal.addEventListener("abort", abort, {once: true}); if (signal.aborted) abort();
       });
     }
-    throw new Error("Backend nie odpowiedział w limicie trzech prób. Sprawdź, czy nadal działa, i spróbuj ponownie.");
+    throw new Error("The backend did not respond within three attempts. Check that it is still running, then try again.");
   }
 
   byId("export").addEventListener("click", async () => {
@@ -167,14 +167,14 @@
     const profile = {schemaVersion: 1, calibrationId: crypto.randomUUID(), imageWidth: image.width, imageHeight: image.height,
       cameraCorners: points.map(point => ({...point})), worldCorners: [{x: -width/2, z: -depth/2}, {x: width/2, z: -depth/2}, {x: width/2, z: depth/2}, {x: -width/2, z: depth/2}],
       minimumRadiusMeters: .05, maximumRadiusMeters: 3, safetyMarginMeters: .1, minimumConfidence: .3};
-    const ticket = revision, controller = new AbortController(); activeRequest = controller; draw(); status("Sprawdzanie schematu i geometrii…");
+    const ticket = revision, controller = new AbortController(); activeRequest = controller; draw(); status("Validating the schema and geometry…");
     try {
       const text = await validate(profile, controller.signal);
       if (ticket !== revision) return;
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
       downloadUrl = URL.createObjectURL(new Blob([text], {type: "application/json"}));
       byId("download").href = downloadUrl; byId("download").hidden = false;
-      status("Profil sprawdzony. Kliknij Pobierz, zapisz plik w katalogu local/ i sprawdź dokładność na stole.");
+      status("Profile validated. Download the file to local/ and check its accuracy against the tabletop.");
     } catch (error) { if (!controller.signal.aborted) status(error.message, true); }
     finally { activeRequest = null; draw(); }
   });

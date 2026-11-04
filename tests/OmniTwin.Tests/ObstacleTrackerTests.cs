@@ -50,6 +50,39 @@ public sealed class ObstacleTrackerTests
     }
 
     [Fact]
+    public void ReassociatesOneMovedObjectBeyondTheNormalGateWithoutLeavingItsOldFootprint()
+    {
+        var tracker = new ObstacleTracker(Session, Calibration, retentionMilliseconds: 20_000,
+            maximumAssociationDistanceMeters: 1.5, maximumPredictionSpeedMetersPerSecond: 5);
+        tracker.Update(Batch(0, 0, Observation(0, 0)), 0);
+        tracker.Update(Batch(1, 1000, Observation(7, 0)), 1000);
+
+        // A short physical-table movement can exceed 1.5 simulation meters after calibration scaling.
+        tracker.Update(Batch(2, 2000, Observation(3, 2.5f)), 2000);
+
+        var moved = Assert.Single(tracker.Snapshot(2000, 3000).Obstacles);
+        Assert.Equal(1, moved.Obstacle.Id);
+        Assert.Equal(2.5f, moved.Obstacle.WorldPosition.X);
+        Assert.True(moved.SeenInLatestObservation);
+        Assert.Equal(ObstacleLifecycleState.TransientManipulator, moved.Lifecycle);
+    }
+
+    [Fact]
+    public void DoesNotGuessWhenMultipleIdenticalObjectsCouldHaveMoved()
+    {
+        var tracker = new ObstacleTracker(Session, Calibration, retentionMilliseconds: 20_000,
+            maximumAssociationDistanceMeters: 1.5, maximumPredictionSpeedMetersPerSecond: 5);
+        tracker.Update(Batch(0, 0, Observation(0, 0), Observation(1, 0)), 0);
+        tracker.Update(Batch(1, 1000, Observation(3, 0), Observation(4, 0)), 1000);
+        tracker.Update(Batch(2, 2000, Observation(8, -5), Observation(9, 5)), 2000);
+
+        var snapshot = tracker.Snapshot(2000, 3000);
+        Assert.Equal(4, snapshot.Obstacles.Count);
+        Assert.Equal(2, snapshot.Obstacles.Count(item => !item.SeenInLatestObservation));
+        Assert.Equal(2, snapshot.Obstacles.Count(item => item.SeenInLatestObservation));
+    }
+
+    [Fact]
     public void SourceIdPermutationCannotChangeCanonicalOutputEvenForCoincidentDetections()
     {
         var first = Tracker(); var second = Tracker();
