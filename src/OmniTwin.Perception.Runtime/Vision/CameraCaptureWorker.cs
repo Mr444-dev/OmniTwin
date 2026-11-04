@@ -45,11 +45,15 @@ public sealed class CameraCaptureWorker
             {
                 using var capture = new VideoCapture(_device, VideoCaptureAPIs.ANY);
                 if (!capture.IsOpened()) throw new IOException($"Cannot open camera device {_device}.");
-                capture.Set(VideoCaptureProperties.FrameWidth, _width);
-                capture.Set(VideoCaptureProperties.FrameHeight, _height);
-                capture.Set(VideoCaptureProperties.Fps, _fps);
                 using var image = new Mat();
                 using var gray = new Mat();
+                if (!capture.Read(image) || image.Empty()) throw new IOException("Camera supplied no initial frame.");
+                if (image.Width != _width || image.Height != _height)
+                {
+                    capture.Set(VideoCaptureProperties.FrameWidth, _width);
+                    capture.Set(VideoCaptureProperties.FrameHeight, _height);
+                    if (!capture.Read(image) || image.Empty()) throw new IOException("Camera stopped supplying frames after resolution negotiation.");
+                }
                 var trigger = new FrameChangeTrigger();
                 var clock = Stopwatch.StartNew();
                 var sequence = 0L;
