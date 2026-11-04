@@ -43,7 +43,7 @@ public sealed class CameraCaptureWorker
             Exception? failure = null;
             try
             {
-                using var capture = new VideoCapture(_device, OperatingSystem.IsWindows() ? VideoCaptureAPIs.DSHOW : VideoCaptureAPIs.ANY);
+                using var capture = new VideoCapture(_device, VideoCaptureAPIs.ANY);
                 if (!capture.IsOpened()) throw new IOException($"Cannot open camera device {_device}.");
                 capture.Set(VideoCaptureProperties.FrameWidth, _width);
                 capture.Set(VideoCaptureProperties.FrameHeight, _height);
