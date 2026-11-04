@@ -68,7 +68,7 @@ public sealed class ObstacleTrackerTests
     }
 
     [Fact]
-    public void DoesNotGuessWhenMultipleIdenticalObjectsCouldHaveMoved()
+    public void CompleteSamSetDoesNotKeepDuplicateOldFootprintsWhenIdenticalObjectsMoveAmbiguously()
     {
         var tracker = new ObstacleTracker(Session, Calibration, retentionMilliseconds: 20_000,
             maximumAssociationDistanceMeters: 1.5, maximumPredictionSpeedMetersPerSecond: 5);
@@ -77,9 +77,10 @@ public sealed class ObstacleTrackerTests
         tracker.Update(Batch(2, 2000, Observation(8, -5), Observation(9, 5)), 2000);
 
         var snapshot = tracker.Snapshot(2000, 3000);
-        Assert.Equal(4, snapshot.Obstacles.Count);
-        Assert.Equal(2, snapshot.Obstacles.Count(item => !item.SeenInLatestObservation));
-        Assert.Equal(2, snapshot.Obstacles.Count(item => item.SeenInLatestObservation));
+        Assert.Equal(2, snapshot.Obstacles.Count);
+        Assert.All(snapshot.Obstacles, item => Assert.True(item.SeenInLatestObservation));
+        Assert.Contains(snapshot.Obstacles, item => item.Obstacle.WorldPosition.X == -5);
+        Assert.Contains(snapshot.Obstacles, item => item.Obstacle.WorldPosition.X == 5);
     }
 
     [Fact]

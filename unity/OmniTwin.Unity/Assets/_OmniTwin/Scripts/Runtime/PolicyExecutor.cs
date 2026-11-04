@@ -30,6 +30,7 @@ namespace OmniTwin.Simulation.Runtime
         private bool _holding = true;
         private string _localFailure;
         private readonly List<SegmentedObstacle> _obstacles = new List<SegmentedObstacle>();
+        private readonly HashSet<int> _geometryBlockedAgents = new HashSet<int>();
         private readonly HashSet<int> _spawnRecoveryAttempted = new HashSet<int>();
 
         /// <summary>Gets the applied policy, including local fail-safe holds.</summary>
@@ -87,6 +88,7 @@ namespace OmniTwin.Simulation.Runtime
             { _localFailure = control?.PerceptionFailureCategory ?? view.FailureCategory ?? "observation_not_current"; HoldAll(); return; }
             _localFailure = null;
             _obstacles.Clear();
+            _geometryBlockedAgents.Clear();
             foreach (var track in worldView.State.Message.World.Obstacles) _obstacles.Add(track.Obstacle);
             foreach (var directive in control.Directives)
             {
@@ -102,11 +104,31 @@ namespace OmniTwin.Simulation.Runtime
                         Debug.Log("OmniTwin: repositioned agent " + agent.AgentId + " to a collision-free authored spawn before patrol.");
                 }
                 if (directive.DesiredSpeed > 0 && !SafeNavigation.SegmentIsFree(agent.PlanarPosition, directive.TargetPosition, control.Bounds, _obstacles))
-                { _localFailure = "latest_geometry_blocks_directive"; HoldAll(); return; }
+                {
+                    // The perception stream can be newer than the latest control reply while an
+                    // object is moving. Hold only the route that now intersects geometry; stopping
+                    // every unit here made a single moving obstacle appear to freeze the whole twin.
+                    _localFailure = "latest_geometry_blocks_directive";
+                    _geometryBlockedAgents.Add(agent.AgentId);
+                    agent.Hold();
+                }
             }
-            if (!ReferenceEquals(_applied, control) || _holding)
-            { foreach (var directive in control.Directives) FindAgent(directive.AgentId).ApplyDirective(directive); _applied = control; }
+            foreach (var directive in control.Directives)
+            {
+                var agent = FindAgent(directive.AgentId);
+                if (_geometryBlockedAgents.Contains(agent.AgentId)) continue;
+                if (_holding || DirectiveNeedsApply(agent.CurrentDirective, directive)) agent.ApplyDirective(directive);
+            }
+            _applied = control;
             _holding = false;
+        }
+        private static bool DirectiveNeedsApply(AgentTargetDirective current, AgentTargetDirective next)
+        {
+            if (current == null) return true;
+            var dx = current.TargetPosition.X - next.TargetPosition.X;
+            var dz = current.TargetPosition.Z - next.TargetPosition.Z;
+            return dx * dx + dz * dz >= 0.04f || Mathf.Abs(current.DesiredSpeed - next.DesiredSpeed) >= 0.05f ||
+                !string.Equals(current.StatusTag, next.StatusTag, StringComparison.Ordinal);
         }
         private SwarmAgentController FindAgent(int id) { foreach (var agent in agents) if (agent.AgentId == id) return agent; return null; }
         private void HoldAll() { foreach (var agent in agents) if (agent != null) agent.Hold(); _holding = true; }

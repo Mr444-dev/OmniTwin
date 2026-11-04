@@ -126,7 +126,15 @@ public sealed class ObstacleTracker
                 matchedTracks[row] = true;
                 next.Add(Refresh(active[row], observations[column], batch, observationSource));
             }
-            for (var row = 0; row < active.Count; row++) if (!matchedTracks[row]) next.Add(active[row].Retain());
+            for (var row = 0; row < active.Count; row++)
+            {
+                if (matchedTracks[row]) continue;
+                // A complete same-class SAM set is authoritative for current occupancy. If an old
+                // identity could not be associated, retaining it beside the new detection creates
+                // a phantom obstacle at the object's previous position.
+                if (HasCompleteSemanticSet(active, observations, active[row], batch.CapturedElapsedMs, this)) continue;
+                next.Add(active[row].Retain());
+            }
             var newCount = 0;
             foreach (var used in matched) if (!used) newCount++;
             if (next.Count + newCount > _capacity) return TrackingUpdateStatus.CapacityExceeded;
@@ -246,6 +254,32 @@ public sealed class ObstacleTracker
         var maximumTravel = _matchDistance + _maximumSpeed * elapsedSeconds;
         return referencePosition.DistanceTo(observation.Position) <= maximumTravel;
     }
+
+    private static bool HasCompleteSemanticSet(List<Track> active, List<ObstacleObservation> observations, Track track,
+        long capturedMs, ObstacleTracker owner)
+    {
+        var activeCount = 0;
+        foreach (var candidate in active)
+            if (SameSemanticClass(candidate.Observation, track.Observation) && CompatibleRadius(candidate.SmoothedRadius, track.SmoothedRadius)) activeCount++;
+        if (activeCount == 0) return false;
+        var observedCount = 0;
+        foreach (var observation in observations)
+        {
+            if (!SameSemanticClass(observation, track.Observation) || !CompatibleRadius(observation.RadiusMeters, track.SmoothedRadius)) continue;
+            observedCount++;
+        }
+        if (observedCount < activeCount) return false;
+        foreach (var observation in observations)
+            if (SameSemanticClass(observation, track.Observation) && CompatibleRadius(observation.RadiusMeters, track.SmoothedRadius) &&
+                owner.CanReassociate(track, observation, capturedMs)) return true;
+        return false;
+    }
+
+    private static bool CompatibleRadius(float first, float second)
+    { var ratio = (double)first / second; return ratio >= 0.4 && ratio <= 2.5; }
+
+    private static bool SameSemanticClass(ObstacleObservation left, ObstacleObservation right) =>
+        string.Equals(left.Label, right.Label, StringComparison.Ordinal) && left.IsHazardZone == right.IsHazardZone;
 
     private Track Refresh(Track previous, ObstacleObservation observation, ObstacleObservationBatch batch, ObservationSource observationSource)
     {

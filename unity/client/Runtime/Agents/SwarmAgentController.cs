@@ -32,6 +32,8 @@ namespace OmniTwin.Simulation.Agents
         public AgentRole Role => role;
         /// <summary>Gets its current operational state.</summary>
         public AgentStatus Status => _status;
+        /// <summary>Gets the latest movement target so the executor can avoid restarting an unchanged NavMesh path.</summary>
+        public AgentTargetDirective CurrentDirective => _directive;
         /// <summary>Gets the most recently sampled world velocity for rig tilt and callouts.</summary>
         public Vector3 MeasuredVelocity => _velocity;
         /// <summary>Gets the current policy-provided visualization mode tag, if moving.</summary>
@@ -67,6 +69,9 @@ namespace OmniTwin.Simulation.Agents
                 // Match the avoidance disc to the visible chassis footprint (about 0.98 m long).
                 _navigation.radius = Mathf.Max(_navigation.radius, 0.62f);
                 _navigation.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
+                // Unity resolves local-avoidance ties by priority. Give the stable lower ID
+                // right-of-way so two AGVs never make symmetric, opposing steering decisions.
+                _navigation.avoidancePriority = agentId % 100;
             }
             if (_navigation != null && _navigationPath == null) _navigationPath = new NavMeshPath();
             if (_lidar == null) _lidar = GetComponent<LidarSensor>();

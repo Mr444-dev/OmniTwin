@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using OmniTwin.Contracts;
 using OmniTwin.Perception.Tracking;
 using OpenCvSharp;
@@ -52,11 +53,11 @@ public sealed class LocalMotionEstimator : IDisposable
                         region.Measured = false;
                         var roi = Clip(region.Bounds, current.Size());
                         if (roi.Width < 6 || roi.Height < 6) { region.Lost = true; continue; }
-                        using var mask = new Mat(_previous.Size(), MatType.CV_8UC1, Scalar.Black);
-                        Cv2.Rectangle(mask, roi, Scalar.White, -1);
+                        using var mask = BuildForegroundMask(region, _previous.Size(), roi);
                         var points = Cv2.GoodFeaturesToTrack(_previous, 40, 0.03, 2, mask, 3, false, 0.04);
                         if (points.Length < 4)
                         {
+                            if (TryMeasureMaskedTemplate(region, _previous, current)) continue;
                             if (frame.Change.ChangedFraction > 0.002) region.Lost = true;
                             continue;
                         }
@@ -68,12 +69,22 @@ public sealed class LocalMotionEstimator : IDisposable
                             if (status[i] != 0 && reverse[i] != 0 && errors[i] < 30 &&
                                 Distance(points[i], back[i]) < 1 && Distance(points[i], next[i]) < 30)
                             { dx.Add(next[i].X - points[i].X); dy.Add(next[i].Y - points[i].Y); }
-                        if (dx.Count < 4) { region.Lost = true; continue; }
+                        if (dx.Count < 4)
+                        {
+                            if (TryMeasureMaskedTemplate(region, _previous, current)) continue;
+                            region.Lost = true;
+                            continue;
+                        }
                         var x = Median(dx); var y = Median(dy);
                         var inliers = 0;
                         for (var i = 0; i < dx.Count; i++) if (Math.Abs(dx[i] - x) < 1.5 && Math.Abs(dy[i] - y) < 1.5) inliers++;
                         var quality = (float)inliers / points.Length;
-                        if (quality < 0.5f) { region.Lost = true; continue; }
+                        if (quality < 0.5f)
+                        {
+                            if (TryMeasureMaskedTemplate(region, _previous, current)) continue;
+                            region.Lost = true;
+                            continue;
+                        }
                         region.ShiftX += x; region.ShiftY += y; region.Quality = quality;
                         region.Bounds = new Rect2d(region.Bounds.X + x, region.Bounds.Y + y, region.Bounds.Width, region.Bounds.Height);
                         region.Measured = true;
@@ -111,8 +122,10 @@ public sealed class LocalMotionEstimator : IDisposable
                 using var template = new Mat(source, roi);
                 Cv2.MeanStdDev(template, out _, out var deviation);
                 if (deviation.Val0 < 3) { region.Lost = true; continue; }
+                using var templateMask = BuildSamForegroundMask(detection, roi);
+                if (Cv2.CountNonZero(templateMask) < 4) { region.Lost = true; continue; }
                 using var scores = new Mat();
-                Cv2.MatchTemplate(_previous, template, scores, TemplateMatchModes.CCoeffNormed);
+                Cv2.MatchTemplate(_previous, template, scores, TemplateMatchModes.CCorrNormed, templateMask);
                 Cv2.MinMaxLoc(scores, out _, out var best, out _, out var location);
                 var suppression = new Rect(Math.Max(0, location.X - roi.Width / 2), Math.Max(0, location.Y - roi.Height / 2),
                     Math.Min(roi.Width, scores.Width - Math.Max(0, location.X - roi.Width / 2)),
@@ -180,6 +193,100 @@ public sealed class LocalMotionEstimator : IDisposable
         Cv2.Resize(color, gray, new Size((int)Math.Round(frame.Width * _scale), (int)Math.Round(frame.Height * _scale)), interpolation: InterpolationFlags.Area);
         return gray;
     }
+
+    private Mat BuildForegroundMask(Region region, Size imageSize, Rect roi)
+    {
+        var result = new Mat(imageSize, MatType.CV_8UC1, Scalar.Black);
+        if (region.Mask is null)
+        {
+            Cv2.Rectangle(result, roi, Scalar.White, -1);
+            return result;
+        }
+
+        var required = checked(roi.Width * roi.Height);
+        if (region.FeatureMaskBuffer.Length != required) region.FeatureMaskBuffer = new byte[required];
+        Array.Clear(region.FeatureMaskBuffer, 0, region.FeatureMaskBuffer.Length);
+        var detection = region.Mask;
+        var box = detection.Box;
+        var sourceWidth = box.Right - box.Left + 1;
+        var sourceHeight = box.Bottom - box.Top + 1;
+        for (var y = 0; y < roi.Height; y++)
+        {
+            var sourceV = (roi.Y + y - region.ShiftY) / _scale;
+            if (sourceV < box.Top || sourceV > box.Bottom) continue;
+            var maskY = (int)((sourceV - box.Top) * detection.MaskHeight / sourceHeight);
+            if ((uint)maskY >= (uint)detection.MaskHeight) continue;
+            var rowOffset = y * roi.Width;
+            for (var x = 0; x < roi.Width; x++)
+            {
+                var sourceU = (roi.X + x - region.ShiftX) / _scale;
+                if (sourceU < box.Left || sourceU > box.Right) continue;
+                var maskX = (int)((sourceU - box.Left) * detection.MaskWidth / sourceWidth);
+                if ((uint)maskX < (uint)detection.MaskWidth && detection.IsForeground(maskX, maskY))
+                    region.FeatureMaskBuffer[rowOffset + x] = 255;
+            }
+        }
+        using (var destination = new Mat(result, roi))
+            for (var row = 0; row < roi.Height; row++)
+                Marshal.Copy(region.FeatureMaskBuffer, row * roi.Width, destination.Ptr(row), roi.Width);
+        return result;
+    }
+
+    private Mat BuildSamForegroundMask(SamDetection detection, Rect sourceRoi)
+    {
+        var mask = new Mat(sourceRoi.Height, sourceRoi.Width, MatType.CV_8UC1, Scalar.Black);
+        var box = detection.Box;
+        var sourceWidth = box.Right - box.Left + 1;
+        var sourceHeight = box.Bottom - box.Top + 1;
+        var values = new byte[checked(sourceRoi.Width * sourceRoi.Height)];
+        for (var y = 0; y < sourceRoi.Height; y++)
+        {
+            var sourceV = (sourceRoi.Y + y) / _scale;
+            if (sourceV < box.Top || sourceV > box.Bottom) continue;
+            var maskY = (int)((sourceV - box.Top) * detection.MaskHeight / sourceHeight);
+            if ((uint)maskY >= (uint)detection.MaskHeight) continue;
+            var rowOffset = y * sourceRoi.Width;
+            for (var x = 0; x < sourceRoi.Width; x++)
+            {
+                var sourceU = (sourceRoi.X + x) / _scale;
+                if (sourceU < box.Left || sourceU > box.Right) continue;
+                var maskX = (int)((sourceU - box.Left) * detection.MaskWidth / sourceWidth);
+                if ((uint)maskX < (uint)detection.MaskWidth && detection.IsForeground(maskX, maskY)) values[rowOffset + x] = 255;
+            }
+        }
+        for (var row = 0; row < sourceRoi.Height; row++)
+            Marshal.Copy(values, row * sourceRoi.Width, mask.Ptr(row), sourceRoi.Width);
+        return mask;
+    }
+
+    private bool TryMeasureMaskedTemplate(Region region, Mat previous, Mat current)
+    {
+        var roi = Clip(region.Bounds, previous.Size());
+        if (roi.Width < 6 || roi.Height < 6 || current.Width < roi.Width || current.Height < roi.Height) return false;
+        using var fullMask = BuildForegroundMask(region, previous.Size(), roi);
+        using var templateMask = new Mat(fullMask, roi);
+        if (Cv2.CountNonZero(templateMask) < 4) return false;
+        using var template = new Mat(previous, roi);
+        using var scores = new Mat();
+        Cv2.MatchTemplate(current, template, scores, TemplateMatchModes.CCorrNormed, templateMask);
+        Cv2.MinMaxLoc(scores, out _, out var best, out _, out var location);
+        if (!double.IsFinite(best) || best < 0.80) return false;
+        var suppression = new Rect(Math.Max(0, location.X - roi.Width / 2), Math.Max(0, location.Y - roi.Height / 2),
+            Math.Min(roi.Width, scores.Width - Math.Max(0, location.X - roi.Width / 2)),
+            Math.Min(roi.Height, scores.Height - Math.Max(0, location.Y - roi.Height / 2)));
+        Cv2.Rectangle(scores, suppression, new Scalar(-1), -1);
+        Cv2.MinMaxLoc(scores, out _, out var second, out _, out _);
+        if (best - second < 0.04) return false;
+
+        var dx = location.X - roi.X;
+        var dy = location.Y - roi.Y;
+        region.ShiftX += dx;
+        region.ShiftY += dy;
+        region.Bounds = new Rect2d(location.X, location.Y, roi.Width, roi.Height);
+        region.Quality = (float)Math.Clamp(best, 0, 1);
+        region.Measured = true;
+        return true;
+    }
     /// <summary>Returns masks only for the exact current frame, omitting lost/unmeasured alignment and expired SAM anchors.</summary>
     public IReadOnlyList<MaskOverlaySample> ReadMaskOverlays(long sequenceNumber)
     {
@@ -218,6 +325,7 @@ public sealed class LocalMotionEstimator : IDisposable
         internal float Quality = 1;
         internal bool Lost, Measured;
         internal SamDetection? Mask;
+        internal byte[] FeatureMaskBuffer = Array.Empty<byte>();
         internal long SamSequence, SamUnix;
     }
 }

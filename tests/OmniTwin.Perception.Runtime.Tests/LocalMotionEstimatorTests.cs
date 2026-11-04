@@ -28,6 +28,32 @@ public sealed class LocalMotionEstimatorTests
     private static SamSegmentationResult Result(CapturedFrame frame) => new("native_image_test", frame, 0,
         Array.AsReadOnly(new[] { new SamDetection(7, new PixelBox(60, 50, 99, 89), 0.9f, 40, 40, Enumerable.Repeat((byte)1, 1600).ToArray()) }));
 
+    private static CapturedFrame TexturedBackgroundFrame(long sequence, int objectDx = 0, int objectDy = 0)
+    {
+        using var image = new Mat(160, 200, MatType.CV_8UC3, new Scalar(12, 12, 12));
+        for (var y = 46; y < 94; y++) for (var x = 56; x < 104; x++)
+        {
+            var value = (byte)(((x + y) & 1) == 0 ? 35 : 220);
+            image.Set(y, x, new Vec3b(value, value, value));
+        }
+        var random = new Random(4567);
+        for (var y = 0; y < 24; y++) for (var x = 0; x < 24; x++)
+        {
+            var value = (byte)random.Next(40, 250);
+            image.Set(58 + objectDy + y, 68 + objectDx + x, new Vec3b(value, value, value));
+        }
+        Cv2.ImEncode(".jpg", image, out var jpeg);
+        return new CapturedFrame(sequence, DateTimeOffset.UtcNow, 200, 160, jpeg, new FrameChangeDecision(0.1, true));
+    }
+
+    private static SamSegmentationResult MaskedObjectResult(CapturedFrame frame)
+    {
+        var mask = new byte[40 * 40];
+        for (var y = 8; y < 32; y++) for (var x = 8; x < 32; x++) mask[y * 40 + x] = 1;
+        return new SamSegmentationResult("masked_object_test", frame, 0,
+            Array.AsReadOnly(new[] { new SamDetection(7, new PixelBox(60, 50, 99, 89), 0.9f, 40, 40, mask) }));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -37,13 +63,14 @@ public sealed class LocalMotionEstimatorTests
         var result = Result(first); var tracker = new ObstacleTracker(Guid.NewGuid(), profile.CalibrationId);
         var observation = Assert.Single(new MaskObstacleProjector(profile).Project(result, "cup", false).Observations);
         tracker.Update(new ObstacleObservationBatch(1, 0, 100000, new[] { observation }), 0);
+        Assert.True(tracker.TryGetVerifiedTrackId(result.SequenceNumber, 7, out _, out _));
         using var motion = new LocalMotionEstimator(profile);
         motion.Observe(first);
         if (delayed) motion.Observe(second);
         motion.Correct(result, tracker);
         if (!delayed) motion.Observe(second);
-        var estimate = Assert.Single(motion.ReadEstimates());
         Assert.False(motion.IsTrackingLost);
+        var estimate = Assert.Single(motion.ReadEstimates());
         Assert.Equal(1, estimate.TrackId);
         Assert.InRange(estimate.Position.X - observation.Position.X, 0.27f, 0.33f);
         Assert.InRange(estimate.Position.Z - observation.Position.Z, 0.17f, 0.23f);
@@ -70,6 +97,31 @@ public sealed class LocalMotionEstimatorTests
         motion.Correct(Result(restored), tracker);
         Assert.False(motion.IsTrackingLost);
         Assert.Equal(ObservationSource.SamVerified, Assert.Single(motion.ReadMaskOverlays(3)).ObservationSource);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LocalMotionUsesSamForegroundInsteadOfStationaryBackgroundTexture(bool delayed)
+    {
+        var profile = Profile(); var first = TexturedBackgroundFrame(1); var second = TexturedBackgroundFrame(2, 6, 4);
+        var result = MaskedObjectResult(first); var tracker = new ObstacleTracker(Guid.NewGuid(), profile.CalibrationId);
+        var observation = Assert.Single(new MaskObstacleProjector(profile).Project(result, "cup", false).Observations);
+        tracker.Update(new ObstacleObservationBatch(1, 0, 100000, new[] { observation }), 0);
+        using var motion = new LocalMotionEstimator(profile);
+        motion.Observe(first);
+        if (delayed) motion.Observe(second);
+        motion.Correct(result, tracker);
+        if (!delayed) motion.Observe(second);
+
+        Assert.False(motion.IsTrackingLost);
+        var overlay = Assert.Single(motion.ReadMaskOverlays(second.SequenceNumber));
+        Assert.InRange(overlay.ShiftU, 5.4, 6.6);
+        Assert.InRange(overlay.ShiftV, 3.4, 4.6);
+        var estimate = Assert.Single(motion.ReadEstimates());
+        Assert.False(motion.IsTrackingLost);
+        Assert.InRange(estimate.Position.X - observation.Position.X, 0.27f, 0.33f);
+        Assert.InRange(estimate.Position.Z - observation.Position.Z, 0.17f, 0.23f);
     }
 
     [Theory]

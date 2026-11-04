@@ -78,6 +78,9 @@ namespace OmniTwin.Simulation.Agents
                 // Match the avoidance disc to the visible chassis footprint (about 0.98 m long).
                 _navigation.radius = Mathf.Max(_navigation.radius, 0.62f);
                 _navigation.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
+                // Unity resolves local-avoidance ties by priority. Give the stable lower ID
+                // right-of-way so two AGVs never make symmetric, opposing steering decisions.
+                _navigation.avoidancePriority = agentId % 100;
             }
             if (_navigation != null && _navigationPath == null) _navigationPath = new NavMeshPath();
             if (_lidar == null) _lidar = GetComponent<LidarSensor>();
