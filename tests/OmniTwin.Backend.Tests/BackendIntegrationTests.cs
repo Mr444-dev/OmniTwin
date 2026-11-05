@@ -232,7 +232,10 @@ public sealed class BackendIntegrationTests
         Assert.Equal(PerceptionSourceMode.SyntheticTabletopReplay, first.SourceMode);
         Assert.Equal(3, first.Snapshot.Obstacles.Count);
         Assert.All(first.Snapshot.Obstacles, track => Assert.Equal(ObservationSource.LocalImageSegmentation, track.ObservationSource));
-        Assert.Contains(first.Snapshot.Obstacles, track => track.Lifecycle == ObstacleLifecycleState.TransientManipulator);
+        Assert.Contains(first.Snapshot.Obstacles, track => track.Obstacle.Label == "container");
+        Assert.Contains(first.Snapshot.Obstacles, track => track.Obstacle.Label == "supply crate");
+        Assert.Contains(first.Snapshot.Obstacles, track => track.Obstacle.Label == "hazard drum" && track.Obstacle.IsHazardZone);
+        var initialContainer = Assert.Single(first.Snapshot.Obstacles, track => track.Obstacle.Label == "container");
         var paired = Assert.IsType<CameraPreviewFrame>(preview.Read());
         Assert.Equal(0, paired.SequenceNumber);
         Assert.Equal(320, paired.Width);
@@ -255,8 +258,14 @@ public sealed class BackendIntegrationTests
 
         for (var i = 0; i < 6; i++) Assert.True(await updates.MoveNextAsync());
         var settled = updates.Current.Snapshot.Obstacles;
-        Assert.Contains(settled, track => track.Obstacle.Label == "container" && track.Lifecycle == ObstacleLifecycleState.SettledObstacle);
-        Assert.Contains(settled, track => track.Obstacle.IsHazardZone);
+        Assert.Equal(3, settled.Count);
+        Assert.All(settled, track => Assert.Equal(ObservationSource.LocalImageSegmentation, track.ObservationSource));
+        Assert.DoesNotContain(settled, track => track.Lifecycle == ObstacleLifecycleState.TransientManipulator);
+        Assert.Contains(settled, track => track.Obstacle.Label == "hazard drum" && track.Obstacle.IsHazardZone);
+        var movedContainer = Assert.Single(settled, track => track.Obstacle.Label == "container");
+        Assert.Equal(initialContainer.Obstacle.Id, movedContainer.Obstacle.Id);
+        Assert.True(initialContainer.Obstacle.WorldPosition.DistanceTo(movedContainer.Obstacle.WorldPosition) > 0.05f,
+            "The moving replay container must publish a changed world position under its stable track ID.");
     }
 
     private sealed class Source : IWorldPerceptionSource

@@ -1,5 +1,9 @@
 # OmniTwin
 
+## A real-to-sim digital twin for coordinated response
+
+OmniTwin connects tabletop camera observations to a live 3D twin, then turns those observations into coordinated plans for a five-agent ground-and-air swarm. Its dual loop pairs fast local perception and simulation with five Meta model integrations: SAM 3.1, Muse Spark Open (`meta-models/muse-spark-open-1026`), Muse Spark 1.3, Muse Voice, and Muse Image. Roslyn verifies generated policy code; Windows AppContainer and a resource-limited Job Object isolate its execution. The .NET suite currently passes **450 tests**, and the Standalone Windows player sustained **234 FPS at 1920 × 1080** in the documented synthetic replay benchmark.
+
 OmniTwin maps camera pixels onto a calibrated simulation plane and defines immutable world, agent, mission, and policy contracts. Its perception tools decode SAM 3.1 masks into estimated world footprints and session-stable tracks. A local ASP.NET Core host publishes validated tracking snapshots over a bounded WebSocket stream.
 
 The Windows desktop implementation includes hybrid OpenCV/SAM tracking, four deterministic policies, three NavMesh ground vehicles, two aerial agents, measured simulation telemetry, path rendering, and a UI Toolkit command HUD. Brain synthesizes C# through Baseten, verifies semantic symbols with Roslyn, and runs generated policies exclusively in a capability-free Windows AppContainer with a resource-limited Job Object. Unity receives validated directives, never generated executable code. Physical camera/model access and a complete live tabletop demonstration still require verification with the user's hardware and credentials.

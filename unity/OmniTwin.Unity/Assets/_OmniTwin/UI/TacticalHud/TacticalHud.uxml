@@ -1,6 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:Style src="TacticalHud.uss" />
-    <ui:VisualElement name="screen" class="screen" picking-mode="Ignore">
+    <ui:VisualElement name="screen" class="screen" picking-mode="Position">
         <ui:VisualElement class="header">
             <ui:VisualElement>
                 <ui:Label text="OMNITWIN" class="brand" />
@@ -24,7 +24,7 @@
                 <ui:Label name="sourceModeBanner" text="SOURCE: WAITING FOR BACKEND" class="source-mode" />
             </ui:VisualElement>
         </ui:VisualElement>
-        <ui:VisualElement class="body" picking-mode="Ignore">
+        <ui:VisualElement class="body" picking-mode="Position">
             <ui:VisualElement class="sidebar observation-panel" picking-mode="Position">
                 <ui:Label text="WORLD OBSERVATION" class="section-title" />
                 <ui:VisualElement name="previewFrame" class="camera-preview preview-hidden" picking-mode="Ignore">
@@ -65,7 +65,7 @@
                 <ui:Label name="sourceNotice" text="Waiting for a calibrated camera observation." class="notice" />
                 <ui:Button name="reconnectButton" text="RECONNECT STREAM" class="action reconnect" />
             </ui:VisualElement>
-            <ui:VisualElement class="world-column" picking-mode="Ignore">
+            <ui:VisualElement class="world-column" picking-mode="Position">
                 <ui:VisualElement class="pipeline-strip" picking-mode="Ignore">
                     <ui:Label text="1 · CAMERA + SAM 3.1" class="pipeline-stage" />
                     <ui:Label text="›" class="pipeline-arrow" />
@@ -120,6 +120,9 @@
                         </ui:VisualElement>
                         <ui:VisualElement class="semantic-selection-row">
                             <ui:Label text="TRACK" class="section-title semantic-track-caption" />
+                            <ui:Button name="selectTrack1Button" text="#1" class="mission-button track-pick" />
+                            <ui:Button name="selectTrack2Button" text="#2" class="mission-button track-pick" />
+                            <ui:Button name="selectTrack3Button" text="#3" class="mission-button track-pick" />
                             <ui:DropdownField name="semanticTrack" label="" class="semantic-field semantic-track" />
                             <ui:Button name="loadSemanticButton" text="LOAD TAG" class="mission-button compact-action" />
                         </ui:VisualElement>
@@ -138,6 +141,9 @@
                         <ui:VisualElement class="mission-row scenery-actions">
                             <ui:Button name="generateSceneryButton" text="GENERATE SURFACE" class="mission-button" />
                             <ui:Button name="resetSceneryButton" text="RESTORE DEFAULT" class="mission-button" />
+                            <ui:Button name="steelSurfaceButton" text="INDUSTRIAL STEEL" class="mission-button" />
+                            <ui:Button name="marsSurfaceButton" text="MARS CRATER" class="mission-button" />
+                            <ui:Button name="blueprintSurfaceButton" text="NEON BLUEPRINT" class="mission-button" />
                         </ui:VisualElement>
                         <ui:Label name="sceneryStatus" text="Default tactical surface" class="media-status" />
                     </ui:VisualElement>

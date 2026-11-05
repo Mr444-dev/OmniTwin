@@ -67,6 +67,37 @@ public sealed class BuiltInPolicyTests
     }
 
     [Fact]
+    public void LocalHybridBaselineSeparatesGroundCordonAndAerialPerimeterRoles()
+    {
+        var obstacle = new SegmentedObstacle(7, "cup", new Vector2D(0, 0), 0.35f, 0.95f, true);
+        var world = World(new[] { obstacle });
+        var policy = new HybridCordonPatrolBaselinePolicy(Bounds);
+        var first = policy.ComputeDirectives(world, 8);
+        var second = policy.ComputeDirectives(World(new[] { obstacle }, world.Agents.Reverse().ToArray()), 8);
+
+        Assert.Equal(first, second);
+        Assert.Equal(5, first.Count);
+        foreach (var directive in first)
+        {
+            var agent = world.Agents.Single(item => item.AgentId == directive.AgentId);
+            Assert.InRange(directive.DesiredSpeed, 0, 4);
+            if (directive.DesiredSpeed <= 0) continue;
+            Assert.True(SafeNavigation.SegmentIsFree(agent.CurrentPosition, directive.TargetPosition, Bounds, world.Obstacles));
+            if (agent.Role == AgentRole.GroundVehicle)
+            {
+                Assert.Equal("local_hybrid_ground_cordon", directive.StatusTag);
+                // The safe route planner can return its next waypoint instead of the final ring point.
+                Assert.InRange(directive.TargetPosition.DistanceTo(obstacle.WorldPosition), 0.5f, 3.6f);
+            }
+            else
+            {
+                Assert.Equal("local_hybrid_aerial_perimeter", directive.StatusTag);
+                Assert.True(MathF.Abs(directive.TargetPosition.X) > 8.5f || MathF.Abs(directive.TargetPosition.Z) > 4.8f);
+            }
+        }
+    }
+
+    [Fact]
     public void SearchAdvancesOnlyAfterArrivalAndDoesNotAdvanceTwiceForOneSequence()
     {
         var policy = new GridSearchAndRescuePolicy(Bounds);

@@ -27,8 +27,9 @@ namespace OmniTwin.Simulation.Media
         private byte[] _pendingTexture;
         private bool _restoreRequested;
         private readonly CommandEpoch _generationEpoch = new CommandEpoch();
-        private Material _defaultMaterial, _generatedMaterial;
+        private Material _defaultMaterial, _generatedMaterial, _localPresetMaterial;
         private Texture2D _texture;
+        private string _localPresetName;
         /// <summary>Gets immutable session-scoped remembered tags.</summary>
         public SemanticSceneState Semantics { get { lock (_gate) return _semantics; } }
         /// <summary>Gets the latest secret-free model credential and sandbox prerequisite status.</summary>
@@ -44,7 +45,32 @@ namespace OmniTwin.Simulation.Media
         /// <summary>Gets whether an operator edit is pending.</summary>
         public bool IsEditing => _edit != null && !_edit.IsCompleted;
         /// <summary>Gets whether the authored default surface is active.</summary>
-        public bool IsDefaultSurface => _generatedMaterial == null;
+        public bool IsDefaultSurface => _generatedMaterial == null && _localPresetMaterial == null;
+
+        /// <summary>Applies one explicit local material preset immediately; it does not call Muse Image.</summary>
+        public void ApplyLocalSurfacePreset(string presetName)
+        {
+            if (!isActiveAndEnabled || workspaceSurface == null || _defaultMaterial == null)
+                throw new InvalidOperationException("The workspace surface is not initialized.");
+            var preset = (presetName ?? string.Empty).Trim().ToUpperInvariant();
+            Color tint; float metallic; float smoothness;
+            switch (preset)
+            {
+                case "INDUSTRIAL STEEL": tint = new Color(0.54f, 0.66f, 0.72f, 1f); metallic = 0.72f; smoothness = 0.58f; break;
+                case "MARS CRATER": tint = new Color(0.78f, 0.30f, 0.13f, 1f); metallic = 0.12f; smoothness = 0.24f; break;
+                case "NEON BLUEPRINT": tint = new Color(0.08f, 0.35f, 0.92f, 1f); metallic = 0.38f; smoothness = 0.75f; break;
+                default: throw new ArgumentException("Choose INDUSTRIAL STEEL, MARS CRATER, or NEON BLUEPRINT.", nameof(presetName));
+            }
+            if (_generation != null && !_generation.IsCompleted) _generationStop?.Cancel();
+            _generationEpoch.Advance();
+            RestoreResources();
+            _localPresetMaterial = new Material(_defaultMaterial) { name = "OmniTwin Local " + preset + " Surface" };
+            SetSurfaceTint(_localPresetMaterial, tint);
+            if (_localPresetMaterial.HasProperty("_Metallic")) _localPresetMaterial.SetFloat("_Metallic", metallic);
+            if (_localPresetMaterial.HasProperty("_Smoothness")) _localPresetMaterial.SetFloat("_Smoothness", smoothness);
+            workspaceSurface.sharedMaterial = _localPresetMaterial;
+            lock (_gate) { _localPresetName = preset; _pendingTexture = null; _restoreRequested = false; _sceneryStatus = "LOCAL STYLE ACTIVE · " + preset + " · Muse Image not called"; }
+        }
 
         private void OnEnable()
         {
@@ -83,8 +109,17 @@ namespace OmniTwin.Simulation.Media
         /// <summary>Submits a bounded manual simulation tag; null clears the override and reveals remembered model output.</summary>
         public void ApplyOverride(int trackId, ObjectSemantics classification)
         {
+            TryApplyOverride(trackId, classification);
+        }
+
+        /// <summary>Queues a semantic edit only when the live backend session contains the selected track.</summary>
+        public bool TryApplyOverride(int trackId, ObjectSemantics classification)
+        {
             var state = Semantics;
-            if (!isActiveAndEnabled || IsEditing || state == null || !state.SessionId.HasValue) return;
+            if (!isActiveAndEnabled || IsEditing || state == null || !state.SessionId.HasValue) return false;
+            var knownTrack = false;
+            foreach (var item in state.Objects) if (item.TrackId == trackId) { knownTrack = true; break; }
+            if (!knownTrack) return false;
             var client = _client; var token = _stop.Token; var session = state.SessionId.Value;
             _edit = Task.Run(async () =>
             {
@@ -96,6 +131,7 @@ namespace OmniTwin.Simulation.Media
                 catch (MediaTransportException error) { lock (_gate) _semanticStatus = error.Category; }
                 catch (WorldStreamProtocolException) { lock (_gate) _semanticStatus = "invalid_semantic_edit_reply"; }
             });
+            return true;
         }
         /// <summary>Starts one explicit paid API request; a late reply cannot replace a reset or newer surface.</summary>
         public void GenerateSurface(string prompt)
@@ -108,7 +144,7 @@ namespace OmniTwin.Simulation.Media
             var generationStop = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token); generationStop.CancelAfter(TimeSpan.FromSeconds(160));
             _generationStop = generationStop;
             var token = generationStop.Token; var client = _client; var version = _generationEpoch.Advance();
-            lock (_gate) { _pendingTexture = null; _restoreRequested = false; _sceneryStatus = "Replacing prior Muse Image request · default remains available"; }
+            lock (_gate) { _pendingTexture = null; _restoreRequested = false; _sceneryStatus = "Muse Image request sent · current surface remains visible"; }
             _generation = Task.Run(async () =>
             {
                 try
@@ -121,14 +157,22 @@ namespace OmniTwin.Simulation.Media
                     var image = await client.ReadSceneryImageAsync(_origin, id, token).ConfigureAwait(false);
                     lock (_gate) { token.ThrowIfCancellationRequested(); if (!_generationEpoch.IsCurrent(version)) return; _pendingTexture = image; _sceneryStatus = "Generated texture validated · applying"; }
                 }
-                catch (OperationCanceledException) when (token.IsCancellationRequested) { Fail(version, "Scenery wait cancelled / timed out · default restored"); }
+                catch (OperationCanceledException) when (token.IsCancellationRequested) { Fail(version, "scenery_cancelled_or_timed_out"); }
                 catch (Exception error) when (error is MediaTransportException || error is WorldStreamProtocolException || error is InvalidDataException)
-                { Fail(version, error is MediaTransportException media ? media.Category + " · default restored" : "invalid_generated_surface · default restored"); }
-                catch (Exception) { Fail(version, "scenery_worker_failed · default restored"); }
+                { Fail(version, error is MediaTransportException media ? media.Category : "invalid_generated_surface"); }
+                catch (Exception) { Fail(version, "scenery_worker_failed"); }
                 finally { generationStop.Dispose(); }
             });
         }
-        private void Fail(long version, string status) { lock (_gate) { if (!_generationEpoch.IsCurrent(version)) return; _pendingTexture = null; _restoreRequested = true; _sceneryStatus = status; } }
+        private void Fail(long version, string status)
+        {
+            lock (_gate)
+            {
+                if (!_generationEpoch.IsCurrent(version)) return;
+                _pendingTexture = null; _restoreRequested = false;
+                _sceneryStatus = "Muse Image failed · " + status + (_localPresetName == null ? " · authored surface remains" : " · LOCAL " + _localPresetName + " remains");
+            }
+        }
         private void Update()
         {
             byte[] image; bool restore;
@@ -145,7 +189,7 @@ namespace OmniTwin.Simulation.Media
                 lock (_gate) _sceneryStatus = "Muse Image surface active · tactical grid preserved";
             }
             catch (Exception error) when (error is InvalidDataException || error is UnityException || error is ArgumentException)
-            { RestoreResources(); lock (_gate) _sceneryStatus = "surface_decode_failed · default restored"; }
+            { lock (_gate) _sceneryStatus = "surface_decode_failed · current local/authored surface retained"; }
         }
         /// <summary>Immediately restores the authored URP material and cancels local waiting. An accepted backend job may finish.</summary>
         public void RestoreDefault()
@@ -158,8 +202,18 @@ namespace OmniTwin.Simulation.Media
         private void RestoreResources()
         {
             if (workspaceSurface != null && _defaultMaterial != null) workspaceSurface.sharedMaterial = _defaultMaterial;
+            DestroySurfaceInstances(); lock (_gate) _localPresetName = null;
+        }
+        private void DestroySurfaceInstances()
+        {
             if (_generatedMaterial != null) Destroy(_generatedMaterial); _generatedMaterial = null;
+            if (_localPresetMaterial != null) Destroy(_localPresetMaterial); _localPresetMaterial = null;
             if (_texture != null) Destroy(_texture); _texture = null;
+        }
+        private static void SetSurfaceTint(Material material, Color tint)
+        {
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", tint);
+            else if (material.HasProperty("_Color")) material.SetColor("_Color", tint);
         }
         private void OnDisable()
         {

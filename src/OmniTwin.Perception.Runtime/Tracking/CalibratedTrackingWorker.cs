@@ -157,9 +157,11 @@ public sealed class CalibratedTrackingWorker
                     ApplyMotion();
                     var cameraStale = motion?.LastCaptureTimestamp is long capture &&
                         _time.GetElapsedTime(capture).TotalMilliseconds >= PerceptionTiming.LocalMotionAgeMilliseconds;
+                    // Local optical-flow loss only disables the optional motion estimate. It must not
+                    // invalidate a fresh SAM-verified world observation; the next SAM batch re-anchors it.
+                    // A stale camera heartbeat or an actual segmentation/tracking failure still degrades it.
                     publication = new WorldPerceptionUpdate(tracker.Snapshot(Milliseconds(_time.GetTimestamp()),
-                        _time.GetUtcNow().ToUnixTimeMilliseconds()), lastFailure ?? (cameraStale ? "camera_frame_timeout" :
-                        motion?.IsTrackingLost == true ? "local_motion_lost" : null), rejections);
+                        _time.GetUtcNow().ToUnixTimeMilliseconds()), lastFailure ?? (cameraStale ? "camera_frame_timeout" : null), rejections);
                 }
                 yield return publication;
                 if (completed) break;

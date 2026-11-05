@@ -83,14 +83,20 @@ public sealed class SyntheticTabletopReplaySource : IWorldPerceptionSource
         for (var x = 0; x <= Width; x += 32) Cv2.Line(image, new Point(x, 0), new Point(x, Height - 1), new Scalar(23, 41, 48), 1, LineTypes.Link8);
         for (var y = 0; y <= Height; y += 32) Cv2.Line(image, new Point(0, y), new Point(Width - 1, y), new Scalar(23, 41, 48), 1, LineTypes.Link8);
         Cv2.Rectangle(image, new Point(12, 12), new Point(Width - 13, Height - 13), new Scalar(0, 105, 106), 2);
-        Cv2.Rectangle(image, new Point(185, 188), new Point(267, 251), new Scalar(155, 88, 18), -1, LineTypes.Link8);
-        Cv2.Rectangle(image, new Point(185, 188), new Point(267, 251), new Scalar(218, 151, 44), 2, LineTypes.Link8);
-        Cv2.Circle(image, new Point(426, 225), 29, new Scalar(14, 22, 210), -1, LineTypes.AntiAlias);
-        Cv2.Circle(image, new Point(426, 225), 29, new Scalar(42, 94, 255), 2, LineTypes.AntiAlias);
-        var handX = 322 + (int)Math.Round(58 * Math.Sin(seconds * 0.8));
-        Cv2.Ellipse(image, new Point(handX, 330), new Size(25, 18), 0, 0, 360, new Scalar(0, 170, 252), -1, LineTypes.AntiAlias);
-        for (var finger = -2; finger <= 1; finger++)
-            Cv2.Line(image, new Point(handX + finger * 10, 321), new Point(handX + finger * 9, 298 + Math.Abs(finger) * 4), new Scalar(0, 170, 252), 9, LineTypes.AntiAlias);
+        var containerX = 174 + (int)Math.Round(30 * Math.Sin(seconds * 0.43));
+        var containerY = 170 + (int)Math.Round(14 * Math.Sin(seconds * 0.31));
+        Cv2.Rectangle(image, new Point(containerX, containerY), new Point(containerX + 76, containerY + 58), new Scalar(160, 112, 40), -1, LineTypes.Link8);
+        Cv2.Rectangle(image, new Point(containerX, containerY), new Point(containerX + 76, containerY + 58), new Scalar(218, 166, 84), 2, LineTypes.Link8);
+
+        var crateX = 322 + (int)Math.Round(25 * Math.Sin(seconds * 0.37 + 1.2));
+        var crateY = 300 + (int)Math.Round(18 * Math.Cos(seconds * 0.29 + 0.4));
+        Cv2.Rectangle(image, new Point(crateX, crateY), new Point(crateX + 58, crateY + 50), new Scalar(72, 178, 78), -1, LineTypes.Link8);
+        Cv2.Rectangle(image, new Point(crateX, crateY), new Point(crateX + 58, crateY + 50), new Scalar(120, 224, 132), 2, LineTypes.Link8);
+
+        var hazardX = 464 + (int)Math.Round(24 * Math.Sin(seconds * 0.4 + 0.7));
+        var hazardY = 217 + (int)Math.Round(20 * Math.Cos(seconds * 0.33 + 0.9));
+        Cv2.Circle(image, new Point(hazardX, hazardY), 27, new Scalar(10, 25, 220), -1, LineTypes.AntiAlias);
+        Cv2.Circle(image, new Point(hazardX, hazardY), 27, new Scalar(42, 94, 255), 2, LineTypes.AntiAlias);
         Cv2.PutText(image, "SYNTHETIC TABLETOP REPLAY  /  LOCAL CV ONLY", new Point(22, 40), HersheyFonts.HersheySimplex,
             0.55, new Scalar(164, 232, 226), 1, LineTypes.AntiAlias);
         Cv2.PutText(image, "NO CAMERA  ·  NO SAM  ·  NO MODEL INFERENCE", new Point(22, 62), HersheyFonts.HersheySimplex,
@@ -100,15 +106,15 @@ public sealed class SyntheticTabletopReplaySource : IWorldPerceptionSource
 
     private static ReplaySegmentation SegmentLocalContours(Mat image, CalibrationProfile profile, long sequenceNumber, long capturedAtUnixMs)
     {
-        using var containerMask = new Mat(); using var hazardMask = new Mat(); using var handMask = new Mat();
-        Cv2.InRange(image, new Scalar(80, 35, 0), new Scalar(255, 155, 90), containerMask);
+        using var containerMask = new Mat(); using var crateMask = new Mat(); using var hazardMask = new Mat();
+        Cv2.InRange(image, new Scalar(90, 70, 10), new Scalar(220, 150, 80), containerMask);
+        Cv2.InRange(image, new Scalar(25, 120, 30), new Scalar(130, 220, 150), crateMask);
         Cv2.InRange(image, new Scalar(0, 0, 120), new Scalar(75, 80, 255), hazardMask);
-        Cv2.InRange(image, new Scalar(0, 115, 140), new Scalar(75, 230, 255), handMask);
         var contours = new List<ReplayContour>(3);
         var nextId = 0;
         Append(containerMask, "container", false);
+        Append(crateMask, "supply crate", false);
         Append(hazardMask, "hazard drum", true);
-        Append(handMask, "hand", false);
         contours.Sort(CompareContours);
         var observations = new ObstacleObservation[contours.Count];
         var masks = new MaskOverlaySample[contours.Count];

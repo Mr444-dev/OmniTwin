@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 using OmniTwin.Contracts;
 using OmniTwin.Perception.Calibration;
 using OmniTwin.Perception.Tracking;
@@ -99,6 +103,40 @@ public sealed class LocalMotionEstimatorTests
         Assert.Equal(ObservationSource.SamVerified, Assert.Single(motion.ReadMaskOverlays(3)).ObservationSource);
     }
 
+    [Fact]
+    public async Task LostLocalOpticalFlowDoesNotMarkFreshSamObservationDegraded()
+    {
+        var profile = Profile();
+        var verified = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var client = new CallbackSamClient(frame => Task.FromResult(Result(frame)));
+
+        async IAsyncEnumerable<CapturedFrame> Frames([EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            yield return Frame(1);
+            await verified.Task.WaitAsync(cancellationToken);
+            await Task.Delay(TimeSpan.FromMilliseconds(220), cancellationToken);
+            yield return Frame(2, visible: false);
+        }
+
+        var overlaysAtSecondFrame = -1;
+        var worker = new CalibratedTrackingWorker(profile, "rubber duck");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        WorldPerceptionUpdate? publication = null;
+        await foreach (var update in worker.RunHybridAsync(Frames(timeout.Token), client, timeout.Token,
+            onFrame: (frame, overlays) => { if (frame.SequenceNumber == 2) overlaysAtSecondFrame = overlays.Count; },
+            onVerified: _ => verified.TrySetResult()))
+        {
+            publication = update;
+            if (overlaysAtSecondFrame >= 0) break;
+        }
+
+        Assert.NotNull(publication);
+        Assert.Equal(0, overlaysAtSecondFrame);
+        Assert.True(publication.Snapshot.IsObservationCurrent);
+        Assert.Equal(ObservationSource.SamVerified, Assert.Single(publication.Snapshot.Obstacles).ObservationSource);
+        Assert.Null(publication.LastFailureCategory);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -131,4 +169,10 @@ public sealed class LocalMotionEstimatorTests
     [InlineData(HttpStatusCode.GatewayTimeout, "upstream_timeout")]
     public void ClassifiesHttpFailuresWithoutProviderData(HttpStatusCode status, string category) =>
         Assert.Equal(category, new SamApiException("http_error", 1, status).OperatorCategory);
+
+    private sealed class CallbackSamClient(Func<CapturedFrame, Task<SamSegmentationResult>> segment) : ISam31Client
+    {
+        public Task<SamSegmentationResult> SegmentAsync(CapturedFrame frame, string nounPhrase,
+            CancellationToken cancellationToken = default) => segment(frame);
+    }
 }

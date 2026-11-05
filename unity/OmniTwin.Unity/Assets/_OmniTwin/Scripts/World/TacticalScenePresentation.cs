@@ -30,6 +30,7 @@ namespace OmniTwin.Simulation.World
         private readonly Vector3[] _patrolPoints = new Vector3[5];
         private TwinWebSocketClient _stream;
         private PolicyExecutor _executor;
+        private DynamicObstacleSpawner _obstacleSpawner;
         private Camera _camera;
         private Material _facilityMaterial;
         private Material _lineMaterial;
@@ -41,6 +42,8 @@ namespace OmniTwin.Simulation.World
         private Mesh _gridMesh;
         private LineRenderer _patrolRoute;
         private LineRenderer _quarantineRing;
+        private LineRenderer _operatorHazardRing;
+        private int _operatorHazardTrackId = -1;
         private float _nextRefresh;
         private int _searchLinesUsed;
 
@@ -56,6 +59,7 @@ namespace OmniTwin.Simulation.World
         {
             _stream = UnityEngine.Object.FindAnyObjectByType<TwinWebSocketClient>();
             _executor = UnityEngine.Object.FindAnyObjectByType<PolicyExecutor>();
+            _obstacleSpawner = UnityEngine.Object.FindAnyObjectByType<DynamicObstacleSpawner>();
             _camera = Camera.main;
             CreateMaterials();
             CreateFacilitySurround();
@@ -81,7 +85,9 @@ namespace OmniTwin.Simulation.World
             var policyName = _executor == null ? nameof(EmergencyHoldPolicy) : _executor.ActivePolicyName;
             var mission = _executor == null ? null : _executor.CurrentMission;
             var kind = mission != null ? mission.Kind : KindFromPolicy(policyName);
-            var active = hasWorld && policyName != nameof(EmergencyHoldPolicy);
+            var active = hasWorld && (_executor != null && (_executor.IsLocalMissionSelected
+                ? _executor.IsLocalMissionMoving
+                : policyName != nameof(EmergencyHoldPolicy)));
 
             _patrolRoute.enabled = active && kind == SwarmMissionKind.PatrolPerimeter;
             _quarantineRing.enabled = active && kind == SwarmMissionKind.HazardQuarantine;
@@ -89,6 +95,33 @@ namespace OmniTwin.Simulation.World
             UpdateQuarantine(obstacles, active && kind == SwarmMissionKind.HazardQuarantine,
                 mission != null ? mission.SafetyRadiusMeters : 3f);
             UpdateSearchLanes(obstacles, active && kind == SwarmMissionKind.GridSearchAndRescue);
+            UpdateOperatorHazardRing(obstacles);
+        }
+
+        /// <summary>Applies a local hazard visual to an existing current track without claiming a model/API classification.</summary>
+        public bool SetOperatorHazardOverride(int trackId, bool isHazard)
+        {
+            if (_obstacleSpawner == null) _obstacleSpawner = UnityEngine.Object.FindAnyObjectByType<DynamicObstacleSpawner>();
+            if (_obstacleSpawner == null || !_obstacleSpawner.SetOperatorHazardOverride(trackId, isHazard)) return false;
+            _operatorHazardTrackId = isHazard ? trackId : -1;
+            if (!isHazard && _operatorHazardRing != null) _operatorHazardRing.enabled = false;
+            return true;
+        }
+
+        private void UpdateOperatorHazardRing(IReadOnlyList<TrackedObstacleState> tracks)
+        {
+            if (_operatorHazardTrackId < 0 || tracks == null || _operatorHazardRing == null)
+            { if (_operatorHazardRing != null) _operatorHazardRing.enabled = false; return; }
+            foreach (var track in tracks)
+            {
+                if (track.Obstacle.Id != _operatorHazardTrackId) continue;
+                var position = track.Obstacle.WorldPosition;
+                SetCircle(_operatorHazardRing, new Vector3(position.X, GroundY + 0.04f, position.Z),
+                    Mathf.Max(1.2f, track.Obstacle.RadiusMeters + 0.9f));
+                _operatorHazardRing.enabled = true;
+                return;
+            }
+            _operatorHazardRing.enabled = false;
         }
 
         private void CreateMaterials()
@@ -222,6 +255,8 @@ namespace OmniTwin.Simulation.World
 
             _quarantineRing = CreatePolyline("Hazard quarantine safety ring", _hazardMaterial, 0.055f, RingPointCount);
             _quarantineRing.loop = false;
+            _operatorHazardRing = CreatePolyline("Local operator hazard override ring", _hazardMaterial, 0.075f, RingPointCount);
+            _operatorHazardRing.loop = false;
             if (_executor != null)
                 foreach (var agent in _executor.Agents)
                 {

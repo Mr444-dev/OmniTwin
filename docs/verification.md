@@ -1,5 +1,17 @@
 # OmniTwin verification
 
+## HUD control acceptance (2026-11-05)
+
+Rebuilt the `StandaloneWindows64` player from an isolated copy with Unity **6000.6.8f1**. The real 1920 × 1080 player connected to the local synthetic replay backend on `127.0.0.1:5108`, ran the automated UI Toolkit click sequence, and exited with code **0**. The final smoke report records **28/28 checks passed**.
+
+The sequence exercised Patrol, Cordon, Grid Search, Hold, Brain synthesis with the truthful local baseline, selecting a current semantic track and applying/clearing a local hazard override, local scenery presets, voice capture/cancel and the empty-transcript message, camera preview, SAM mask and LiDAR toggles, and the ISO/MAP/CHASE camera presets. The final view restored Patrol, the camera PIP, masks, and visible LiDAR beams. No Meta or Baseten inference request was sent; model cards correctly show that provider keys are missing, while scenery and the Brain baseline use local behavior.
+
+Unity Editor script recompile reported **0 errors and 0 warnings**. The full .NET suite, rerun after the final smoke-test change, is **450 passed / 0 failed / 0 skipped**. The capture shows four agents navigating and one UAV in `HOLDING` at that instant, so it is not evidence that all five were moving simultaneously.
+
+The standalone executable is in the ignored local output at `local/hud-button-fix/StandaloneWindows64/OmniTwin.exe`; the full smoke report is written to `%USERPROFILE%\AppData\LocalLow\OmniTwin\OmniTwin\hud-button-smoke-test.txt`.
+
+![Standalone HUD button smoke test at 1920 × 1080](images/tactical-desk.png)
+
 Verified on 2026-11-01 on Windows x64 with domain targets `net10.0` and `netstandard2.1`; the test hosts run on .NET 10.0.14 with the repository-pinned .NET SDK 10.0.403.
 
 ## Stage 8 visual acceptance and sustained Standalone replay (current)

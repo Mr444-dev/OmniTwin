@@ -10966,6 +10966,11 @@ MonoBehaviour:
   initialDistance: 38.5
   initialYaw: -16
   initialPitch: 53
+  overviewDistance: 41
+  overviewPitch: 48
+  mapOrthographicSize: 16.8
+  overviewFocusOffset: {x: 0, y: 0, z: -1.4}
+  mapFocusOffset: {x: 0, y: 0, z: -1.8}
   orbitSensitivity: 0.18
   zoomSensitivity: 0.12
 --- !u!81 &1503539568

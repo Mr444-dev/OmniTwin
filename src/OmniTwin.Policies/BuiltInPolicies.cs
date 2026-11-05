@@ -81,6 +81,68 @@ public sealed class HazardQuarantinePolicy : ISwarmPolicy
     }
 }
 
+/// <summary>Runs a local hybrid baseline: ground vehicles hold a hazard cordon while drones patrol the workspace perimeter.</summary>
+public sealed class HybridCordonPatrolBaselinePolicy : ISwarmPolicy
+{
+    private readonly WorkspaceBounds _bounds;
+    private readonly float _radius, _speed, _lapSeconds;
+
+    /// <summary>Configures the ground-vehicle cordon, aerial perimeter lap, and bounded movement speed.</summary>
+    public HybridCordonPatrolBaselinePolicy(WorkspaceBounds bounds, float radiusMeters = 2.8f,
+        float speed = 1.2f, float aerialLapSeconds = 48f)
+    {
+        PolicySupport.Validate(bounds, speed);
+        PolicySupport.Positive(radiusMeters, nameof(radiusMeters));
+        PolicySupport.Positive(aerialLapSeconds, nameof(aerialLapSeconds));
+        _bounds = bounds; _radius = radiusMeters; _speed = speed; _lapSeconds = aerialLapSeconds;
+    }
+
+    /// <inheritdoc />
+    public string PolicyName => nameof(HybridCordonPatrolBaselinePolicy);
+
+    /// <inheritdoc />
+    public IReadOnlyList<AgentTargetDirective> ComputeDirectives(WorldStateSnapshot worldState, float timeSeconds)
+    {
+        var agents = PolicySupport.Agents(worldState, timeSeconds);
+        SegmentedObstacle? target = null;
+        foreach (var obstacle in worldState.Obstacles)
+            if (target is null || (obstacle.IsHazardZone && !target.IsHazardZone) ||
+                (obstacle.IsHazardZone == target.IsHazardZone && (obstacle.RadiusMeters > target.RadiusMeters ||
+                (obstacle.RadiusMeters == target.RadiusMeters && obstacle.Id < target.Id)))) target = obstacle;
+        if (target is null) return new EmergencyHoldPolicy().ComputeDirectives(worldState, timeSeconds);
+
+        var groundCount = 0; var aerialCount = 0;
+        foreach (var agent in agents)
+            if (agent.Role == AgentRole.GroundVehicle) groundCount++; else aerialCount++;
+        var groundIndex = 0; var aerialIndex = 0;
+        var low = _bounds.Clamp(new Vector2D(_bounds.MinimumX, _bounds.MinimumZ), 0.7f);
+        var high = _bounds.Clamp(new Vector2D(_bounds.MaximumX, _bounds.MaximumZ), 0.7f);
+        var width = high.X - low.X; var depth = high.Z - low.Z; var perimeter = 2 * (width + depth);
+        var cordonRadius = Math.Max(_radius, target.RadiusMeters + SafeNavigation.ClearanceMeters + 0.1f);
+        var result = new List<AgentTargetDirective>(agents.Count);
+        foreach (var agent in agents)
+        {
+            if (agent.Role == AgentRole.GroundVehicle)
+            {
+                var angle = 2 * Math.PI * groundIndex++ / Math.Max(1, groundCount);
+                var goal = new Vector2D(target.WorldPosition.X + cordonRadius * (float)Math.Cos(angle),
+                    target.WorldPosition.Z + cordonRadius * (float)Math.Sin(angle));
+                result.Add(PolicySupport.Goal(agent, goal, _bounds, worldState.Obstacles, _speed, "local_hybrid_ground_cordon"));
+                continue;
+            }
+
+            var phase = ((double)timeSeconds / _lapSeconds + (double)aerialIndex++ / Math.Max(1, aerialCount)) % 1 * perimeter;
+            Vector2D perimeterGoal;
+            if (phase < width) perimeterGoal = new Vector2D(low.X + (float)phase, low.Z);
+            else if ((phase -= width) < depth) perimeterGoal = new Vector2D(high.X, low.Z + (float)phase);
+            else if ((phase -= depth) < width) perimeterGoal = new Vector2D(high.X - (float)phase, high.Z);
+            else perimeterGoal = new Vector2D(low.X, high.Z - (float)(phase - width));
+            result.Add(PolicySupport.Goal(agent, perimeterGoal, _bounds, worldState.Obstacles, _speed, "local_hybrid_aerial_perimeter"));
+        }
+        return SafeNavigation.ValidateDirectives(worldState, result, _bounds);
+    }
+}
+
 /// <summary>Partitions a serpentine search grid among stable agent IDs, advancing cells only after measured arrival.</summary>
 public sealed class GridSearchAndRescuePolicy : ISwarmPolicy
 {

@@ -1,7 +1,10 @@
 **/bin/
 **/obj/
 **/TestResults/
-/local/
+# Local captures, generated output, and machine-specific data.
+**/local/
+**/local.meta
+**/*.mp4
 **/node_modules/
 .vs/
 .idea/

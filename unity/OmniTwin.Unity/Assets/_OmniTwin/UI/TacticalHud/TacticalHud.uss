@@ -92,6 +92,13 @@
 .compact .swarm-panel { width: 260px; padding: 12px; }
 .swarm-panel .unity-scroll-view__content-container > * { flex-shrink: 0; }
 .mission-button { min-height: 36px; flex-basis: 0; width: auto; }
+.mission-button:active, .dock-tab:active, .camera-button:active { background-color: rgb(7, 39, 47); border-color: rgb(74, 230, 202); scale: 0.99 0.99; }
+.mission-button:disabled { color: rgb(99, 127, 135); background-color: rgb(18, 31, 38); border-color: rgb(39, 56, 62); }
+.track-pick { min-width: 58px; max-width: 75px; min-height: 15px; max-height: 15px; flex-grow: 0; flex-shrink: 0; margin: 0 2px; padding: 1px 3px; font-size: 7px; }
+.track-pick.track-selected, .policy-actions .policy-active { color: rgb(117, 255, 221); background-color: rgb(13, 75, 70); border-color: rgb(64, 245, 204); -unity-font-style: bold; }
+.track-pick:disabled { color: rgb(99, 127, 135); background-color: rgb(18, 31, 38); }
+.dock-tab:hover { background-color: rgb(19, 59, 65); }
+.camera-button:active { color: rgb(230, 255, 251); }
 .header, .footer { flex-shrink: 0; }
 .body { flex-basis: 0; min-height: 0; }
 .swarm-panel { height: 100%; min-height: 0; overflow: hidden; }
@@ -192,6 +199,36 @@
 }
 .world-column { flex-grow: 1; min-width: 0; min-height: 0; flex-direction: column; justify-content: flex-end; }
 .world-stage { flex-grow: 1; min-height: 0; }
+.operation-strip {
+    min-height: 42px;
+    height: 42px;
+    max-height: 42px;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    margin: 0 5px 3px;
+    padding: 4px 9px;
+    background-color: rgba(9, 31, 38, 0.96);
+    border-left-width: 3px;
+    border-left-color: rgb(40, 217, 189);
+    border-top-width: 1px;
+    border-top-color: rgba(51, 120, 128, 0.9);
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(51, 120, 128, 0.9);
+}
+.operation-message { flex-grow: 1; min-width: 0; max-height: 26px; margin-right: 8px; color: rgb(171, 235, 225); font-size: 10px; -unity-font-style: bold; white-space: normal; overflow: hidden; }
+.operation-progress { width: 150px; min-width: 120px; max-width: 190px; height: 17px; flex-shrink: 0; margin-right: 10px; }
+.operation-progress .unity-progress-bar__progress { background-color: rgb(29, 201, 177); }
+.operation-progress .unity-progress-bar__title { color: rgb(218, 240, 239); font-size: 8px; }
+.last-action { width: 155px; min-width: 142px; max-height: 25px; color: rgb(137, 174, 182); font-size: 8px; white-space: normal; overflow: hidden; }
+.operation-strip.operation-working { border-left-color: rgb(255, 184, 74); background-color: rgba(49, 37, 20, 0.96); }
+.operation-working .operation-message { color: rgb(255, 220, 153); }
+.operation-working .operation-progress .unity-progress-bar__progress { background-color: rgb(255, 176, 59); }
+.operation-strip.operation-complete { border-left-color: rgb(50, 236, 189); }
+.operation-complete .operation-message { color: rgb(129, 255, 220); }
+.operation-strip.operation-failed { border-left-color: rgb(255, 105, 84); background-color: rgba(58, 25, 24, 0.97); }
+.operation-failed .operation-message { color: rgb(255, 165, 143); }
+.model-active { color: rgb(126, 255, 207); background-color: rgba(10, 64, 54, 0.98); border-left-color: rgb(64, 242, 183); }
 .command-dock {
     height: 132px;
     min-height: 132px;
@@ -302,6 +339,94 @@
 .swarm-panel .telemetry-text { margin-bottom: 7px; font-size: 11px; }
 .swarm-panel .control-reason { font-size: 10px; }
 
+/* The optional standalone demo presenter is created only with --omnitwin-demo. */
+.demo-presenter {
+    position: absolute;
+    left: 23%;
+    right: 23%;
+    bottom: 205px;
+    min-height: 82px;
+    max-height: 116px;
+    padding: 9px 16px 8px;
+    background-color: rgba(5, 15, 22, 0.94);
+    border-left-width: 4px;
+    border-left-color: rgb(41, 223, 195);
+    border-top-width: 1px;
+    border-top-color: rgba(65, 157, 163, 0.85);
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(65, 157, 163, 0.85);
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+}
+.demo-chapter {
+    min-height: 18px;
+    margin-bottom: 4px;
+    color: rgb(63, 239, 210);
+    font-size: 12px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.demo-subtitle {
+    min-height: 32px;
+    color: rgb(230, 240, 241);
+    font-size: 13px;
+    white-space: normal;
+    overflow: hidden;
+}
+.demo-source {
+    min-height: 12px;
+    margin-top: 3px;
+    color: rgb(246, 157, 119);
+    font-size: 8px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.demo-highlight {
+    border-width: 2px;
+    border-color: rgb(255, 191, 94);
+    background-color: rgba(111, 65, 21, 0.96);
+    color: rgb(255, 238, 204);
+}
+.demo-cursor {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    border-width: 2px;
+    border-color: rgb(255, 249, 222);
+    background-color: rgba(255, 189, 77, 0.72);
+    transition-property: left, top;
+    transition-duration: 260ms;
+    transition-timing-function: ease-out;
+}
+.demo-click-ripple {
+    position: absolute;
+    left: -5px;
+    top: -5px;
+    width: 30px;
+    height: 30px;
+    border-radius: 16px;
+    border-width: 2px;
+    border-color: rgba(255, 248, 215, 0.92);
+    background-color: rgba(255, 182, 72, 0.12);
+    transition-property: left, top, width, height, border-color, background-color;
+    transition-duration: 360ms;
+    transition-timing-function: ease-out;
+}
+.demo-cursor-pulse .demo-click-ripple {
+    left: -20px;
+    top: -20px;
+    width: 60px;
+    height: 60px;
+    border-color: rgba(61, 255, 221, 0.96);
+    background-color: rgba(31, 224, 190, 0.06);
+}
+
 /* Stage 8 product presentation: camera-first observation, readable unit cards, and a compact flow strip. */
 .observation-panel { padding: 12px; }
 .observation-panel > .section-title { margin-bottom: 5px; }
@@ -392,6 +517,8 @@
 .compact .pipeline-arrow { width: 10px; }
 .compact .observation-panel { padding: 8px; }
 .compact .camera-preview { height: 126px; min-height: 126px; }
+.compact .operation-progress { width: 120px; min-width: 100px; }
+.compact .last-action { width: 128px; min-width: 118px; font-size: 7px; }
 .compact .summary-card { min-height: 47px; padding: 3px 5px; }
 .compact .summary-value { font-size: 22px; }
 .compact .unit-card { padding-left: 4px; padding-right: 4px; }
