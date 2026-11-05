@@ -10,7 +10,7 @@ The Windows desktop implementation includes hybrid OpenCV/SAM tracking, four det
 
 ![Unity 6 tactical map, five-agent swarm and explicit non-live replay banner](docs/images/tactical-desk.png)
 
-This Unity 6000.6.3f1 Game-view capture uses the deterministic tabletop replay. The HUD labels it `SOURCE: SYNTHETIC TABLETOP REPLAY (NON-LIVE)`; it is not physical-camera or cloud-SAM evidence. [Open and run the integrated scene](docs/unity-scene.md).
+This Unity 6000.6.8f1 Game-view capture uses the deterministic tabletop replay. The HUD labels it `SOURCE: SYNTHETIC TABLETOP REPLAY (NON-LIVE)`; it is not physical-camera or cloud-SAM evidence. [Open and run the integrated scene](docs/unity-scene.md).
 
 The [project audit](docs/project-audit.md) separates implemented modules from outstanding hardware/product acceptance. The [API key guide](docs/api-keys.md) covers masked local setup of both `META_API_KEY` and `BASETEN_API_KEY`. Model synthesis starts only after an explicit HUD command; normal baseline missions do not invoke Baseten.
 
