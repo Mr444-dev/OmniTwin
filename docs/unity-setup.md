@@ -23,13 +23,13 @@ Szablon Universal 3D ma identyfikator `com.unity.template.urp-blank`. Hub dobier
 W bieżącym środowisku do pola **Location** wklej:
 
 ```text
-D:\Codex\2026-10-30\omnitwin-architectural-engineering-constitution-strict-mode\outputs\OmniTwin\unity
+%CODEX_WORKSPACE%\2026-10-30\OmniTwin-project-engineering-constitution-strict-mode\outputs\OmniTwin\unity
 ```
 
 Hub dopisze nazwę projektu. Końcowy katalog powinien być dokładnie:
 
 ```text
-D:\Codex\2026-10-30\omnitwin-architectural-engineering-constitution-strict-mode\outputs\OmniTwin\unity\OmniTwin.Unity
+%CODEX_WORKSPACE%\2026-10-30\OmniTwin-project-engineering-constitution-strict-mode\outputs\OmniTwin\unity\OmniTwin.Unity
 ```
 
 Jeśli pracujesz z klonem repozytorium w innym miejscu, użyj jego folderu `unity`. Repozytorium Git obejmuje backend i Unity wspólnie — nie inicjalizuj drugiego repozytorium wewnątrz `OmniTwin.Unity`.
