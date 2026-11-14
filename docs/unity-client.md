@@ -13,7 +13,7 @@ The existing `unity/OmniTwin.Unity` project uses Unity's ownership-checked impor
 The default mode requires the target Editor to be closed. To update the currently open project without closing it, pass `-LiveEditor` and the full Unity CLI executable path:
 
 ```powershell
-./tools/InstallUnityClient.ps1 -ProjectPath ./unity/OmniTwin.Unity -LiveEditor -UnityCliPath 'C:\Users\<user>\AppData\Local\Unity\bin\unity.exe'
+./tools/InstallUnityClient.ps1 -ProjectPath ./unity/OmniTwin.Unity -LiveEditor -UnityCliPath '%PROJECT_ROOT%\<user>\AppData\Local\Unity\bin\unity.exe'
 ```
 
 The live mode verifies the exact open project, source and prior ownership hashes, then groups the copy under `AssetDatabase.StartAssetEditing`. It keeps existing `.meta` files, rolls changed files back on a write error, and waits for Unity to import and compile before Play mode.
