@@ -2,7 +2,9 @@
 
 ## A real-to-sim digital twin for coordinated response
 
-OmniTwin connects tabletop camera observations to a live 3D twin, then turns those observations into coordinated plans for a five-agent ground-and-air swarm. Its dual loop pairs fast local perception and simulation with five Meta model integrations: SAM 3.1, Muse Spark Open (`meta-models/muse-spark-open-1026`), Muse Spark 1.3, Muse Voice, and Muse Image. Roslyn verifies generated policy code; Windows AppContainer and a resource-limited Job Object isolate its execution. The .NET suite currently passes **450 tests**, and the Standalone Windows player sustained **234 FPS at 1920 × 1080** in the documented synthetic replay benchmark.
+> [Official project gallery · Meta Global AI Developer Hackathon](https://cerebralvalley.ai/e/meta-ai-developer-hackathon/hackathon/gallery/4371)
+
+OmniTwin connects tabletop camera observations to a live 3D twin, then turns those observations into coordinated plans for a five-agent ground-and-air swarm. Its dual loop pairs fast local perception and simulation with five Meta model integrations: SAM 3.1, Muse Spark Open (`meta-models/muse-spark-open-1026`), Muse Spark 1.3, Muse Voice, and Muse Image. Roslyn verifies generated policy code; Windows AppContainer and a resource-limited Job Object isolate its execution. **Verification:** 438/438 automated tests passed at hackathon submission; the suite on current `main` has expanded to **450 tests**. The Standalone Windows player sustained **234 FPS at 1920 × 1080** in the documented synthetic replay benchmark.
 
 OmniTwin maps camera pixels onto a calibrated simulation plane and defines immutable world, agent, mission, and policy contracts. Its perception tools decode SAM 3.1 masks into estimated world footprints and session-stable tracks. A local ASP.NET Core host publishes validated tracking snapshots over a bounded WebSocket stream.
 
