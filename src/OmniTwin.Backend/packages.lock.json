@@ -37,8 +37,7 @@
         "type": "Project",
         "dependencies": {
           "OmniTwin.Perception": "[1.0.0, )",
-          "OpenCvSharp4": "[4.13.0.20260627, )",
-          "OpenCvSharp4.runtime.win": "[4.13.0.20260627, )"
+          "OpenCvSharp4": "[4.13.0.20261107, )"
         }
       },
       "omnitwin.policies": {
@@ -66,15 +65,9 @@
       },
       "OpenCvSharp4": {
         "type": "CentralTransitive",
-        "requested": "[4.13.0.20260627, )",
-        "resolved": "4.13.0.20260627",
-        "contentHash": "nYk95jkyYY9f0sF5KqZ3OB1SWkmqsfV7eN0ROiQds/rxpSn0v1G0QIedMbwuqbdPhvQnOIG2DDmpkLnHEJMh8Q=="
-      },
-      "OpenCvSharp4.runtime.win": {
-        "type": "CentralTransitive",
-        "requested": "[4.13.0.20260627, )",
-        "resolved": "4.13.0.20260627",
-        "contentHash": "POIxR+CTpwHJIdam6wd8U2fprWv5QnIUw50jw79WEGb37He3T1h11SdtwSj9p2PLSfrzonMjO2t71wqi5uFsoQ=="
+        "requested": "[4.13.0.20261107, )",
+        "resolved": "4.13.0.20261107",
+        "contentHash": "QzWQnOQg7pLYEFqiZuzX0K/UwA1K9OhXmY1X9P4pm6iRFp93UJxLHhU87Q60mGHFM+T4QyBfQr177mUlE2XIIQ=="
       }
     }
   }
