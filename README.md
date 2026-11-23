@@ -202,6 +202,6 @@ Use externally compiled libraries rather than copying the C# 14 source into Unit
 
 Generated policies run only in the Windows worker, without inherited API keys or network capabilities, under memory/process/CPU/wall limits. Syntax/semantic verification is defense in depth, not the isolation boundary. A failed policy selects the requested built-in mission; untrusted perception or stale control selects `EmergencyHoldPolicy`. The HUD displays the actual model ID, 404 fallback, bounded diagnostics and a concise public decision summary. [Execution boundary and limits](docs/brain.md).
 
-## License
+## Copyright and reuse
 
-Original OmniTwin code and documentation by Michał Rusinek (Mr444-dev) are licensed under the [MIT License](LICENSE). This grant covers only project-authored material; third-party components keep their own terms. The adapted SAM codec and fixtures use Meta's [SAM License](third-party/meta-sam/LICENSE), and the Rajdhani font is covered by the SIL Open Font License 1.1 in `unity/OmniTwin.Unity/Assets/_OmniTwin/UI/TacticalHud/Fonts/OFL.txt`. See the adjacent notices for attribution and provenance.
+Original OmniTwin code and documentation by Michał Rusinek (Mr444-dev) are not offered under an open-source license; all rights are reserved. See [LICENSE](LICENSE). Third-party components keep their own terms. The adapted SAM codec and fixtures use Meta's [SAM License](third-party/meta-sam/LICENSE), and the Rajdhani font is covered by the SIL Open Font License 1.1 in `unity/OmniTwin.Unity/Assets/_OmniTwin/UI/TacticalHud/Fonts/OFL.txt`. See the adjacent notices for attribution and provenance.
