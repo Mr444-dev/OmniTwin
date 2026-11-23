@@ -204,4 +204,4 @@ Generated policies run only in the Windows worker, without inherited API keys or
 
 ## License
 
-Original OmniTwin code and documentation are licensed under the [MIT License](LICENSE). This grant covers only project-authored material; third-party components keep their own terms. The adapted SAM codec and fixtures use Meta's [SAM License](third-party/meta-sam/LICENSE), and the Rajdhani font is covered by the SIL Open Font License 1.1 in `unity/OmniTwin.Unity/Assets/_OmniTwin/UI/TacticalHud/Fonts/OFL.txt`. See the adjacent notices for attribution and provenance.
+Original OmniTwin code and documentation by Michał Rusinek (Mr444-dev) are licensed under the [MIT License](LICENSE). This grant covers only project-authored material; third-party components keep their own terms. The adapted SAM codec and fixtures use Meta's [SAM License](third-party/meta-sam/LICENSE), and the Rajdhani font is covered by the SIL Open Font License 1.1 in `unity/OmniTwin.Unity/Assets/_OmniTwin/UI/TacticalHud/Fonts/OFL.txt`. See the adjacent notices for attribution and provenance.
